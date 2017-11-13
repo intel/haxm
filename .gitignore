@@ -1,0 +1,7 @@
+# Windows
+/obj/
+Win7Debug/
+Win7Release/
+
+# macOS
+/darwin/hax_driver/com_intel_hax/build/

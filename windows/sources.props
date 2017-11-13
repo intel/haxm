@@ -1,0 +1,75 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Copyright (c) 2017 Intel Corporation
+
+    Redistribution and use in source and binary forms, with or without
+    modification, are permitted provided that the following conditions are met:
+
+      1. Redistributions of source code must retain the above copyright notice,
+         this list of conditions and the following disclaimer.
+
+      2. Redistributions in binary form must reproduce the above copyright
+         notice, this list of conditions and the following disclaimer in the
+         documentation and/or other materials provided with the distribution.
+
+      3. Neither the name of the copyright holder nor the names of its
+         contributors may be used to endorse or promote products derived from
+         this software without specific prior written permission.
+
+    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+    AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+    IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+    ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+    LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+    CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+    SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+    INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+    CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+    ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+    POSSIBILITY OF SUCH DAMAGE.
+-->
+
+<Project ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <TARGETNAME Condition="'$(OVERRIDE_TARGETNAME)'!='true'">IntelHaxm</TARGETNAME>
+    <TARGETTYPE Condition="'$(OVERRIDE_TARGETTYPE)'!='true'">DRIVER</TARGETTYPE>
+    <TARGETPATH Condition="'$(OVERRIDE_TARGETPATH)'!='true'">$(SolutionDir)\obj\out\$(DDK_TARGET_OS)</TARGETPATH>
+    <INCLUDES Condition="'$(OVERRIDE_INCLUDES)'!='true'">$(SolutionDir)\include;$(SolutionDir)\include\windows\;$(SolutionDir)\core\include</INCLUDES>
+    <TARGETLIBS Condition="'$(OVERRIDE_TARGETLIBS)'!='true'">$(SolutionDir)\obj\core\$(TARGET_DIRECTORY)\haxlib.lib $(DDK_LIB_PATH)\wdmsec.lib</TARGETLIBS>
+    <C_DEFINES Condition="'$(OVERRIDE_C_DEFINES)'!='true'">$(C_DEFINES)  /D__WINNT__</C_DEFINES>
+    <MSC_WARNING_LEVEL Condition="'$(OVERRIDE_MSC_WARNING_LEVEL)'!='true'">/W2</MSC_WARNING_LEVEL>
+    <SOURCES Condition="'$(OVERRIDE_SOURCES)'!='true'">
+      components.c
+      hax_entry.c
+      hax_event.c
+      hax_host_mem.c
+      hax_mem_alloc.c
+      hax_mm.c
+      hax_winlog.c
+      hax_wrapper.c
+      version.rc
+    </SOURCES>
+    <I386_SOURCES Condition="'$(OVERRIDE_I386_SOURCES)'!='true'">
+      i386\ia32.asm
+      i386\segments.asm
+      i386\vmcs.asm
+      i386\wrapper.c
+    </I386_SOURCES>
+    <AMD64_SOURCES Condition="'$(OVERRIDE_AMD64_SOURCES)'!='true'">
+      amd64\ia32.asm
+      amd64\segments.asm
+      amd64\vmcs.asm
+      amd64\wrapper.c
+    </AMD64_SOURCES>
+    <NTTARGETFILE0 Condition="'$(OVERRIDE_NTTARGETFILE0)'!='true'">
+      hax_event_win.h
+    </NTTARGETFILE0>
+  </PropertyGroup>
+  <ItemGroup>
+    <InvokedTargetsList Include="hax_event_win.h">
+      <Pass>0</Pass>
+      <Condition>
+      </Condition>
+    </InvokedTargetsList>
+  </ItemGroup>
+</Project>
