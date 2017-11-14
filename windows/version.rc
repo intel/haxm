@@ -1,0 +1,59 @@
+/*
+ * Copyright (c) 2014 Intel Corporation
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ *   1. Redistributions of source code must retain the above copyright notice,
+ *      this list of conditions and the following disclaimer.
+ *
+ *   2. Redistributions in binary form must reproduce the above copyright
+ *      notice, this list of conditions and the following disclaimer in the
+ *      documentation and/or other materials provided with the distribution.
+ *
+ *   3. Neither the name of the copyright holder nor the names of its
+ *      contributors may be used to endorse or promote products derived from
+ *      this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ */
+
+#include "../include/hax_release_ver.h"
+#include <windows.h>
+
+#define VER_DEBUG                   2
+#define VER_PRERELEASE              0
+#define VER_FILEFLAGSMASK           VS_FFI_FILEFLAGSMASK
+#define VER_FILEOS                  VOS_NT_WINDOWS32
+#define VER_FILEFLAGS               (VER_PRERELEASE|VER_DEBUG)
+
+#define VER_FILETYPE                VFT_DRV
+#define VER_FILESUBTYPE             VFT2_DRV_SYSTEM
+
+#define VER_COMPANYNAME_STR         "Intel  Corporation"
+#define VER_PRODUCTNAME_STR         "HAXM"
+#define VER_LEGALCOPYRIGHT_YEARS    "2013"
+#define VER_LEGALCOPYRIGHT_STR      "Copyright© " VER_LEGALCOPYRIGHT_YEARS " Intel Corporation"
+#define VER_LEGALTRADEMARKS_STR     "Copyright© 2013 Intel Corporation"
+
+#define VER_PRODUCTVERSION          HAXM_RELEASE_VERSION
+#define VER_PRODUCTVERSION_STR      HAXM_RELEASE_VERSION_STR
+#define VER_PRODUCTVERSION_W        (0x0200)
+#define VER_PRODUCTVERSION_DW       (0x0200)
+#define VER_FILEDESCRIPTION_STR     "HAXM_Driver"
+#define VER_INTERNALNAME_STR        "HaxmDrv"
+#define VER_ORIGINALFILENAME_STR    "hax.sys"
+
+#include "hax_event_win.rc"
+#include "common.ver"
+

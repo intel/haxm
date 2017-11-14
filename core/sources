@@ -1,0 +1,29 @@
+TARGETNAME=haxlib
+TARGETTYPE=DRIVER_LIBRARY
+TARGETPATH=..\obj\core\
+
+INCLUDES = .\include;..\include
+
+MSC_WARNING_LEVEL=/W1
+
+C_DEFINES = $(C_DEFINES) /D__WINNT__
+
+SOURCES= ept.c	\
+	vm.c	\
+	vcpu.c	\
+	cpu.c	\
+	vmx.c	\
+	vtlb.c	\
+	dump_vmcs.c	\
+	hax.c	\
+	intr_exc.c	\
+	vmcs_names.c    \
+    memory.c \
+    page_walker.c \
+    ramblock.c \
+    gpa_space.c \
+    chunk.c \
+    memslot.c \
+    ept_tree.c \
+    ept2.c
+
