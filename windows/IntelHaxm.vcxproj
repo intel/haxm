@@ -293,7 +293,7 @@
     <FilesToPackage Include="$(TargetPath)" Condition="'$(ConfigurationType)'=='Driver' or '$(ConfigurationType)'=='DynamicLibrary'" />
     <FilesToPackage Include="$(DDK_PACKAGE_FILES)" />
   </ItemGroup>
-  <!-- Necessary to pick up propper files from local directory when in the IDE-->
+  <!-- Necessary to pick up proper files from local directory when in the IDE-->
   <ItemGroup>
     <None Exclude="@(None)" Include="*.txt;*.htm;*.html" />
     <None Exclude="@(None)" Include="*.ico;*.cur;*.bmp;*.dlg;*.rct;*.gif;*.jpg;*.jpeg;*.wav;*.jpe;*.tiff;*.tif;*.png;*.rc2" />
@@ -302,7 +302,7 @@
   <ItemGroup>
     <ClInclude Exclude="@(ClInclude)" Include="*.h;*.hpp;*.hxx;*.hm;*.inl;*.xsd" />
   </ItemGroup>
-  <!-- /Necessary to pick up propper files from local directory when in the IDE-->
+  <!-- /Necessary to pick up proper files from local directory when in the IDE-->
   <ItemGroup>
     <ProjectReference Include="..\core\haxlib.vcxproj">
       <Project>{BC80D1E0-5738-4048-A742-8A20949A6587}</Project>
