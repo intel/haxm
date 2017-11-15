@@ -52,7 +52,7 @@ typedef uint32_t hax_size_t;
 typedef uint64_t hax_va_t;
 typedef uint32_t hax_size_t;
 
-/* Spinlock releated defintion */
+/* Spinlock releated definition */
 typedef lck_spin_t hax_spinlock;
 typedef lck_mtx_t* hax_mutex;
 typedef lck_rw_t hax_rw_lock;

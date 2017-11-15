@@ -69,7 +69,7 @@ extern int hax_page_size;
 /* below 4G */
 // !!!! This will only for hax_page allocation to simplify handling
 #define HAX_MEM_LOW_4G  0x4
-/* The allocated memory will be physically continous */
+/* The allocated memory will be physically continuous */
 // !!!! Since no one use this flag, remove it
 //#define HAX_MEM_CONTI  0x8
 /* The allocation will not be blocked, thus works for interrupt handling */
@@ -110,7 +110,7 @@ void hax_vfree_flags(void *va, uint32_t size, uint32_t flags);
  * Allocate aligned memory, which is mapped in kernel space already
  * For example, 256 get memory allocated at an address with bit 0-7 set 0
  * With (flags&HAX_MEM_CONTI) && alignment==PAGE_SIZE, it can allocate
- * continous physical memory
+ * continuous physical memory
  */
 void *hax_vmalloc_aligned(uint32_t size, uint32_t flags, uint32_t alignment);
 

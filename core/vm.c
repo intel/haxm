@@ -209,7 +209,7 @@ static void hax_vm_free_p2m_map(struct vm_t *vm)
 }
 
 /*
- * We don't need correponding vm_core_close because once closed, the VM will be
+ * We don't need corresponding vm_core_close because once closed, the VM will be
  * destroyed.
  */
 int hax_vm_core_open(struct vm_t *vm)

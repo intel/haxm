@@ -485,7 +485,7 @@ fail_0:
 }
 
 /*
- * We don't need correponding vcpu_core_close because once closed, the VM will
+ * We don't need corresponding vcpu_core_close because once closed, the VM will
  * be destroyed
  */
 int hax_vcpu_core_open(struct vcpu_t *vcpu)
@@ -4356,7 +4356,7 @@ int vcpu_takeoff(struct vcpu_t *vcpu)
         cpu_id = vcpu->cpu_id;
         assert(cpu_id != hax_cpuid());
         targets = cpu2cpumap(cpu_id);
-        // If not considering Windows XP, definitly we don't need this
+        // If not considering Windows XP, definitely we don't need this
         smp_call_function(&targets, _vcpu_take_off, NULL);
     }
 

@@ -39,7 +39,7 @@
 #define IA32_VMX_VMCS_SIZE 4096
 
 enum {
-    INT_EXCEPTION_NMI       = 0, // An SW interrupt, excepton or NMI has occured
+    INT_EXCEPTION_NMI       = 0, // An SW interrupt, exception or NMI has occurred
     EXT_INTERRUPT           = 1, // An external interrupt has occurred
     TRIPLE_FAULT            = 2, // Triple fault occurred
     INIT_EVENT              = 3,

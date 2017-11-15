@@ -71,7 +71,7 @@ int vcpu_execute(struct vcpu_t *vcpu);
 int vcpu_interrupt(struct vcpu_t *vcpu, uint8 vector);
 
 /*
- * Find a vcpu with correponding id, |refer| decides whether a reference count
+ * Find a vcpu with corresponding id, |refer| decides whether a reference count
  * is added
  */
 struct vcpu_t * hax_get_vcpu(int vm_id, int vcpu_id, int refer);

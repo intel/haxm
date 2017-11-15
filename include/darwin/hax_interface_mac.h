@@ -33,7 +33,7 @@
 
 #include <mach/mach_types.h>
 
-/* The mac specfic interface to qemu because of mac's
+/* The mac specific interface to qemu because of mac's
  * special handling like hax tunnel allocation etc */
 /* HAX model level ioctl */
 #define HAX_IOCTL_VERSION _IOWR(0, 0x20, struct hax_module_version)
