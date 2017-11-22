@@ -58,7 +58,7 @@ have a feature request.
 However, please do not use the GitHub issue tracker to report security
 vulnerabilities. If you have information about a security issue or vulnerability
 with HAXM, please send an email to [secure@intel.com][intel-security-email], and
-use the PGP key located at https://www.intel.com/security to encrpyt any
+use the PGP key located at https://www.intel.com/security to encrypt any
 sensitive information.
 
 [intel-haxm]: https://software.intel.com/en-us/android/articles/intel-hardware-accelerated-execution-manager
