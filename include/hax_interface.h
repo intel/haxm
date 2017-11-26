@@ -132,6 +132,7 @@ struct hax_tunnel {
             paddr_t dummy;
         } state;
     };
+    uint64_t apic_base;
 } PACKED;
 
 struct hax_fastmmio {

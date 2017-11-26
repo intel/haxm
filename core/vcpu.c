@@ -114,6 +114,9 @@ static void vcpu_dump(struct vcpu_t *vcpu, uint32 mask, const char *caption);
 static void vcpu_state_dump(struct vcpu_t *vcpu);
 static void vcpu_enter_fpu_state(struct vcpu_t *vcpu);
 
+static int vcpu_set_apic_base(struct vcpu_t *vcpu, uint64 val);
+static bool vcpu_is_bsp(struct vcpu_t *vcpu);
+
 static uint32 get_seg_present(uint32 seg)
 {
     mword ldtr_base;
@@ -453,6 +456,12 @@ struct vcpu_t *vcpu_create(struct vm_t *vm, void *vm_host, int vcpu_id)
 
     // First time vmclear/vmptrld on current CPU
     vcpu_prepare(vcpu);
+
+    // Init IA32_APIC_BASE MSR
+    vcpu->gstate.apic_base = APIC_BASE_DEFAULT_ADDR | APIC_BASE_ENABLE;
+    if (vcpu_is_bsp(vcpu)) {
+        vcpu->gstate.apic_base |= APIC_BASE_BSP;
+    }
 
     // Publish the vcpu
     hax_mutex_lock(vm->vm_lock);
@@ -1506,6 +1515,7 @@ out:
         vcpu_vmread_all(vcpu);
         vcpu_is_panic(vcpu);
     }
+    htun->apic_base = vcpu->gstate.apic_base;
     hax_mutex_unlock(vcpu->tmutex);
 
     return err;
@@ -3533,7 +3543,7 @@ static int handle_msr_read(struct vcpu_t *vcpu, uint32 msr, uint64 *val)
             break;
         }
         case IA32_APIC_BASE: {
-            *val = default_mem_addr;
+            *val = gstate->apic_base;
             break;
         }
         case IA32_EFER: {
@@ -3862,9 +3872,7 @@ static int handle_msr_write(struct vcpu_t *vcpu, uint32 msr, uint64 val)
             break;
         }
         case IA32_APIC_BASE: {
-            if ((val & 0xfffff000) != default_mem_addr) {
-                hax_debug("Attempt to set APIC base to %llx.\n", val);
-            }
+            r = vcpu_set_apic_base(vcpu, val);
             break;
         }
         case IA32_BIOS_UPDT_TRIG: {
@@ -4394,4 +4402,45 @@ int vcpu_event_pending(struct vcpu_t *vcpu)
 void vcpu_set_panic(struct vcpu_t *vcpu)
 {
     vcpu->paniced = 1;
+}
+
+static int vcpu_set_apic_base(struct vcpu_t *vcpu, uint64 val)
+{
+    struct gstate *gstate = &vcpu->gstate;
+
+    if (val & ~APIC_BASE_MASK) {
+        hax_error("Try to set reserved bits of IA32_APIC_BASE MSR and failed "
+                  "to set APIC base msr to 0x%llx.\n", val);
+        return -EINVAL;
+    }
+
+    if ((val & APIC_BASE_ADDR_MASK) != APIC_BASE_DEFAULT_ADDR) {
+        hax_error("APIC base cannot be relocated to 0x%llx.\n",\
+                  val & APIC_BASE_ADDR_MASK);
+        return -EINVAL;
+    }
+
+    if (!(val & APIC_BASE_ENABLE)) {
+        hax_warning("APIC is disabled for vCPU %u.\n", vcpu->vcpu_id);
+    }
+
+    if (val & APIC_BASE_BSP) {
+        if (vcpu_is_bsp(vcpu)) {
+            hax_info("vCPU %u is set to bootstrap processor.\n", vcpu->vcpu_id);
+        } else {
+            hax_error("Bootstrap processor is vCPU %u and cannot changed to "
+                      "vCPU %u.\n", vcpu->vm->bsp_vcpu_id, vcpu->vcpu_id);
+            return -EINVAL;
+        }
+    }
+
+    gstate->apic_base = val;
+
+    return 0;
+}
+
+static bool vcpu_is_bsp(struct vcpu_t *vcpu)
+{
+    // TODO: add an API to set bootstrap processor
+    return (vcpu->vm->bsp_vcpu_id == vcpu->vcpu_id);
 }

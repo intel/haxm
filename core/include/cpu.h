@@ -182,5 +182,4 @@ extern struct hax_page *io_bitmap_page_b;
 extern struct hax_page *msr_bitmap_page;
 
 extern struct config_t config;
-extern mword default_mem_addr;
 #endif  // HAX_CORE_CPU_H_

@@ -49,6 +49,8 @@ struct gstate {
     // IA32_PERFEVTSELx, since APM v1
     uint64 apm_pes_msrs[APM_MAX_GENERAL_COUNT];
     struct hax_page *gfxpage;
+    // APIC_BASE MSR
+    uint64 apic_base;
 };
 
 struct cvtlb {

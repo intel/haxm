@@ -59,8 +59,6 @@ struct hax_page *msr_bitmap_page;
 struct per_cpu_data **hax_cpu_data;
 struct hax_t *hax;
 
-mword default_mem_addr = 0xfee00000;
-
 extern hax_atomic_t vmx_cpu_num, vmx_enabled_num;
 static void hax_enable_vmx(void)
 {

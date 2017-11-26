@@ -305,6 +305,16 @@ enum {
     feat_em64t              = 1U << 29       // 0x20000000
 };
 
+// For IA32_APIC_BASE MSR (see IASDM Vol. 3A 10.4.4)
+#define APIC_BASE_BSP (1ULL << 8)
+#define APIC_BASE_ENABLE  (1ULL << 11)
+#define APIC_BASE_DEFAULT_ADDR  0xfee00000
+#define APIC_BASE_ADDR_MASK (((1ULL << 24) - 1) << 12)
+// Reserve bits 0 through 7, bits 9 and 10, and
+// bits MAXPHYADDR1 through 63 , assuming MAXPHYADDR == 36.
+// TODO: Use CPUID to obtain the true MAXPHYADDR
+#define APIC_BASE_MASK (APIC_BASE_BSP | APIC_BASE_ENABLE | APIC_BASE_ADDR_MASK)
+
 #define IA32_VMX_MISC_UG_AVAILABLE (0x0000000000000020)
 
 #endif  // HAX_CORE_IA32_H_
