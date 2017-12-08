@@ -112,11 +112,19 @@ typedef FAST_MUTEX *hax_mutex;
 /* In DDK, the InterlockedXXX using ULONG, which is in fact 32bit */
 typedef LONG hax_atomic_t;
 
+/* Return the value before add */
 static hax_atomic_t hax_atomic_add(volatile hax_atomic_t *atom, ULONG value)
 {
     return InterlockedExchangeAdd(atom, value);
 }
 
+/* Return the value before the increment */
+static hax_atomic_t hax_atomic_inc(volatile hax_atomic_t *atom)
+{
+    return InterlockedIncrement(atom) - 1;
+}
+
+/* Return the value before the decrement */
 static hax_atomic_t hax_atomic_dec(volatile hax_atomic_t *atom)
 {
     return InterlockedDecrement(atom) + 1;

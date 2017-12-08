@@ -72,14 +72,20 @@ typedef unsigned int        uint32;
 typedef unsigned long long  uint64;
 typedef unsigned long       ulong;
 
-/* return the value before the add */
-static signed int hax_atomic_add(hax_atomic_t *address, SInt32 amount)
+/* Return the value before add */
+static hax_atomic_t hax_atomic_add(hax_atomic_t *address, SInt32 amount)
 {
     return OSAddAtomic(amount, address);
 }
 
-/* return the value before the dec */
-static signed int hax_atomic_dec(hax_atomic_t *address)
+/* Return the value before the increment */
+static hax_atomic_t hax_atomic_inc(hax_atomic_t *address)
+{
+    return OSIncrementAtomic(address);
+}
+
+/* Return the value before the decrement */
+static hax_atomic_t hax_atomic_dec(hax_atomic_t *address)
 {
     return OSDecrementAtomic(address);
 }
