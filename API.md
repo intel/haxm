@@ -82,10 +82,16 @@ itself as well as the host environment.
       uint64_t mem_quota;
   } __attribute__ ((__packed__));
 
-  #define HAX_CAP_STATUS_WORKING     0x01
-  #define HAX_CAP_MEMQUOTA           0x02
-  #define HAX_CAP_FAILREASON_VT      0x01
-  #define HAX_CAP_FAILREASON_NX      0x02
+  #define HAX_CAP_STATUS_WORKING     (1 << 0)
+  #define HAX_CAP_MEMQUOTA           (1 << 1)
+  #define HAX_CAP_WORKSTATUS_MASK    0x01
+
+  #define HAX_CAP_FAILREASON_VT      (1 << 0)
+  #define HAX_CAP_FAILREASON_NX      (1 << 1)
+
+  #define HAX_CAP_EPT                (1 << 0)
+  #define HAX_CAP_FASTMMIO           (1 << 1)
+  #define HAX_CAP_UG                 (1 << 2)
   ```
   * (Output) `wstatus`: The first set of capability flags reported to the
 caller. The following bits may be set, while others are reserved:
@@ -96,12 +102,20 @@ capabilities. Otherwise, HAXM is not usable, and `winfo` reports failed checks.
 enabled (q.v. `mem_quota`).
   * (Output) `winfo`: The second set of capability flags reported to the caller.
 Valid flags depend on whether HAXM is usable (q.v. `HAX_CAP_STATUS_WORKING`). If
-HAXM is usable, the following bits may be set:
+HAXM is not usable, the following bits may be set:
     * `HAX_CAP_FAILREASON_VT`: If set, Intel VT-x is not supported by the host
 CPU (which itself may be virtualized by an underlying hypervisor, e.g. KVM or
 Hyper-V), or disabled in BIOS.
     * `HAX_CAP_FAILREASON_NX`: If set, Intel Execute Disable Bit is not
 supported by the host CPU, or disabled in BIOS.
+
+    If HAXM is usable, the following bits may be set:
+    * `HAX_CAP_EPT`: If set, the host CPU supports the Extended Page Tables
+(EPT) feature.
+    * `HAX_CAP_FASTMMIO`: If set, this HAXM kernel module supports the fast MMIO
+feature. This is always the case with API v2 and later.
+    * `HAX_CAP_UG`: If set, the host CPU supports the Unrestricted Guest (UG)
+feature.
   * (Output) `win_refcount`: (Windows only)
   * (Output) `mem_quota`: If the global memory cap setting is enabled (q.v.
 `HAX_IOCTL_SET_MEMLIMIT`), reports the current quota on memory allocation (the
