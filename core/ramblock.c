@@ -93,6 +93,8 @@ static hax_ramblock * ramblock_alloc(uint64 base_uva, uint64 size)
     }
     memset(chunks_bitmap, 0, chunks_bitmap_size);
     block->chunks_bitmap = chunks_bitmap;
+    block->ref_count = 0;
+
     return block;
 }
 
@@ -157,6 +159,14 @@ static void ramblock_free(hax_ramblock *block)
     hax_vfree(block, sizeof(*block));
 }
 
+static inline void ramblock_remove(hax_ramblock *block)
+{
+    hax_list_del(&block->entry);
+    ramblock_info("%s: Removed RAM block: uva: 0x%llx, size: 0x%llx, ref_count: %d\n",
+                  __func__, block->base_uva, block->size, block->ref_count);
+    ramblock_free(block);
+}
+
 int ramblock_init_list(hax_list_head *list)
 {
     if (!list) {
@@ -180,10 +190,7 @@ void ramblock_free_list(hax_list_head *list)
 
     ramblock_info("ramblock_free_list\n");
     hax_list_entry_for_each_safe(ramblock, tmp, list, hax_ramblock, entry) {
-        hax_list_del(&ramblock->entry);
-        ramblock_info("ramblock_free_list: freeing block: uva:0x%llx,"
-                      " size:0x%llx \n", ramblock->base_uva, ramblock->size);
-        ramblock_free(ramblock);
+        ramblock_remove(ramblock);
     }
 }
 
@@ -194,8 +201,9 @@ void ramblock_dump_list(hax_list_head *list)
 
     ramblock_info("ramblock dump begin:\n");
     hax_list_entry_for_each(ramblock, list, hax_ramblock, entry) {
-        ramblock_info("block %d: base_uva 0x%llx, size 0x%llx\n",
-                      i++, ramblock->base_uva, ramblock->size);
+        ramblock_info("block %d (%p): base_uva 0x%llx, size 0x%llx, ref_count "
+                      "%d\n", i++, ramblock, ramblock->base_uva,
+                      ramblock->size, ramblock->ref_count);
     }
     ramblock_info("ramblock dump end!\n");
 }
@@ -210,8 +218,14 @@ hax_ramblock * ramblock_find(hax_list_head *list, uint64 uva,
         if (ramblock->base_uva > uva)
             break;
 
-        if (uva < ramblock->base_uva + ramblock->size)
+        if (uva < ramblock->base_uva + ramblock->size) {
+            hax_debug("%s: (%p): base_uva 0x%llx, size 0x%llx, ref_count "
+                      "%d\n", __func__, ramblock, ramblock->base_uva,
+                      ramblock->size, ramblock->ref_count);
+
+            ramblock_ref(ramblock);
             return ramblock;
+        }
     }
 
     hax_warning("can not find 0x%llx in ramblock list.\n", uva);
@@ -362,4 +376,34 @@ hax_chunk * ramblock_get_chunk(hax_ramblock *block, uint64 uva_offset,
     }
 done:
     return block->chunks[chunk_index];
+}
+
+void ramblock_ref(hax_ramblock *block)
+{
+    if (block == NULL) {
+        hax_error("%s: Invalid RAM block\n", __func__);
+        return;
+    }
+
+    ++block->ref_count;
+    hax_debug("%s: block (%p): base_uva = 0x%llx, size = 0x%llx, ref_count = "
+              "%d\n", __func__, block, block->base_uva, block->size,
+              block->ref_count);
+}
+
+void ramblock_deref(hax_ramblock *block)
+{
+    if (block == NULL) {
+        hax_error("%s: Invalid RAM block\n", __func__);
+        return;
+    }
+
+    if (--block->ref_count == 0) {
+        ramblock_remove(block);
+        return;
+    }
+
+    hax_debug("%s: block (%p): base_uva = 0x%llx, size = 0x%llx, ref_count = "
+              "%d\n", __func__, block, block->base_uva, block->size,
+              block->ref_count);
 }
