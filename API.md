@@ -92,6 +92,7 @@ itself as well as the host environment.
   #define HAX_CAP_EPT                (1 << 0)
   #define HAX_CAP_FASTMMIO           (1 << 1)
   #define HAX_CAP_UG                 (1 << 2)
+  #define HAX_CAP_64BIT_RAMBLOCK     (1 << 3)
   ```
   * (Output) `wstatus`: The first set of capability flags reported to the
 caller. The following bits may be set, while others are reserved:
@@ -212,6 +213,31 @@ can only handle buffers smaller than 4GB.
 (i.e. a multiple of 4KB), and must not be 0. The HVA range specified by `va` and
 `size` must not overlap with that of any previously registered user buffer for
 the same VM.
+* Error codes:
+  * `STATUS_INVALID_PARAMETER` (Windows): The input buffer provided by the
+caller is smaller than the size of `struct hax_alloc_ram_info`.
+  * `STATUS_UNSUCCESSFUL` (Windows):
+  * `-EINVAL` (macOS):
+  * `-ENOMEM` (macOS):
+
+#### HAX\_VM\_IOCTL\_ADD\_RAMBLOCK
+Same as `HAX_VM_IOCTL_ALLOC_RAM`, but takes a 64-bit size instead of 32-bit.
+* Since: Capability `HAX_CAP_64BIT_RAMBLOCK`
+* Parameter: `struct hax_ramblock_info info`, where
+  ```
+  struct hax_ramblock_info {
+      uint64_t start_va;
+      uint64_t size;
+      uint32_t reserved;
+  } __attribute__ ((__packed__));
+  ```
+  * (Input) `start_va`: The start address of the user buffer to register. Must
+be page-aligned (i.e. a multiple of 4KB), and must not be 0. The HVA range
+specified by `start_va` and `size` must not overlap with that of any previously
+registered user buffer for the same VM.
+  * (Input) `size`: The size of the user buffer, in bytes. Must be in whole
+pages (i.e. a multiple of 4KB), and must not be 0.
+  * (Input) `reserved`: Reserved. Must be set to 0.
 * Error codes:
   * `STATUS_INVALID_PARAMETER` (Windows): The input buffer provided by the
 caller is smaller than the size of `struct hax_alloc_ram_info`.
