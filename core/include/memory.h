@@ -53,10 +53,9 @@ typedef struct hax_ramblock {
     // One bit per chunk indicating whether the chunk has been (or is being)
     // allocated/pinned or not
     uint8 *chunks_bitmap;
-    // Reference count of this object
-    int ref_count;
     // Turns this object into a list node
     hax_list_node entry;
+    // TODO: refcount?
 } hax_ramblock;
 
 typedef struct hax_memslot {
@@ -81,8 +80,6 @@ typedef struct hax_memslot {
 #define HAX_MEMSLOT_INVALID  0x80
 
 typedef struct hax_gpa_space {
-    // TODO: Add a lock to prevent concurrent accesses to |ramblock_list| and
-    // |memslot_list|
     hax_list_head ramblock_list;
     hax_list_head memslot_list;
     hax_list_head listener_list;
@@ -165,20 +162,6 @@ int ramblock_add(hax_list_head *list, uint64 base_uva, uint64 size,
 //    was not successful.
 hax_chunk * ramblock_get_chunk(hax_ramblock *block, uint64 uva_offset,
                                bool alloc);
-
-// Increments the reference count of an existing RAM block. The reference count
-// of a new RAM block created by ramblock_add() is initialized to 0. Whenever a
-// new reference to a RAM block is made, this function must be called.
-// |block|: A pointer to |hax_ramblock| being referenced.
-void ramblock_ref(hax_ramblock *block);
-
-// Decrements the reference count of the specified RAM block. Whenever a
-// reference to a RAM block is removed, this function must be called. If the
-// resulting reference count hits zero, removes the RAM block from the list it
-// belongs to, and frees the RAM block along with all the resources allocated
-// for it.
-// |block|: A pointer to |hax_ramblock| being dereferenced.
-void ramblock_deref(hax_ramblock *block);
 
 // Initializes |hax_memslot|-related data structures in the given
 // |hax_gpa_space|.
