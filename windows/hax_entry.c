@@ -483,24 +483,40 @@ NTSTATUS HaxVmControl(PDEVICE_OBJECT DeviceObject, struct hax_vm_windows *ext,
             ret = STATUS_SUCCESS;
             break;
         }
-
         case HAX_VM_IOCTL_ALLOC_RAM: {
             struct hax_alloc_ram_info *info;
-            uint64_t va;
-            if (inBufLength < sizeof(struct hax_alloc_ram_info )) {
+            if (inBufLength < sizeof(struct hax_alloc_ram_info)) {
                 ret = STATUS_INVALID_PARAMETER;
                 goto done;
             }
             info = (struct hax_alloc_ram_info *)inBuf;
-            va = info->va;
-            hax_log("alloc ram va %llx\n", va);
-
-            if (!hax_valid_uva(va, info->size)) {
+            hax_info("IOCTL_ALLOC_RAM: vm_id=%d, va=0x%llx, size=0x%x,"
+                     " pad=0x%x\n", vm->vm_id, info->va, info->size, info->pad);
+            if (hax_vm_add_ramblock(cvm, info->va, info->size)) {
                 ret = STATUS_UNSUCCESSFUL;
+            }
+            break;
+        }
+        case HAX_VM_IOCTL_ADD_RAMBLOCK: {
+            struct hax_ramblock_info *info;
+            if (inBufLength < sizeof(struct hax_ramblock_info)) {
+                hax_error("IOCTL_ADD_RAMBLOCK: inBufLength=%u < %u\n",
+                          inBufLength, sizeof(struct hax_ramblock_info));
+                ret = STATUS_INVALID_PARAMETER;
                 break;
             }
-            if (hax_vm_alloc_ram(cvm, info->size, &va))
+            info = (struct hax_ramblock_info *)inBuf;
+            if (info->reserved) {
+                hax_error("IOCTL_ADD_RAMBLOCK: vm_id=%d, reserved=0x%llx\n",
+                          vm->vm_id, info->reserved);
+                ret = STATUS_INVALID_PARAMETER;
+                break;
+            }
+            hax_info("IOCTL_ADD_RAMBLOCK: vm_id=%d, start_va=0x%llx,"
+                     " size=0x%llx\n", vm->vm_id, info->start_va, info->size);
+            if (hax_vm_add_ramblock(cvm, info->start_va, info->size)) {
                 ret = STATUS_UNSUCCESSFUL;
+            }
             break;
         }
         case HAX_VM_IOCTL_SET_RAM: {

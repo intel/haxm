@@ -155,11 +155,17 @@ struct hax_module_version {
     uint32_t cur_version;
 } PACKED;
 
-#define HAX_CAP_STATUS_WORKING     0x0
-#define HAX_CAP_STATUS_NOTWORKING  0x1
+#define HAX_CAP_STATUS_WORKING     (1 << 0)
+#define HAX_CAP_MEMQUOTA           (1 << 1)
+#define HAX_CAP_WORKSTATUS_MASK    0x01
 
-#define HAX_CAP_FAILREASON_VT      0x1
-#define HAX_CAP_FAILREASON_NX      0x2
+#define HAX_CAP_FAILREASON_VT      (1 << 0)
+#define HAX_CAP_FAILREASON_NX      (1 << 1)
+
+#define HAX_CAP_EPT                (1 << 0)
+#define HAX_CAP_FASTMMIO           (1 << 1)
+#define HAX_CAP_UG                 (1 << 2)
+#define HAX_CAP_64BIT_RAMBLOCK     (1 << 3)
 
 struct hax_capabilityinfo {
     /*
@@ -199,6 +205,12 @@ struct hax_alloc_ram_info {
     uint32_t size;
     uint32_t pad;
     uint64_t va;
+} PACKED;
+
+struct hax_ramblock_info {
+    uint64_t start_va;
+    uint64_t size;
+    uint64_t reserved;
 } PACKED;
 
 #define HAX_RAM_INFO_ROM     0x01  // read-only

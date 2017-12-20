@@ -49,6 +49,7 @@
 #define HAX_VM_IOCTL_ALLOC_RAM _IOWR(0, 0x81, struct hax_alloc_ram_info)
 #define HAX_VM_IOCTL_SET_RAM _IOWR(0, 0x82, struct hax_set_ram_info)
 #define HAX_VM_IOCTL_VCPU_DESTROY _IOR(0, 0x83, uint32_t)
+#define HAX_VM_IOCTL_ADD_RAMBLOCK _IOW(0, 0x85, struct hax_ramblock_info)
 
 #define HAX_VCPU_IOCTL_RUN _IO(0, 0xc0)
 #define HAX_VCPU_IOCTL_SET_MSRS _IOWR(0, 0xc1, struct hax_msr_data)

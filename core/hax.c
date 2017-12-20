@@ -330,25 +330,31 @@ int hax_get_capability(void *buf, int bufLeng, int *outLength)
         return -EINVAL;
 
     if (!hax->vmx_enable_flag || !hax->nx_enable_flag) {
-        cap->wstatus = 0x0;
-        cap->winfo |= hax->vmx_enable_flag ? 0x2
-                      : (hax->nx_enable_flag ? 0x1 : 0x3);
+        cap->wstatus = 0;
+        cap->winfo = 0;
+        if (!hax->vmx_enable_flag) {
+            cap->winfo |= HAX_CAP_FAILREASON_VT;
+        }
+        if (!hax->nx_enable_flag) {
+            cap->winfo |= HAX_CAP_FAILREASON_NX;
+        }
     } else {
         struct per_cpu_data *cpu_data = current_cpu_data();
 
-        cap->wstatus = 0x1;
+        cap->wstatus = HAX_CAP_STATUS_WORKING;
         // Fast MMIO supported since API version 2
-        cap->winfo = 0x2;
+        cap->winfo = HAX_CAP_FASTMMIO;
+        cap->winfo |= HAX_CAP_64BIT_RAMBLOCK;
         if (cpu_data->vmx_info._ept_cap) {
-            cap->winfo |= 0x1;
+            cap->winfo |= HAX_CAP_EPT;
         }
         if (hax->ug_enable_flag) {
-            cap->winfo |= 0x4;
+            cap->winfo |= HAX_CAP_UG;
         }
     }
 
     if (hax->mem_limit) {
-        cap->wstatus |= 0x2;
+        cap->wstatus |= HAX_CAP_MEMQUOTA;
         cap->mem_quota = hax->mem_quota;
     }
 

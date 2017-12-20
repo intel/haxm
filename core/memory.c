@@ -64,26 +64,16 @@ static int handle_alloc_ram(struct vm_t *vm, uint64 start_uva, uint64 size)
 }
 #endif  // CONFIG_HAX_EPT2
 
-int hax_vm_alloc_ram(struct vm_t *vm, uint32_t size, uint64_t *va)
+int hax_vm_add_ramblock(struct vm_t *vm, uint64_t start_uva, uint64_t size)
 {
 #ifdef CONFIG_HAX_EPT2
-    uint64 start_uva;
-
-    assert(va != NULL);
-    start_uva = *va;
     return handle_alloc_ram(vm, start_uva, size);
 #else  // !CONFIG_HAX_EPT2
-    uint64_t gva;
+    uint64_t gva = start_uva;
     uint32_t leftsize;
     struct hax_vcpu_mem *mem = NULL, *curmem, *smem;
     int entry_num = 0, i, ret;
     uint32_t cursize;
-
-    /* A valid VA is needed */
-    if (!va) {
-        hax_error("hax_vm_alloc_ram: the va is NULL, invalid!\n");
-        return -EINVAL;
-    }
 
     /* A valid size is needed */
     if (0 == size) {
@@ -91,7 +81,6 @@ int hax_vm_alloc_ram(struct vm_t *vm, uint32_t size, uint64_t *va)
         return -EINVAL;
     }
 
-    gva = *va;
     if (!gva || gva & 0xfff) {
         hax_error("Invalid gva %llx for allocating memory.\n", gva);
         return -EINVAL;

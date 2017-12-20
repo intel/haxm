@@ -377,11 +377,25 @@ static int hax_vm_ioctl(dev_t dev, ulong cmd, caddr_t data, int flag,
         }
         case HAX_VM_IOCTL_ALLOC_RAM: {
             struct hax_alloc_ram_info *info;
-            uint64_t va;
             info = (struct hax_alloc_ram_info *)data;
-            va = info->va;
-            hax_log("alloc ram va %llx\n", va);
-            ret = hax_vm_alloc_ram(cvm, info->size, &va);
+            hax_info("IOCTL_ALLOC_RAM: vm_id=%d, va=0x%llx, size=0x%x,"
+                     " pad=0x%x\n", vm_mac->vm_id, info->va, info->size,
+                     info->pad);
+            ret = hax_vm_add_ramblock(cvm, info->va, info->size);
+            break;
+        }
+        case HAX_VM_IOCTL_ADD_RAMBLOCK: {
+            struct hax_ramblock_info *info;
+            info = (struct hax_ramblock_info *)data;
+            if (info->reserved) {
+                hax_error("IOCTL_ADD_RAMBLOCK: vm_id=%d, reserved=0x%llx\n",
+                          vm_mac->vm_id, info->reserved);
+                return -EINVAL;
+            }
+            hax_info("IOCTL_ADD_RAMBLOCK: vm_id=%d, start_va=0x%llx,"
+                     " size=0x%llx\n", vm_mac->vm_id, info->start_va,
+                     info->size);
+            ret = hax_vm_add_ramblock(cvm, info->start_va, info->size);
             break;
         }
         case HAX_VM_IOCTL_SET_RAM: {
