@@ -2828,8 +2828,8 @@ static void handle_cpuid_virtual(struct vcpu_t *vcpu, uint32 a, uint32 c)
             feat_popcnt;
 
     uint32 cpu_features_ext =
-            // no NX
-            feat_syscall    |
+            feat_execute_disable |
+            feat_syscall         |
             feat_em64t;
 
     uint8 physical_address_size;
