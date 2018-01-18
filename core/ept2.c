@@ -206,7 +206,7 @@ static void fix_epte(hax_ept_tree *tree, uint64 gfn, int level, hax_epte *epte,
         // Preserve bits (MAXPHYADDR - 1)..12 (PFN), assuming MAXPHYADDR == 36,
         // i.e. HPAs are at most 36 bits long
         // TODO: Use CPUID to obtain the true MAXPHYADDR
-        preserved_bits |= ((1 << (36 - 12)) - 1) << 12;
+        preserved_bits |= ((1ULL << (36 - 12)) - 1) << 12;
         // Preserve bit 8 (Accessed)
         preserved_bits |= 1 << 8;
         if (level == HAX_EPT_LEVEL_PT) {
