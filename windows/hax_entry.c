@@ -539,6 +539,35 @@ NTSTATUS HaxVmControl(PDEVICE_OBJECT DeviceObject, struct hax_vm_windows *ext,
             }
             break;
         }
+#ifdef CONFIG_HAX_EPT2
+        case HAX_VM_IOCTL_SET_RAM2: {
+            struct hax_set_ram_info2 *info;
+            int res;
+            if (inBufLength < sizeof(struct hax_set_ram_info2)) {
+                ret = STATUS_INVALID_PARAMETER;
+                goto done;
+            }
+            info = (struct hax_set_ram_info2 *)inBuf;
+            if (info->reserved1 || info->reserved2) {
+                hax_error("IOCTL_SET_RAM2: vm_id=%d, reserved1=0x%x"
+                          " reserved2=0xllx\n",
+                          vm->vm_id, info->reserved1, info->reserved2);
+                ret = STATUS_INVALID_PARAMETER;
+                break;
+            }
+            if (!(info->flags & HAX_RAM_INFO_INVALID)
+                && !hax_valid_uva(info->va, info->size)) {
+                ret = STATUS_INVALID_PARAMETER;
+                break;
+            }
+            res = hax_vm_set_ram2(cvm, info);
+            if (res) {
+                ret = res == -EINVAL ? STATUS_INVALID_PARAMETER
+                      : STATUS_UNSUCCESSFUL;
+            }
+            break;
+        }
+#endif
         case HAX_VM_IOCTL_NOTIFY_QEMU_VERSION: {
             struct hax_qemu_version *info;
 

@@ -404,6 +404,20 @@ static int hax_vm_ioctl(dev_t dev, ulong cmd, caddr_t data, int flag,
             ret = hax_vm_set_ram(cvm, info);
             break;
         }
+#ifdef CONFIG_HAX_EPT2
+        case HAX_VM_IOCTL_SET_RAM2: {
+            struct hax_set_ram_info2 *info;
+            info = (struct hax_set_ram_info2 *)data;
+            if (info->reserved1 || info->reserved2) {
+                hax_error("IOCTL_SET_RAM2: vm_id=%d, reserved1=0x%x"
+                          " reserved2=0x%llx\n",
+                          vm_mac->vm_id, info->reserved1, info->reserved2);
+                return -EINVAL;
+            }
+            ret = hax_vm_set_ram2(cvm, info);
+            break;
+        }
+#endif
         case HAX_VM_IOCTL_NOTIFY_QEMU_VERSION: {
             int pid;
             /* MAXCOMLEN + 1 == 17 (see bsd/sys/param.h) */

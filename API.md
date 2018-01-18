@@ -93,6 +93,7 @@ itself as well as the host environment.
   #define HAX_CAP_FASTMMIO           (1 << 1)
   #define HAX_CAP_UG                 (1 << 2)
   #define HAX_CAP_64BIT_RAMBLOCK     (1 << 3)
+  #define HAX_CAP_64BIT_SETRAM       (1 << 4)
   ```
   * (Output) `wstatus`: The first set of capability flags reported to the
 caller. The following bits may be set, while others are reserved:
@@ -117,6 +118,7 @@ supported by the host CPU, or disabled in BIOS.
 feature. This is always the case with API v2 and later.
     * `HAX_CAP_UG`: If set, the host CPU supports the Unrestricted Guest (UG)
 feature.
+    * `HAX_CAP_64BIT_SETRAM`: If set, HAX\_VM\_IOCTL\_SET\_RAM2 is available.
   * (Output) `win_refcount`: (Windows only)
   * (Output) `mem_quota`: If the global memory cap setting is enabled (q.v.
 `HAX_IOCTL_SET_MEMLIMIT`), reports the current quota on memory allocation (the
@@ -296,6 +298,48 @@ aligned (i.e. a multiple of 4KB), and must not be 0 (except when
 `flags == HAX_RAM_INFO_INVALID`). The size of the HVA range is specified by
 `size`. The entire HVA range must fall within a previously registered user
 buffer.
+* Error codes:
+  * `STATUS_INVALID_PARAMETER` (Windows): The input buffer provided by the
+caller is smaller than the size of `struct hax_set_ram_info`, or any of the
+input parameters .
+
+#### HAX\_VM\_IOCTL\_SET\_RAM2
+Same as `HAX_VM_IOCTL_SET_RAM`, but takes a 64-bit size instead of 32-bit.
+* Since: Capability `HAX_CAP_64BIT_SETRAM`
+* Parameter: `struct hax_set_ram_info2 info`, where
+  ```
+  struct hax_set_ram_info {
+      uint64_t pa_start;
+      uint64_t size;
+      uint64_t va;
+      uint32_t flags;
+      uint32_t reserved1;
+      uint64_t reserved2;
+  } __attribute__ ((__packed__));
+
+  #define HAX_RAM_INFO_ROM     0x01
+  #define HAX_RAM_INFO_INVALID 0x80
+  ```
+  * (Input) `pa_start`: The start address of the GPA range to map. Must be page-
+aligned (i.e. a multiple of 4KB).
+  * (Input) `size`: The size of the GPA range, in bytes. Must be in whole pages
+(i.e. a multiple of 4KB), and must not be 0. If the GPA range covers any guest
+physical pages that are already mapped, those pages will be remapped.
+  * (Input) `va`: The start address of the HVA range to map to. Must be page-
+aligned (i.e. a multiple of 4KB), and must not be 0 (except when
+`flags == HAX_RAM_INFO_INVALID`). The size of the HVA range is specified by
+`size`. The entire HVA range must fall within a previously registered user
+buffer.
+  * (Input) `flags`: Properties of the mapping. The following bits may be set,
+while others are reserved:
+    * `HAX_RAM_INFO_ROM`: If set, the GPA range will be mapped as read-only
+memory (ROM).
+    * `HAX_RAM_INFO_INVALID`: (Since API v4) If set, any existing mappings for
+any guest physical pages in the GPA range will be removed, i.e. the GPA range
+will be reserved for MMIO. This flag must not be combined with any other flags,
+and its presence requires `va` to be set to 0.
+  * (Input) `reserved1`: Reserved, must be 0.
+  * (Input) `reserved2`: Reserved, must be 0.
 * Error codes:
   * `STATUS_INVALID_PARAMETER` (Windows): The input buffer provided by the
 caller is smaller than the size of `struct hax_set_ram_info`, or any of the

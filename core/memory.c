@@ -233,7 +233,7 @@ static struct hax_vcpu_mem *get_pmem_range(struct vm_t *vm, uint64_t va)
 
 #ifdef CONFIG_HAX_EPT2
 static int handle_set_ram(struct vm_t *vm, uint64 start_gpa, uint64 size,
-                          uint64 start_uva, uint8 flags)
+                          uint64 start_uva, uint32 flags)
 {
     bool unmap = flags & HAX_RAM_INFO_INVALID;
     hax_gpa_space *gpa_space;
@@ -367,6 +367,14 @@ int hax_vm_set_ram(struct vm_t *vm, struct hax_set_ram_info *info)
     return 0;
 #endif  // CONFIG_HAX_EPT2
 }
+
+#ifdef CONFIG_HAX_EPT2
+int hax_vm_set_ram2(struct vm_t *vm, struct hax_set_ram_info2 *info)
+{
+    return handle_set_ram(vm, info->pa_start, info->size, info->va,
+                          info->flags);
+}
+#endif  // CONFIG_HAX_EPT2
 
 int hax_vcpu_setup_hax_tunnel(struct vcpu_t *cv, struct hax_tunnel_info *info)
 {
