@@ -471,6 +471,10 @@
 				ONLY_ACTIVE_ARCH = NO;
 				PRODUCT_NAME = intelhaxm;
 				USE_HEADERMAP = NO;
+				WARNING_CFLAGS = (
+					"-Wno-address-of-packed-member",
+					"-Wno-unknown-warning-option",
+				);
 				WRAPPER_EXTENSION = kext;
 			};
 			name = Debug;
@@ -488,6 +492,10 @@
 				MODULE_STOP = com_intel_hax_stop;
 				MODULE_VERSION = 1.0.0d1;
 				PRODUCT_NAME = intelhaxm;
+				WARNING_CFLAGS = (
+					"-Wno-address-of-packed-member",
+					"-Wno-unknown-warning-option",
+				);
 				WRAPPER_EXTENSION = kext;
 			};
 			name = Release;
