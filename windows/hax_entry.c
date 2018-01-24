@@ -581,6 +581,21 @@ NTSTATUS HaxVmControl(PDEVICE_OBJECT DeviceObject, struct hax_vm_windows *ext,
             hax_vm_set_qemuversion(cvm, info);
             break;
         }
+        case HAX_VM_IOCTL_PROTECT_RAM: {
+            struct hax_ram_prot_info *info;
+            int res;
+            if (inBufLength < sizeof(struct hax_ram_prot_info)) {
+                ret = STATUS_INVALID_PARAMETER;
+                goto done;
+            }
+            info = (struct hax_ram_prot_info *)inBuf;
+            res = hax_vm_protect_ram(cvm, info);
+            if (res) {
+                ret = res == -EINVAL ? STATUS_INVALID_PARAMETER
+                      : STATUS_UNSUCCESSFUL;
+            }
+            break;
+        }
         default:
             ret = STATUS_INVALID_PARAMETER;
             break;

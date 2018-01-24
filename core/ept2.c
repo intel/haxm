@@ -70,7 +70,8 @@ void ept_handle_mapping_changed(hax_gpa_space_listener *listener,
 }
 
 int ept_handle_access_violation(hax_gpa_space *gpa_space, hax_ept_tree *tree,
-                                exit_qualification_t qual, uint64 gpa)
+                                exit_qualification_t qual, uint64 gpa,
+                                uint64 *fault_gfn)
 {
     uint combined_perm;
     uint64 gfn;
@@ -101,6 +102,9 @@ int ept_handle_access_violation(hax_gpa_space *gpa_space, hax_ept_tree *tree,
         hax_debug("%s: gpa=0x%llx is reserved for MMIO\n", __func__, gpa);
         return 0;
     }
+
+    if (gpa_space_chunk_protected(gpa_space, gfn, fault_gfn))
+        return -EPERM;
 
     // The faulting GPA maps to RAM/ROM
     is_rom = slot->flags & HAX_MEMSLOT_READONLY;

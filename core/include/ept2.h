@@ -249,7 +249,8 @@ void ept_handle_mapping_changed(hax_gpa_space_listener *listener,
 //          present, but the access violates the permissions it allows.
 // -ENOMEM: Memory allocation/mapping error.
 int ept_handle_access_violation(hax_gpa_space *gpa_space, hax_ept_tree *tree,
-                                exit_qualification_t qual, uint64 gpa);
+                                exit_qualification_t qual, uint64 gpa,
+                                uint64 *fault_gfn);
 
 // Handles an EPT misconfiguration caught by hardware while it tries to
 // translate a GPA.
