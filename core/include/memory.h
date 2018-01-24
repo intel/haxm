@@ -36,6 +36,7 @@
 
 #define HAX_CHUNK_SHIFT 21
 #define HAX_CHUNK_SIZE  (1U << HAX_CHUNK_SHIFT)  // 2MB
+#define HAX_CHUNK_NR_PAGES (HAX_CHUNK_SIZE/PAGE_SIZE_4K)
 
 typedef struct hax_chunk {
     hax_memdesc_user memdesc;
@@ -80,12 +81,20 @@ typedef struct hax_memslot {
 // Used only by memslot_set_mapping(), not by any hax_memslot
 #define HAX_MEMSLOT_INVALID  0x80
 
+typedef struct prot_bitmap {
+    // R/W/E Protection Bitmap
+    uint8 *bitmap;
+    // Last gpfn
+    uint64 max_gpfn;
+} prot_bitmap;
+
 typedef struct hax_gpa_space {
     // TODO: Add a lock to prevent concurrent accesses to |ramblock_list| and
     // |memslot_list|
     hax_list_head ramblock_list;
     hax_list_head memslot_list;
     hax_list_head listener_list;
+    prot_bitmap prot_bitmap;
 } hax_gpa_space;
 
 typedef struct hax_gpa_space_listener hax_gpa_space_listener;
@@ -297,6 +306,21 @@ void gpa_space_unmap_page(hax_gpa_space *gpa_space, hax_kmap_user *kmap);
 // Returns INVALID_PFN on error, including the case where |gfn| is reserved for
 // MMIO.
 uint64 gpa_space_get_pfn(hax_gpa_space *gpa_space, uint64 gfn, uint8 *flags);
+
+int gpa_space_protect_range(struct hax_gpa_space *gpa_space,
+                            struct hax_ept_tree *ept_tree,
+                            uint64 start_gpa, uint64 len, int8 flags);
+
+// Adjust gpa protection bitmap size. Once a bigger gfn is met, allocate
+// a new bitmap and copy the old bitmap contents.
+// |gpa_space|: The GPA space of the guest.
+// |max_gpfn|: max gfn that the bitmap can hold.
+int gpa_space_adjust_prot_bitmap(struct hax_gpa_space *gpa_space,
+                                 uint64 max_gpfn);
+
+int gpa_space_test_prot_bitmap(struct hax_gpa_space *gpa_space, uint64 gfn);
+int gpa_space_chunk_protected(struct hax_gpa_space *gpa_space, uint64 gfn,
+                              uint64 *fault_gfn);
 
 // Allocates a |hax_chunk| for the given UVA range, and pins the corresponding
 // host page frames in RAM.

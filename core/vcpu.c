@@ -3958,6 +3958,7 @@ static int exit_ept_violation(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     paddr_t gpa;
     struct decode dec;
     int ret = 0;
+    uint64 fault_gfn;
 
     htun->_exit_reason = vmx(vcpu, exit_reason).basic_reason;
 
@@ -3972,7 +3973,13 @@ static int exit_ept_violation(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 
 #ifdef CONFIG_HAX_EPT2
     ret = ept_handle_access_violation(&vcpu->vm->gpa_space, &vcpu->vm->ept_tree,
-                                      *qual, gpa);
+                                      *qual, gpa, &fault_gfn);
+    if (ret == -EPERM) {
+        htun->gpaprot.access = (qual->raw >> 3) & 7;
+        htun->gpaprot.gpa = fault_gfn << PG_ORDER_4K;
+        htun->_exit_status = HAX_EXIT_GPAPROT;
+        return HAX_EXIT;
+    }
     if (ret == -EACCES) {
         /*
          * For some reason, during boot-up, Chrome OS guests make hundreds of

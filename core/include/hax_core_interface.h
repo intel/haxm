@@ -59,6 +59,7 @@ int hax_vm_set_ram2(struct vm_t *vm, struct hax_set_ram_info2 *info);
 int hax_vm_free_all_ram(struct vm_t *vm);
 int in_pmem_range(struct hax_vcpu_mem *pmem, uint64_t va);
 int hax_vm_add_ramblock(struct vm_t *vm, uint64_t start_uva, uint64_t size);
+int hax_vm_gpa_prot(struct vm_t *vm, struct hax_gpa_prot_info *info);
 
 void * get_vm_host(struct vm_t *vm);
 int set_vm_host(struct vm_t *vm, void *vm_host);
