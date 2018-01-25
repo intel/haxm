@@ -35,7 +35,6 @@
 #define MEMSLOT_PROCESSING 0x01
 #define MEMSLOT_TO_INSERT  0x02
 
-#define MEMSLOT_DUP(m) if (((m) = memslot_dup(m)) == NULL) return -ENOMEM
 #define SAFE_CALL(f) if ((f) != NULL) (f)
 
 enum callback {
@@ -89,6 +88,8 @@ static int memslot_process_end_same_type(hax_memslot *dest, hax_memslot *src,
                                          uint8 *state);
 static int memslot_process_end_invalid(hax_memslot *dest, hax_memslot *src,
                                        uint8 *state);
+static int memslot_list_enqueue(hax_list_head *memslot_list, hax_memslot *dest);
+static void memslot_list_clear(hax_list_head *memslot_list);
 static void mapping_broadcast(hax_list_head *listener_list,
                               memslot_mapping *mapping, hax_memslot *dest,
                               hax_list_head *memslot_list);
@@ -96,7 +97,6 @@ static void mapping_calc_change(memslot_mapping *mapping, hax_memslot *src,
                                 bool is_valid, bool is_terminal,
                                 bool is_changed, memslot_mapping *hole,
                                 memslot_mapping *slot);
-static int mapping_enqueue(hax_list_head *memslot_list, hax_memslot *dest);
 static void mapping_intersect(memslot_mapping *dest, memslot_mapping *src);
 static bool mapping_is_changed(hax_memslot *dest, hax_memslot *src,
                                bool is_valid, bool is_terminal);
@@ -128,15 +128,10 @@ int memslot_init_list(hax_gpa_space *gpa_space)
 
 void memslot_free_list(hax_gpa_space *gpa_space)
 {
-    hax_memslot *memslot = NULL, *n = NULL;
-
     if (gpa_space == NULL)
         return;
 
-    hax_list_entry_for_each_safe(memslot, n, &gpa_space->memslot_list,
-                                 hax_memslot, entry) {
-        memslot_delete(memslot);
-    }
+    memslot_list_clear(&gpa_space->memslot_list);
 }
 
 void memslot_dump_list(hax_gpa_space *gpa_space)
@@ -161,10 +156,10 @@ void memslot_dump_list(hax_gpa_space *gpa_space)
 int memslot_set_mapping(hax_gpa_space *gpa_space, uint64 start_gfn,
                         uint64 npages, uint64 uva, uint8 flags)
 {
-    hax_memslot memslot, *src = NULL, *dest = &memslot, *n = NULL;
+    hax_memslot memslot, *src = NULL, *dest = &memslot, *m = NULL;
     hax_ramblock *block = NULL;
     memslot_mapping mapping;
-    hax_list_head memslot_list;
+    hax_list_head snapshot;
     int ret = 0;
     bool is_valid = false, is_found = false;
     uint8 route = 0, state = 0;
@@ -198,9 +193,14 @@ int memslot_set_mapping(hax_gpa_space *gpa_space, uint64 start_gfn,
                                 ? uva - dest->block->base_uva : 0;
     dest->flags    = flags;
 
+    hax_init_list_head(&snapshot);
+
     if (hax_list_empty(&gpa_space->memslot_list)) {
         if (is_valid) {
-            MEMSLOT_DUP(dest);
+            if ((dest = memslot_dup(dest)) == NULL) {
+                ret = -ENOMEM;
+                goto out;
+            }
             memslot_insert_head(dest, gpa_space);
 
             mapping_broadcast(&gpa_space->listener_list, &mapping, dest, NULL);
@@ -209,9 +209,7 @@ int memslot_set_mapping(hax_gpa_space *gpa_space, uint64 start_gfn,
         goto out;
     }
 
-    hax_init_list_head(&memslot_list);
-
-    hax_list_entry_for_each_safe(src, n, &gpa_space->memslot_list, hax_memslot,
+    hax_list_entry_for_each_safe(src, m, &gpa_space->memslot_list, hax_memslot,
                                  entry) {
         if (!is_found) {
             if (dest->base_gfn > src->base_gfn + src->npages) {
@@ -219,14 +217,18 @@ int memslot_set_mapping(hax_gpa_space *gpa_space, uint64 start_gfn,
                     continue;
 
                 if (is_valid) {
-                    MEMSLOT_DUP(dest);
+                    if ((dest = memslot_dup(dest)) == NULL) {
+                        ret = -ENOMEM;
+                        goto out;
+                    }
                     memslot_insert_after(dest, src);
                 }
                 break;
             }
 
             if (dest->base_gfn < src->base_gfn + src->npages) {
-                mapping_enqueue(&memslot_list, src);
+                if ((ret = memslot_list_enqueue(&snapshot, src)) != 0)
+                    goto out;
             }
 
             if (dest->base_gfn + dest->npages >= src->base_gfn + src->npages) {
@@ -235,8 +237,7 @@ int memslot_set_mapping(hax_gpa_space *gpa_space, uint64 start_gfn,
 
             route = is_valid ? memslot_is_same_type(dest, src)
                     : MAPPING_INVALID;
-            ret = memslot_process_start[route](dest, src, &state);
-            if (ret != 0)
+            if ((ret = memslot_process_start[route](dest, src, &state)) != 0)
                 goto out;
 
             is_found = true;
@@ -245,7 +246,8 @@ int memslot_set_mapping(hax_gpa_space *gpa_space, uint64 start_gfn,
                 break;
 
             if (dest->base_gfn + dest->npages > src->base_gfn) {
-                mapping_enqueue(&memslot_list, src);
+                if ((ret = memslot_list_enqueue(&snapshot, src)) != 0)
+                    goto out;
             }
 
             if (memslot_is_inner(dest, src, gpa_space)) {
@@ -255,8 +257,7 @@ int memslot_set_mapping(hax_gpa_space *gpa_space, uint64 start_gfn,
 
             route = is_valid ? memslot_is_same_type(dest, src)
                     : MAPPING_INVALID;
-            ret = memslot_process_end[route](dest, src, &state);
-            if (ret != 0)
+            if ((ret = memslot_process_end[route](dest, src, &state)) != 0)
                 goto out;
 
             state = 0;
@@ -267,12 +268,14 @@ int memslot_set_mapping(hax_gpa_space *gpa_space, uint64 start_gfn,
     }
 
     if (state & MEMSLOT_TO_INSERT) {
-        MEMSLOT_DUP(dest);
+        if ((dest = memslot_dup(dest)) == NULL) {
+            ret = -ENOMEM;
+            goto out;
+        }
         memslot_insert_before(dest, src);
     }
 
-    mapping_broadcast(&gpa_space->listener_list, &mapping, dest,
-                      &memslot_list);
+    mapping_broadcast(&gpa_space->listener_list, &mapping, dest, &snapshot);
 
 out:
     // ramblock_find() was invoked previously in this function and returned a
@@ -283,6 +286,7 @@ out:
     if (block != NULL) {
         ramblock_deref(block);
     }
+    memslot_list_clear(&snapshot);
     return ret;
 }
 
@@ -469,15 +473,23 @@ static bool memslot_is_inner(hax_memslot *dest, hax_memslot *src,
 static int memslot_process_start_diff_type(hax_memslot *dest, hax_memslot *src,
                                            uint8 *state)
 {
+    int ret = 0;
+
     if (dest->base_gfn + dest->npages <= src->base_gfn) {
         // (1)(2)
-        MEMSLOT_DUP(dest);
+        if ((dest = memslot_dup(dest)) == NULL) {
+            ret = -ENOMEM;
+            goto out;
+        }
         memslot_insert_before(dest, src);
     } else if (dest->base_gfn <= src->base_gfn) {
         // (3)(4)(5)(6)(7)(8)
         if (dest->base_gfn + dest->npages < src->base_gfn + src->npages) {
             // (3)(6)
-            MEMSLOT_DUP(dest);
+            if ((dest = memslot_dup(dest)) == NULL) {
+                ret = -ENOMEM;
+                goto out;
+            }
             memslot_insert_before(dest, src);
             memslot_overlap_front(dest, src);
         } else {
@@ -495,23 +507,38 @@ static int memslot_process_start_diff_type(hax_memslot *dest, hax_memslot *src,
             // (9)(10)(11)
             if (dest->base_gfn + dest->npages < src->base_gfn + src->npages) {
                 // (9)
-                MEMSLOT_DUP(dest);
+                hax_memslot *rest = NULL;
+
+                if ((dest = memslot_dup(dest)) == NULL) {
+                    ret = -ENOMEM;
+                    goto out;
+                }
                 memslot_insert_after(dest, src);
-                memslot_insert_after(memslot_append_rest(dest, src), dest);
+                if ((rest = memslot_append_rest(dest, src)) == NULL) {
+                    ret = -ENOMEM;
+                    goto out;
+                }
+                memslot_insert_after(rest, dest);
             }
             memslot_overlap_rear(dest, src);
         }
     }
 
-    return 0;
+out:
+    return ret;
 }
 
 static int memslot_process_start_same_type(hax_memslot *dest, hax_memslot *src,
                                            uint8 *state)
 {
+    int ret = 0;
+
     if (dest->base_gfn + dest->npages < src->base_gfn) {
         // (1)
-        MEMSLOT_DUP(dest);
+        if ((dest = memslot_dup(dest)) == NULL) {
+            ret = -ENOMEM;
+            goto out;
+        }
         memslot_insert_before(dest, src);
         return 0;
     }
@@ -523,12 +550,15 @@ static int memslot_process_start_same_type(hax_memslot *dest, hax_memslot *src,
     // (2)(3)(4)(5)(8)(11)(12)
     memslot_union(dest, src);
 
-    return 0;
+out:
+    return ret;
 }
 
 static int memslot_process_start_invalid(hax_memslot *dest, hax_memslot *src,
                                          uint8 *state)
 {
+    int ret = 0;
+
     if ((dest->base_gfn + dest->npages <= src->base_gfn) ||
         (dest->base_gfn == src->base_gfn + src->npages))
         // (1)(2)(12)
@@ -547,12 +577,19 @@ static int memslot_process_start_invalid(hax_memslot *dest, hax_memslot *src,
         // (9)(10)(11)
         if (dest->base_gfn + dest->npages < src->base_gfn + src->npages) {
             // (9)
-            memslot_insert_after(memslot_append_rest(dest, src), src);
+            hax_memslot *rest = NULL;
+
+            if ((rest = memslot_append_rest(dest, src)) == NULL) {
+                ret = -ENOMEM;
+                goto out;
+            }
+            memslot_insert_after(rest, src);
         }
         memslot_overlap_rear(dest, src);
     }
 
-    return 0;
+out:
+    return ret;
 }
 
 // =================================================
@@ -581,6 +618,8 @@ static int memslot_process_start_invalid(hax_memslot *dest, hax_memslot *src,
 static int memslot_process_end_diff_type(hax_memslot *dest, hax_memslot *src,
                                          uint8 *state)
 {
+    int ret = 0;
+
     if (dest->base_gfn + dest->npages < src->base_gfn + src->npages) {
         // [1][2]
         if (dest->base_gfn + dest->npages > src->base_gfn) {
@@ -588,7 +627,10 @@ static int memslot_process_end_diff_type(hax_memslot *dest, hax_memslot *src,
             memslot_overlap_front(dest, src);
         }
         if (*state & MEMSLOT_TO_INSERT) {
-            MEMSLOT_DUP(dest);
+            if ((dest = memslot_dup(dest)) == NULL) {
+                ret = -ENOMEM;
+                goto out;
+            }
             memslot_insert_before(dest, src);
         }
     } else {
@@ -600,7 +642,8 @@ static int memslot_process_end_diff_type(hax_memslot *dest, hax_memslot *src,
         }
     }
 
-    return 0;
+out:
+    return ret;
 }
 
 static int memslot_process_end_same_type(hax_memslot *dest, hax_memslot *src,
@@ -643,6 +686,33 @@ static int memslot_process_end_invalid(hax_memslot *dest, hax_memslot *src,
     }
 
     return 0;
+}
+
+static inline int memslot_list_enqueue(hax_list_head *memslot_list,
+                                       hax_memslot *memslot)
+{
+    int ret = 0;
+
+    if ((memslot = memslot_dup(memslot)) == NULL) {
+        ret = -ENOMEM;
+        goto out;
+    }
+    hax_list_insert_before(&memslot->entry, memslot_list);
+
+out:
+    return ret;
+}
+
+static inline void memslot_list_clear(hax_list_head *memslot_list)
+{
+    hax_memslot *memslot = NULL, *m = NULL;
+
+    if (hax_list_empty(memslot_list))
+        return;
+
+    hax_list_entry_for_each_safe(memslot, m, memslot_list, hax_memslot, entry) {
+        memslot_delete(memslot);
+    }
 }
 
 static void mapping_broadcast(hax_list_head *listener_list,
@@ -732,15 +802,6 @@ static void mapping_calc_change(memslot_mapping *mapping, hax_memslot *src,
     } else {
         slot->callback = 0;
     }
-}
-
-static inline int mapping_enqueue(hax_list_head *memslot_list,
-                                  hax_memslot *slot)
-{
-    MEMSLOT_DUP(slot);
-    hax_list_insert_before(&slot->entry, memslot_list);
-
-    return 0;
 }
 
 static inline void mapping_intersect(memslot_mapping *dest,
