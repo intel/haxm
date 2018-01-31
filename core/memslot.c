@@ -56,9 +56,9 @@ typedef struct memslot_mapping {
     uint64 start_gfn;
     uint64 npages;
     uint64 old_uva;
-    uint8 old_flags;
+    uint32 old_flags;
     uint64 new_uva;
-    uint8 new_flags;
+    uint32 new_flags;
 } memslot_mapping;
 
 static void memslot_init(hax_memslot *dest, hax_memslot *src);
@@ -72,7 +72,7 @@ static void memslot_union(hax_memslot *dest, hax_memslot *src);
 static void memslot_overlap_front(hax_memslot *dest, hax_memslot *src);
 static void memslot_overlap_rear(hax_memslot *dest, hax_memslot *src);
 static hax_memslot * memslot_append_rest(hax_memslot *dest, hax_memslot *src);
-static bool memslot_is_valid(uint8 flags);
+static bool memslot_is_valid(uint32 flags);
 static bool memslot_is_same_type(hax_memslot *dest, hax_memslot *src);
 static bool memslot_is_inner(hax_memslot *dest, hax_memslot *src,
                              hax_gpa_space *gpa_space);
@@ -154,7 +154,7 @@ void memslot_dump_list(hax_gpa_space *gpa_space)
 }
 
 int memslot_set_mapping(hax_gpa_space *gpa_space, uint64 start_gfn,
-                        uint64 npages, uint64 uva, uint8 flags)
+                        uint64 npages, uint64 uva, uint32 flags)
 {
     hax_memslot memslot, *src = NULL, *dest = &memslot, *m = NULL;
     hax_ramblock *block = NULL;
@@ -409,7 +409,7 @@ static inline hax_memslot * memslot_append_rest(hax_memslot *dest,
     return rest;
 }
 
-static inline bool memslot_is_valid(uint8 flags)
+static inline bool memslot_is_valid(uint32 flags)
 {
     return (flags & HAX_MEMSLOT_INVALID) != HAX_MEMSLOT_INVALID;
 }

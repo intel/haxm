@@ -166,6 +166,7 @@ struct hax_module_version {
 #define HAX_CAP_FASTMMIO           (1 << 1)
 #define HAX_CAP_UG                 (1 << 2)
 #define HAX_CAP_64BIT_RAMBLOCK     (1 << 3)
+#define HAX_CAP_64BIT_SETRAM       (1 << 4)
 
 struct hax_capabilityinfo {
     /*
@@ -222,6 +223,15 @@ struct hax_set_ram_info {
     uint8_t flags;
     uint8_t pad[3];
     uint64_t va;
+} PACKED;
+
+struct hax_set_ram_info2 {
+    uint64_t pa_start;
+    uint64_t size;
+    uint64_t va;
+    uint32_t flags;
+    uint32_t reserved1;
+    uint64_t reserved2;
 } PACKED;
 
 /* This interface is support only after API version 2 */

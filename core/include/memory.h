@@ -69,7 +69,7 @@ typedef struct hax_memslot {
     // In bytes. < block->size
     uint64 offset_within_block;
     // Read-only, etc.
-    uint8 flags;
+    uint32 flags;
     // Turns this object into a list node
     hax_list_node entry;
 } hax_memslot;
@@ -209,7 +209,7 @@ void memslot_dump_list(hax_gpa_space *gpa_space);
 // -EINVAL: Invalid input.
 // -ENOMEM: Memory allocation error.
 int memslot_set_mapping(hax_gpa_space *gpa_space, uint64 start_gfn,
-                        uint64 npages, uint64 uva, uint8 flags);
+                        uint64 npages, uint64 uva, uint32 flags);
 
 // Finds in the given |hax_gpa_space| the |hax_memslot| containing the given
 // GFN.
