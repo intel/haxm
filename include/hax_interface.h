@@ -167,6 +167,7 @@ struct hax_module_version {
 #define HAX_CAP_UG                 (1 << 2)
 #define HAX_CAP_64BIT_RAMBLOCK     (1 << 3)
 #define HAX_CAP_64BIT_SETRAM       (1 << 4)
+#define HAX_CAP_TUNNEL_PAGE        (1 << 5)
 
 struct hax_capabilityinfo {
     /*

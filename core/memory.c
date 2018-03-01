@@ -386,7 +386,7 @@ int hax_vcpu_setup_hax_tunnel(struct vcpu_t *cv, struct hax_tunnel_info *info)
     // The tunnel and iobuf are always set together.
     if (cv->tunnel && cv->iobuf_vcpumem) {
         hax_info("setup hax tunnel request for already setup one\n");
-        info->size = sizeof(struct hax_tunnel);
+        info->size = PAGE_SIZE;
         info->va = cv->tunnel_vcpumem->uva;
         info->io_va = cv->iobuf_vcpumem->uva;
         return 0;
@@ -400,8 +400,7 @@ int hax_vcpu_setup_hax_tunnel(struct vcpu_t *cv, struct hax_tunnel_info *info)
     if (!cv->iobuf_vcpumem)
         goto error;
 
-    ret = hax_setup_vcpumem(cv->tunnel_vcpumem, 0, sizeof(struct hax_tunnel),
-                            0);
+    ret = hax_setup_vcpumem(cv->tunnel_vcpumem, 0, PAGE_SIZE, 0);
     if (ret < 0)
         goto error;
 
@@ -411,7 +410,7 @@ int hax_vcpu_setup_hax_tunnel(struct vcpu_t *cv, struct hax_tunnel_info *info)
 
     info->va = cv->tunnel_vcpumem->uva;
     info->io_va = cv->iobuf_vcpumem->uva;
-    info->size = sizeof(struct hax_tunnel);
+    info->size = PAGE_SIZE;
     set_vcpu_tunnel(cv, (struct hax_tunnel *)cv->tunnel_vcpumem->kva,
                     (uint8_t *)cv->iobuf_vcpumem->kva);
     return 0;

@@ -94,6 +94,7 @@ itself as well as the host environment.
   #define HAX_CAP_UG                 (1 << 2)
   #define HAX_CAP_64BIT_RAMBLOCK     (1 << 3)
   #define HAX_CAP_64BIT_SETRAM       (1 << 4)
+  #define HAX_CAP_TUNNEL_PAGE        (1 << 5)
   ```
   * (Output) `wstatus`: The first set of capability flags reported to the
 caller. The following bits may be set, while others are reserved:
@@ -364,7 +365,12 @@ caller is smaller than the size of `struct hax_qemu_version`.
 
 ### VCPU IOCTLs
 #### HAX\_VCPU\_IOCTL\_SETUP\_TUNNEL
-TODO: Describe
+In order to avoid the backward compatibility issue caused by that new fields
+are added in `struct hax_tunnel`, it allocates one while page, instead of just
+the size of `struct hax_tunnel`, to store `struct hax_tunnel` and then maps
+this page to user space and kernel space seperately as the communication tunnel
+between HAXM kernel and user (QEMU) modules. Meanwhile, a new capability flag
+`HAX_CAP_TUNNEL_PAGE` is added for backward compatibility with low verions.
 
 * Since: API v1
 * Parameter: `struct hax_tunnel_info info`, where
