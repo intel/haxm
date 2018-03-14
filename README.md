@@ -39,13 +39,13 @@ If successful, the driver binary (`IntelHaxm.sys`) will be generated in
 ## Building for macOS
 Prerequisites:
 * Xcode 7.2.1 or later
-* OS X 10.9 SDK (archived [here][osx-sdks])
+* OS X 10.10 SDK (archived [here][osx-sdks])
 
 Build steps:
 1. `cd /path/to/haxm/`
 1. `cd darwin/hax_driver/com_intel_hax/`
 1. `xcodebuild -config Release`
-   * Use `-sdk` to override the default macOS SDK version (10.9), e.g.
+   * Use `-sdk` to override the default macOS SDK version (10.10), e.g.
 `-sdk macosx10.12`.
 
 If successful, the kext (`intelhaxm.kext/`) will be generated in
