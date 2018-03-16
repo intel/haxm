@@ -415,7 +415,10 @@ static uint64 pw_retrieve_phys_addr(PW_PAGE_ENTRY *entry, bool is_pae)
         return ((uint64)addr_high << PW_HIGH_ADDRESS_SHIFT) | addr_low;
     }
 
-    return entry->non_pae_entry.bits.addr_base << PW_TABLE_SHIFT;
+    // Must convert the uint32 bit-field to uint64 before the shift. Otherwise,
+    // on Mac the shift result will be sign-extended to 64 bits (Clang bug?),
+    // yielding invalid GPAs such as 0xffffffff801c8000.
+    return (uint64)entry->non_pae_entry.bits.addr_base << PW_TABLE_SHIFT;
 }
 
 static uint64 pw_retrieve_big_page_phys_addr(PW_PAGE_ENTRY *entry, bool is_pae,
