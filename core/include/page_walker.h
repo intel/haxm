@@ -65,6 +65,6 @@ typedef uint64 ADDRESS;
 uint32 pw_perform_page_walk(IN struct vcpu_t *vcpu, IN uint64 virt_addr,
                             IN uint32 access, OUT uint64 *gpa_out,
                             OUT uint *order, IN bool set_ad_bits,
-                            IN bool is_fetch);
+                            IN bool is_fetch, OUT uint64 *fault_gfn);
 
 #endif  // HAX_CORE_PAGE_WALKER_H_

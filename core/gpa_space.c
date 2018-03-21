@@ -120,9 +120,9 @@ void gpa_space_remove_listener(hax_gpa_space *gpa_space,
 // hax_unmap_user_pages().
 static int gpa_space_map_range(hax_gpa_space *gpa_space, uint64 start_gpa,
                                int len, uint8 **buf, hax_kmap_user *kmap,
-                               bool *writable)
+                               bool *writable, uint64 *fault_gfn)
 {
-    uint64 gfn;
+    uint64 gfn, i;
     uint delta, size, npages;
     hax_memslot *slot;
     hax_ramblock *block;
@@ -144,6 +144,14 @@ static int gpa_space_map_range(hax_gpa_space *gpa_space, uint64 start_gpa,
     delta = (uint) (start_gpa - (gfn << PG_ORDER_4K));
     size = (uint) len + delta;
     npages = (size + PAGE_SIZE_4K - 1) >> PG_ORDER_4K;
+
+    // Check gpa protection bitmap
+    for (i = gfn; i < gfn + npages;)
+        if (gpa_space_chunk_protected(gpa_space, i, fault_gfn))
+            return -EPERM;
+        else
+            i = (i/HAX_CHUNK_NR_PAGES + 1)*HAX_CHUNK_NR_PAGES;
+
     slot = memslot_find(gpa_space, gfn);
     if (!slot) {
         hax_error("%s: start_gpa=0x%llx is reserved for MMIO\n", __func__,
@@ -194,7 +202,7 @@ static int gpa_space_map_range(hax_gpa_space *gpa_space, uint64 start_gpa,
 }
 
 int gpa_space_read_data(hax_gpa_space *gpa_space, uint64 start_gpa, int len,
-                        uint8 *data)
+                        uint8 *data, uint64 *fault_gfn)
 {
     uint8 *buf;
     hax_kmap_user kmap;
@@ -205,10 +213,12 @@ int gpa_space_read_data(hax_gpa_space *gpa_space, uint64 start_gpa, int len,
         return -EINVAL;
     }
 
-    ret = gpa_space_map_range(gpa_space, start_gpa, len, &buf, &kmap, NULL);
+    ret = gpa_space_map_range(gpa_space, start_gpa, len,
+                              &buf, &kmap, NULL, fault_gfn);
     if (ret < 0) {
-        hax_error("%s: gpa_space_map_range() failed: start_gpa=0x%llx,"
-                  " len=%d\n", __func__, start_gpa, len);
+        if (ret != -EPERM)
+            hax_error("%s: gpa_space_map_range() failed: start_gpa=0x%llx,"
+                      " len=%d\n", __func__, start_gpa, len);
         return ret;
     }
 
@@ -232,7 +242,7 @@ int gpa_space_read_data(hax_gpa_space *gpa_space, uint64 start_gpa, int len,
 }
 
 int gpa_space_write_data(hax_gpa_space *gpa_space, uint64 start_gpa, int len,
-                         uint8 *data)
+                         uint8 *data, uint64 *fault_gfn)
 {
     uint8 *buf;
     hax_kmap_user kmap;
@@ -245,10 +255,11 @@ int gpa_space_write_data(hax_gpa_space *gpa_space, uint64 start_gpa, int len,
     }
 
     ret = gpa_space_map_range(gpa_space, start_gpa, len, &buf, &kmap,
-                              &writable);
+                              &writable, fault_gfn);
     if (ret < 0) {
-        hax_error("%s: gpa_space_map_range() failed: start_gpa=0x%llx,"
-                  " len=%d\n", __func__, start_gpa, len);
+        if (ret != -EPERM)
+            hax_error("%s: gpa_space_map_range() failed: start_gpa=0x%llx,"
+                      " len=%d\n", __func__, start_gpa, len);
         return ret;
     }
     if (!writable) {
@@ -276,24 +287,26 @@ int gpa_space_write_data(hax_gpa_space *gpa_space, uint64 start_gpa, int len,
     return nbytes;
 }
 
-void * gpa_space_map_page(hax_gpa_space *gpa_space, uint64 gfn,
-                          hax_kmap_user *kmap, bool *writable)
+int gpa_space_map_page(hax_gpa_space *gpa_space, uint64 gfn,
+                          hax_kmap_user *kmap, bool *writable,
+                          void **kva, uint64 *fault_gfn)
 {
     uint8 *buf;
     int ret;
-    void *kva;
 
     assert(gpa_space != NULL);
     assert(kmap != NULL);
     ret = gpa_space_map_range(gpa_space, gfn << PG_ORDER_4K, PAGE_SIZE_4K, &buf,
-                              kmap, writable);
+                              kmap, writable, fault_gfn);
     if (ret < PAGE_SIZE_4K) {
-        hax_error("%s: gpa_space_map_range() returned %d\n", __func__, ret);
-        return NULL;
+        if (ret != -EPERM)
+            hax_error("%s: gpa_space_map_range() returned %d\n", __func__, ret);
+        *kva = NULL;
+        return ret;
     }
-    kva = (void *) buf;
-    assert(kva != NULL);
-    return kva;
+    *kva = (void *) buf;
+    assert(*kva != NULL);
+    return 0;
 }
 
 void gpa_space_unmap_page(hax_gpa_space *gpa_space, hax_kmap_user *kmap)

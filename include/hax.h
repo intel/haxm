@@ -38,8 +38,8 @@
 
 extern int hax_page_size;
 
-#define HAX_CUR_VERSION    0x0004
-#define HAX_COMPAT_VERSION 0x0001
+#define HAX_CUR_VERSION    0x0005
+#define HAX_COMPAT_VERSION 0x0002
 
 // EPT2 refers to the new memory virtualization engine, which implements lazy
 // allocation, and therefore greatly speeds up ALLOC_RAM and SET_RAM VM ioctls

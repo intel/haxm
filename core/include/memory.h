@@ -254,13 +254,15 @@ void gpa_space_remove_listener(hax_gpa_space *gpa_space,
 // |len|: The number of bytes to copy.
 // |data|: The destination buffer to copy the bytes into, whose size must be at
 //         least |len| bytes.
+// |fault_gpn|: The faulting gpn as a result of gpa range protection.
 // Returns the number of bytes actually copied, or one of the following error
 // codes:
 // -EINVAL: Invalid input, e.g. |data| is NULL, or the GPA range specified by
 //          |start_gpa| and |len| touches an MMIO region.
 // -ENOMEM: Unable to map the requested guest page frames into KVA space.
+// -EPARM:  Fault occurred due to violation of gpa range protection.
 int gpa_space_read_data(hax_gpa_space *gpa_space, uint64 start_gpa, int len,
-                        uint8 *data);
+                        uint8 *data, uint64 *fault_gfn);
 
 // Copies the given number of bytes from the given buffer to guest RAM.
 // |gpa_space|: The |hax_gpa_space| of the guest.
@@ -270,6 +272,7 @@ int gpa_space_read_data(hax_gpa_space *gpa_space, uint64 start_gpa, int len,
 // |len|: The number of bytes to copy.
 // |data|: The source buffer to copy the bytes from, whose size must be at least
 //         |len| bytes.
+// |fault_gpn|: The faulting gpn as a result of gpa range protection.
 // Returns the number of bytes actually copied, or one of the following error
 // codes:
 // -EINVAL: Invalid input, e.g. |data| is NULL, or the GPA range specified by
@@ -277,8 +280,9 @@ int gpa_space_read_data(hax_gpa_space *gpa_space, uint64 start_gpa, int len,
 // -ENOMEM: Unable to map the requested guest page frames into KVA space.
 // -EACCES: The GPA range specified by |start_gpa| and |len| touches a ROM
 //          region.
+// -EPARM:  Fault occurred due to violation of gpa range protection.
 int gpa_space_write_data(hax_gpa_space *gpa_space, uint64 start_gpa, int len,
-                         uint8 *data);
+                         uint8 *data, uint64 *fault_gfn);
 
 // Maps the given guest page frame into KVA space, stores the KVA mapping in the
 // given buffer, and returns the KVA. The caller must destroy the KVA mapping
@@ -291,8 +295,9 @@ int gpa_space_write_data(hax_gpa_space *gpa_space, uint64 start_gpa, int len,
 //             page frame is writable (i.e. maps to RAM). Can be NULL if the
 //             caller only wants to read from the page.
 // Returns NULL on error.
-void * gpa_space_map_page(hax_gpa_space *gpa_space, uint64 gfn,
-                          hax_kmap_user *kmap, bool *writable);
+int gpa_space_map_page(hax_gpa_space *gpa_space, uint64 gfn,
+                       hax_kmap_user *kmap, bool *writable,
+                       void **kva, uint64 *fault_gfn);
 
 // Destroys the KVA mapping previously created by gpa_space_map_page().
 void gpa_space_unmap_page(hax_gpa_space *gpa_space, hax_kmap_user *kmap);
