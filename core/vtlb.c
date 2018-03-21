@@ -72,7 +72,7 @@ static pagemode_t vcpu_get_pagemode(struct vcpu_t *vcpu);
 static pte64_t * vtlb_get_pde(hax_mmu_t *mmu, vaddr_t va, bool is_shadow);
 static uint32 vcpu_mmu_walk(struct vcpu_t *vcpu, vaddr_t va, uint32 access,
                             paddr_t *pa, uint *order, uint64 *flags,
-                            bool update, bool prefetch);
+                            bool update, bool prefetch, uint64 *fault_gfn);
 
 static void vtlb_update_pde(pte64_t *pde, pte64_t *shadow_pde,
                             struct hax_page *page)
@@ -413,7 +413,8 @@ void vtlb_invalidate(hax_mmu_t *mmu)
 }
 
 static uint vtlb_handle_page_fault(struct vcpu_t *vcpu, pagemode_t guest_mode,
-                                   paddr_t pdir, vaddr_t va, uint32 access)
+                                   paddr_t pdir, vaddr_t va, uint32 access,
+                                   uint64 *fault_gfn)
 {
     uint r;
     paddr_t gpa;
@@ -474,7 +475,7 @@ static uint vtlb_handle_page_fault(struct vcpu_t *vcpu, pagemode_t guest_mode,
         }
         case PM_2LVL: {
             r = vcpu_mmu_walk(vcpu, va, access, &gpa, &tlb.guest_order,
-                              &tlb.flags, true, /*true*/false);
+                              &tlb.flags, true, /*true*/false, fault_gfn);
             break;
         }
         default: {
@@ -538,8 +539,9 @@ uint64 vtlb_get_cr3(struct vcpu_t *vcpu)
  */
 static uint32 vcpu_mmu_walk(struct vcpu_t *vcpu, vaddr_t va, uint32 access,
                             paddr_t *pa, uint *order, uint64 *flags,
-                            bool update, bool prefetch)
+                            bool update, bool prefetch, uint64 *fault_gfn)
 {
+    int ret;
     uint lvl, idx;
     void *pte_va;
 #ifdef CONFIG_HAX_EPT2
@@ -585,9 +587,14 @@ retry:
         // Fetch the page table entry.
         idx = pte32_get_idx(lvl, va);
 #ifdef CONFIG_HAX_EPT2
-        pte_va = gpa_space_map_page(&vcpu->vm->gpa_space,
-                                    gpt_base >> PG_ORDER_4K, &pte_kmap,
-                                    &writable);
+        ret = gpa_space_map_page(&vcpu->vm->gpa_space,
+                                 gpt_base >> PG_ORDER_4K, &pte_kmap,
+                                 &writable, &pte_va, fault_gfn);
+        if (ret < 0) {
+            if (ret == -EPERM)
+                return TF_FAILED | TF_GPA_PROT;
+            return TF_FAILED;
+        }
 #else // !CONFIG_HAX_EPT2
 #if (!defined(__MACH__) && !defined(_WIN64))
         pte_va = hax_map_gpfn(vcpu->vm, gpt_base >> 12, is_kernel, g_cr3, lvl);
@@ -778,14 +785,15 @@ retry:
     return TF_OK;
 }
 
-bool handle_vtlb(struct vcpu_t *vcpu)
+int handle_vtlb(struct vcpu_t *vcpu, uint64 *fault_gfn)
 {
     uint32 access = vmx(vcpu, exit_exception_error_code);
     pagemode_t mode = vcpu_get_pagemode(vcpu);
     paddr_t pdir = vcpu->state->_cr3 & (mode == PM_PAE ? ~0x1fULL : ~0xfffULL);
     vaddr_t cr2 = vmx(vcpu, exit_qualification).address;
 
-    uint32 ret = vtlb_handle_page_fault(vcpu, mode, pdir, cr2, access);
+    uint32 ret = vtlb_handle_page_fault(vcpu, mode, pdir, cr2, access,
+                                        fault_gfn);
 
     hax_debug("handle vtlb fault @%llx\n", cr2);
     if (ret == 0) {
@@ -797,6 +805,9 @@ bool handle_vtlb(struct vcpu_t *vcpu)
         hax_debug("G2H translation failed (%08llx, %x)\n", cr2, access);
         return 0;
     }
+
+    if (ret == (TF_FAILED | TF_GPA_PROT))
+        return -EPERM;
 
     // Otherwise, inject PF into guest
     access = ret & (vcpu->state->_efer & IA32_EFER_XD ? 0x1f : 0x0f);
@@ -845,35 +856,45 @@ static inline void * mmio_map_guest_virtual_page_fast(struct vcpu_t *vcpu,
     return vcpu->mmio_fetch.kva;
 }
 
-static void * mmio_map_guest_virtual_page_slow(struct vcpu_t *vcpu, uint64 gva,
-                                               hax_kmap_user *kmap)
+static int mmio_map_guest_virtual_page_slow(struct vcpu_t *vcpu, uint64 gva,
+                                            hax_kmap_user *kmap,
+                                            void **addr, uint64 *fault_gfn)
 {
     uint64 gva_aligned = gva & pgmask(PG_ORDER_4K);
     uint64 gpa;
     uint ret;
     void *kva;
 
-    ret = vcpu_translate(vcpu, gva_aligned, 0, &gpa, NULL, true);
+    ret = vcpu_translate(vcpu, gva_aligned, 0, &gpa, NULL, true, fault_gfn);
     if (ret) {
-        hax_error("%s: vcpu_translate() returned 0x%x: vcpu_id=%u,"
+        if (ret != -EPERM)
+            hax_error("%s: vcpu_translate() returned 0x%x: vcpu_id=%u,"
                   " gva=0x%llx\n", __func__, ret, vcpu->vcpu_id, gva);
         // TODO: Inject a guest page fault?
-        return NULL;
+        *addr = NULL;
+        return ret;
     }
     hax_debug("%s: gva=0x%llx => gpa=0x%llx, vcpu_id=0x%u\n", __func__,
               gva_aligned, gpa, vcpu->vcpu_id);
 
-    kva = gpa_space_map_page(&vcpu->vm->gpa_space, gpa >> PG_ORDER_4K, kmap,
-                             NULL);
+    ret = gpa_space_map_page(&vcpu->vm->gpa_space, gpa >> PG_ORDER_4K, kmap,
+                             NULL, &kva, fault_gfn);
+    if (ret == -EPERM) {
+        *addr = NULL;
+        return ret;
+    }
     if (!kva) {
         hax_error("%s: gpa_space_map_page() failed: vcpu_id=%u, gva=0x%llx,"
                   " gpa=0x%llx\n", __func__, vcpu->vcpu_id, gva, gpa);
-        return NULL;
+        *addr = NULL;
+        return ret;
     }
-    return kva;
+    *addr = kva;
+    return 0;
 }
 
-int mmio_fetch_instruction(struct vcpu_t *vcpu, uint64 gva, uint8 *buf, int len)
+int mmio_fetch_instruction(struct vcpu_t *vcpu, uint64 gva, uint8 *buf,
+                           int len, uint64 *fault_gfn)
 {
     uint64 end_gva;
     uint8 *src_buf;
@@ -885,12 +906,16 @@ int mmio_fetch_instruction(struct vcpu_t *vcpu, uint64 gva, uint8 *buf, int len)
     assert(len > 0 && len <= 15);
     end_gva = gva + (uint)len - 1;
     if ((gva >> PG_ORDER_4K) != (end_gva >> PG_ORDER_4K)) {
-        uint32 ret;
+        int ret;
+        uint32 cnt_read;
 
         hax_info("%s: GVA range spans two pages: gva=0x%llx, len=%d\n",
                  __func__, gva, len);
-        ret = vcpu_read_guest_virtual(vcpu, gva, buf, (uint)len, (uint)len, 0);
+        ret = vcpu_read_guest_virtual(vcpu, gva, buf, (uint)len, (uint)len, 0,
+                                      &cnt_read, fault_gfn);
         if (!ret) {
+            if (ret == -EPERM)
+                return ret;
             hax_error("%s: vcpu_read_guest_virtual() failed: vcpu_id=%u,"
                       " gva=0x%llx, len=%d\n", __func__, vcpu->vcpu_id, gva,
                       len);
@@ -901,8 +926,11 @@ int mmio_fetch_instruction(struct vcpu_t *vcpu, uint64 gva, uint8 *buf, int len)
 
     src_buf = mmio_map_guest_virtual_page_fast(vcpu, gva, len);
     if (!src_buf) {
-        src_buf = mmio_map_guest_virtual_page_slow(vcpu, gva,
-                                                   &vcpu->mmio_fetch.kmap);
+        int ret = mmio_map_guest_virtual_page_slow(vcpu, gva,
+                                                   &vcpu->mmio_fetch.kmap,
+                                                   &src_buf, fault_gfn);
+        if (ret == -EPERM)
+            return ret;
         if (!src_buf) {
             return -ENOMEM;
         }
@@ -929,12 +957,14 @@ int mmio_fetch_instruction(struct vcpu_t *vcpu, uint64 gva, uint8 *buf, int len)
  * If flag is 2, the memory read is for internal use. It does not update the
  * guest page tables. It returns the number of bytes read.
  */
-uint32 vcpu_read_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr, void *dst,
-                               uint32 dst_buflen, uint32 size, uint flag)
+int vcpu_read_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr, void *dst,
+                               uint32 dst_buflen, uint32 size, uint flag,
+                               uint32 *cnt_read, uint64 *fault_gfn)
 {
     // TBD: use guest CPL for access checks
     char *dstp = dst;
     uint32 offset = 0;
+    int ret = 0;
 #ifdef CONFIG_HAX_EPT2
     int len2;
 #else // !CONFIG_HAX_EPT2
@@ -957,10 +987,15 @@ uint32 vcpu_read_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr, void *dst,
     while (offset < size) {
         paddr_t gpa;
         uint64 len = size - offset;
-        uint r = vcpu_translate(vcpu, addr + offset, 0, &gpa, &len, flag != 2);
+        uint r = vcpu_translate(vcpu, addr + offset, 0, &gpa, &len, flag != 2,
+                                fault_gfn);
         if (r != 0) {
-            if (flag != 0)
-                return offset;  // Number of bytes successfully read
+            if (r == (TF_FAILED | TF_GPA_PROT))
+                return -EPERM;
+            if (flag != 0) {
+                *cnt_read = offset;
+                return true;  // Number of bytes successfully read
+            }
             if (r & TF_GP2HP) {
                 hax_error("read_guest_virtual(%llx, %x) failed\n", addr, size);
             }
@@ -976,12 +1011,14 @@ uint32 vcpu_read_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr, void *dst,
 //      }
 #ifdef CONFIG_HAX_EPT2
         len2 = gpa_space_read_data(&vcpu->vm->gpa_space, gpa, (int)len,
-                                   (uint8 *)(dstp + offset));
+                                   (uint8 *)(dstp + offset), fault_gfn);
         if (len2 <= 0) {
-            hax_panic_vcpu(
+            if (len2 != -EPERM)
+                hax_panic_vcpu(
                     vcpu, "read guest virtual error, gpa:0x%llx, len:0x%llx\n",
                     gpa, len);
-            return false;
+            *cnt_read = 0;
+            return len2;
         } else {
             len = (uint64)len2;
         }
@@ -1006,7 +1043,8 @@ uint32 vcpu_read_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr, void *dst,
         offset += len;
     }
 
-    return flag != 0 ? size : true;
+    *cnt_read = size;
+    return true;
 }
 
 /*
@@ -1021,9 +1059,9 @@ uint32 vcpu_read_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr, void *dst,
  * A flag value of 2 is implemented, but not used. It does not update the guest
  * page tables. It returns the number of bytes written.
  */
-uint32 vcpu_write_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr,
-                                uint32 dst_buflen, const void *src, uint32 size,
-                                uint flag)
+int vcpu_write_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr,
+                             uint32 dst_buflen, const void *src, uint32 size,
+                             uint flag, uint32 *cnt_write, uint64 *fault_gfn)
 {
     // TODO: use guest CPL for access checks
     const char *srcp = src;
@@ -1052,10 +1090,14 @@ uint32 vcpu_write_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr,
         paddr_t gpa;
         uint64 len = size - offset;
         uint r = vcpu_translate(vcpu, addr + offset, TF_WRITE, &gpa, &len,
-                                flag != 2);
+                                flag != 2, fault_gfn);
         if (r != 0) {
-            if (flag != 0)
-                return offset;  // Number of bytes successfully written
+            if (r == (TF_FAILED | TF_GPA_PROT))
+                return -EPERM;
+            if (flag != 0) {
+                *cnt_write = offset;
+                return true;  // Number of bytes successfully written
+            }
             if (r & TF_GP2HP) {
                 hax_panic_vcpu(vcpu, "write_guest_virtual(%llx, %x) failed\n",
                                addr, size);
@@ -1068,12 +1110,14 @@ uint32 vcpu_write_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr,
         }
 #ifdef CONFIG_HAX_EPT2
         len2 = (uint64)gpa_space_write_data(&vcpu->vm->gpa_space, gpa, len,
-                                            (uint8 *)(srcp + offset));
+                                           (uint8 *)(srcp + offset), fault_gfn);
         if (len2 <= 0) {
-            hax_panic_vcpu(
+            if (len2 != -EPERM)
+                hax_panic_vcpu(
                     vcpu, "write guest virtual error, gpa:0x%llx, len:0x%llx\n",
                     gpa, len);
-            return false;
+            *cnt_write = 0;
+            return len2;
         } else {
             len = len2;
         }
@@ -1098,7 +1142,8 @@ uint32 vcpu_write_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr,
         offset += len;
     }
 
-    return flag != 0 ? size : true;
+    *cnt_write = offset;
+    return true;
 }
 
 /*
@@ -1112,7 +1157,7 @@ uint32 vcpu_write_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr,
  * number otherwise.
  */
 uint vcpu_translate(struct vcpu_t *vcpu, vaddr_t va, uint access, paddr_t *pa,
-                    uint64 *len, bool update)
+                    uint64 *len, bool update, uint64 *fault_gfn)
 {
     pagemode_t mode = vcpu_get_pagemode(vcpu);
     uint order = 0;
@@ -1133,7 +1178,7 @@ uint vcpu_translate(struct vcpu_t *vcpu, vaddr_t va, uint access, paddr_t *pa,
         case PM_PAE:
         case PM_PML4: {
             r = pw_perform_page_walk(vcpu, va, access, pa, &order, update,
-                                     false);
+                                     false, fault_gfn);
             break;
         }
         default: {

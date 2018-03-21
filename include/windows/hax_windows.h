@@ -116,10 +116,10 @@ static inline void hax_mutex_free(hax_mutex lock)
 }
 
 /* Return true if the bit is set already */
-static int hax_test_and_set_bit(int bit, uint64_t *memory)
+static int hax_test_and_set_bit(uint64 bit, uint64_t *memory)
 {
     long *base = (long *)memory;
-    long nr_long;
+    uint64 nr_long;
     long bitoffset_in_long;
     long bits_per_long = sizeof(long) * 8;
 
@@ -139,10 +139,10 @@ static int hax_test_and_set_bit(int bit, uint64_t *memory)
  * Return true if the bit is cleared already
  * Notice that InterlockedBitTestAndReset return original value in that bit
  */
-static int hax_test_and_clear_bit(int bit, uint64_t *memory)
+static int hax_test_and_clear_bit(uint64 bit, uint64_t *memory)
 {
     long * base = (long *)memory;
-    long nr_long;
+    uint64 nr_long;
     long bitoffset_in_long;
     long bits_per_long = sizeof(long) * 8;
 
@@ -159,9 +159,9 @@ static int hax_test_and_clear_bit(int bit, uint64_t *memory)
 }
 
 /* Don't care for the big endian situation */
-static bool hax_test_bit(int bit, uint64_t *memory)
+static bool hax_test_bit(uint64 bit, uint64_t *memory)
 {
-    int byte = bit / 8;
+    uint64 byte = bit / 8;
     unsigned char *p;
     int offset = bit % 8;
 

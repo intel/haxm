@@ -43,7 +43,8 @@ enum {
     TF_WRITE   = 0x00000002,    // Fault due to write
     TF_USER    = 0x00000004,    // Fault due to user mode
     TF_RSVD    = 0x00000008,    // Fault due to reserved bit violation
-    TF_EXEC    = 0x00000010     // Fault due to exec protection
+    TF_EXEC    = 0x00000010,    // Fault due to exec protection
+    TF_GPA_PROT= 0x00000020     // Fault due to gpa space protection
 };
 
 #define EXECUTION_DISABLE_MASK 0x8000000000000000ULL
@@ -100,16 +101,17 @@ void vcpu_invalidate_tlb_addr(struct vcpu_t *vcpu, vaddr_t va);
 uint vcpu_vtlb_alloc(struct vcpu_t *vcpu);
 void vcpu_vtlb_free(struct vcpu_t *vcpu);
 
-bool handle_vtlb(struct vcpu_t *vcpu);
+int handle_vtlb(struct vcpu_t *vcpu, uint64 *fault_gfn);
 
 uint vcpu_translate(struct vcpu_t *vcpu, vaddr_t va, uint access, paddr_t *pa,
-                    uint64 *len, bool update);
+                    uint64 *len, bool update, uint64 *fault_gfn);
 
-uint32 vcpu_read_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr, void *dst,
-                               uint32 dst_buflen, uint32 size, uint flag);
-uint32 vcpu_write_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr,
+int vcpu_read_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr, void *dst,
+                               uint32 dst_buflen, uint32 size, uint flag,
+                               uint32 *cnt_read, uint64 *fault_gfn);
+int vcpu_write_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr,
                                 uint32 dst_buflen, const void *src, uint32 size,
-                                uint flag);
+                                uint flag, uint32 *cnt_write, uint64 *fault_gfn);
 
 #ifdef CONFIG_HAX_EPT2
 /*
@@ -127,7 +129,7 @@ uint32 vcpu_write_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr,
  * -ENOMEM: Memory allocation/mapping error.
  */
 int mmio_fetch_instruction(struct vcpu_t *vcpu, uint64 gva, uint8 *buf,
-                           int len);
+                           int len, uint64 *fault_gfn);
 #endif  // CONFIG_HAX_EPT2
 
 void hax_inject_page_fault(struct vcpu_t *vcpu, mword error_code);

@@ -1404,12 +1404,14 @@ static int write_low_bits(uint64 *pdst, uint64 src, uint8 size)
     return 0;
 }
 
-static void handle_mmio_post(struct vcpu_t *vcpu, struct hax_fastmmio *hft)
+static int handle_mmio_post(struct vcpu_t *vcpu, struct hax_fastmmio *hft,
+                            uint64 *fault_gfn)
 {
     struct vcpu_state_t *state = vcpu->state;
+    int ret;
 
     if (hft->direction)
-        return;
+        return 0;
 
     if (vcpu->post_mmio.op == VCPU_POST_MMIO_WRITE_REG) {
         uint64 value;
@@ -1438,29 +1440,45 @@ static void handle_mmio_post(struct vcpu_t *vcpu, struct hax_fastmmio *hft)
                        hft->size);
     } else if (vcpu->post_mmio.op == VCPU_POST_MMIO_WRITE_MEM) {
         // Assume little-endian
-        if (!vcpu_write_guest_virtual(vcpu, vcpu->post_mmio.va, hft->size,
-                                      (uint8 *)&hft->value, hft->size, 0)) {
-            hax_panic_vcpu(vcpu, "Error writing %u bytes to guest RAM "
+        uint32 cnt_write;
+        if (!(ret = vcpu_write_guest_virtual(vcpu, vcpu->post_mmio.va,
+                                      hft->size,
+                                      (uint8 *)&hft->value, hft->size,
+                                      0, &cnt_write, fault_gfn))) {
+            if (ret != -EPERM)
+                hax_panic_vcpu(vcpu, "Error writing %u bytes to guest RAM "
                            "(va=0x%llx, value=0x%llx)\n", hft->size,
                            vcpu->post_mmio.va, hft->value);
+            return ret;
         }
     } else {
         hax_warning("Unknown post-MMIO operation %d\n", vcpu->post_mmio.op);
     }
+    return 0;
 }
 
-static void handle_io_post(struct vcpu_t *vcpu, struct hax_tunnel *htun)
+static int handle_io_post(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
     int size;
     struct vcpu_state_t *state = vcpu->state;
 
     if (htun->io._direction == HAX_IO_OUT)
-        return;
+        return 0;
 
     if (htun->io._flags == 1) {
+        int ret;
+        uint32 cnt_write;
+        uint64 fault_gfn;
         size = htun->io._count * htun->io._size;
-        if (!vcpu_write_guest_virtual(vcpu, htun->io._vaddr, IOS_MAX_BUFFER,
-                                      (void *)vcpu->io_buf, size, 0)) {
+        if (!(ret = vcpu_write_guest_virtual(vcpu, htun->io._vaddr,
+                                      IOS_MAX_BUFFER, (void *)vcpu->io_buf,
+                                      size, 0, &cnt_write, &fault_gfn))) {
+            if (ret == -EPERM) {
+                htun->_exit_status = HAX_EXIT_GPAPROT;
+                htun->gpaprot.gpa = fault_gfn << PG_ORDER_4K;
+                htun->gpaprot.access = 1;
+                return ret;
+            }
             hax_panic_vcpu(vcpu, "Unexpected page fault, kill the VM!\n");
             dump_vmcs(vcpu);
         }
@@ -1483,12 +1501,14 @@ static void handle_io_post(struct vcpu_t *vcpu, struct hax_tunnel *htun)
             }
         }
     }
+    return 0;
 }
 
 int vcpu_execute(struct vcpu_t *vcpu)
 {
     struct hax_tunnel *htun = vcpu->tunnel;
-    int err = 0;
+    int err = 0, ret = 0;
+    uint64 fault_gfn;
 
     hax_mutex_lock(vcpu->tmutex);
     hax_debug("vcpu begin to run....\n");
@@ -1502,10 +1522,20 @@ int vcpu_execute(struct vcpu_t *vcpu)
     hax_debug("vcpu begin to run....in PE\n");
 
     if (htun->_exit_status == HAX_EXIT_IO) {
-        handle_io_post(vcpu, htun);
+        ret = handle_io_post(vcpu, htun);
+        if (ret == -EPERM)
+            goto out;
     }
     if (htun->_exit_status == HAX_EXIT_FAST_MMIO) {
-        handle_mmio_post(vcpu, (struct hax_fastmmio *)vcpu->io_buf);
+        ret = handle_mmio_post(vcpu, (struct hax_fastmmio *)vcpu->io_buf,
+                               &fault_gfn);
+        if (ret == -EPERM) {
+            htun->_exit_status = HAX_EXIT_GPAPROT;
+            htun->gpaprot.gpa = fault_gfn << PG_ORDER_4K;
+            htun->gpaprot.access = 1;
+            goto out;
+        }
+
     }
     err = cpu_vmx_execute(vcpu, htun);
     vcpu_is_panic(vcpu);
@@ -1690,9 +1720,9 @@ void vcpu_vmwrite_all(struct vcpu_t *vcpu, int force_tlb_flush)
 // a) The guest is running in EPT mode (see IASDM Vol. 3C 26.3.2.4), and
 // b) Preemption is enabled for the current CPU.
 // Returns 0 on success, < 0 on error.
-static int vcpu_prepare_pae_pdpt(struct vcpu_t *vcpu)
+static int vcpu_prepare_pae_pdpt(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
-    uint64 cr3 = vcpu->state->_cr3;
+    uint64 cr3 = vcpu->state->_cr3, fault_gfn;
     int pdpt_size = (int)sizeof(vcpu->pae_pdptes);
 #ifdef CONFIG_HAX_EPT2
     // CR3 is the GPA of the page-directory-pointer table. According to IASDM
@@ -1706,7 +1736,13 @@ static int vcpu_prepare_pae_pdpt(struct vcpu_t *vcpu)
     // simply disabling IRQs). Therefore, it is not safe to call this function
     // with preemption disabled.
     ret = gpa_space_read_data(&vcpu->vm->gpa_space, gpa, pdpt_size,
-                              (uint8 *)vcpu->pae_pdptes);
+                              (uint8 *)vcpu->pae_pdptes, &fault_gfn);
+    if (ret == -EPERM) {
+        htun->_exit_status = HAX_EXIT_GPAPROT;
+        htun->gpaprot.gpa = fault_gfn << PG_ORDER_4K;
+        htun->gpaprot.access = 1;
+        return ret;
+    }
     // The PAE PDPT cannot span two page frames
     if (ret != pdpt_size) {
         hax_error("%s: Failed to read PAE PDPT: cr3=0x%llx, ret=%d\n", __func__,
@@ -2013,7 +2049,8 @@ static bool is_mmio_address(struct vcpu_t *vcpu, paddr_t gpa)
 }
 
 // Returns 0 on success, < 0 on error, > 0 if HAX_EXIT_MMIO is necessary.
-static int vcpu_simple_decode(struct vcpu_t *vcpu, struct decode *dc)
+static int vcpu_simple_decode(struct vcpu_t *vcpu, struct decode *dc,
+                              uint64 *fault_gfn)
 {
     uint64 cs_base = vcpu->state->_cs.base;
     uint64 rip = vcpu->state->_rip;
@@ -2037,6 +2074,7 @@ static int vcpu_simple_decode(struct vcpu_t *vcpu, struct decode *dc)
     int use_16bit_operands;
     uint8 operand_size;
     bool has_esc = false;  // Whether opcode begins with 0f (escape opcode byte)
+    int ret = 0;
 
     if (!qemu_support_fastmmio(vcpu)) {
         hax_warning("vcpu_simple_decode: QEMU does not support fast MMIO!\n");
@@ -2050,7 +2088,10 @@ static int vcpu_simple_decode(struct vcpu_t *vcpu, struct decode *dc)
     // limit and privilege checks
     va = is_64bit_mode ? rip : cs_base + rip;
 #ifdef CONFIG_HAX_EPT2
-    if (mmio_fetch_instruction(vcpu, va, instr, INSTR_MAX_LEN)) {
+    ret = mmio_fetch_instruction(vcpu, va, instr, INSTR_MAX_LEN, fault_gfn);
+    if (ret) {
+        if (ret == -EPERM)
+            return ret;
         hax_panic_vcpu(vcpu, "%s: mmio_fetch_instruction() failed: vcpu_id=%u,"
                        " gva=0x%llx (CS:IP=0x%llx:0x%llx), mmio_gpa=0x%llx\n",
                        __func__, vcpu->vcpu_id, va, cs_base, rip, dc->gpa);
@@ -2330,8 +2371,16 @@ done_legacy_pf:
             }
             src_pa = dst_pa = 0xffffffffffffffffULL;
             // TODO: Can vcpu_translate() fail?
-            vcpu_translate(vcpu, src_va, 0, &src_pa, NULL, true);
-            vcpu_translate(vcpu, dst_va, 0, &dst_pa, NULL, true);
+            ret = vcpu_translate(vcpu, src_va, 0, &src_pa, NULL, true,
+                                 fault_gfn);
+            if (ret == TF_FAILED | TF_GPA_PROT) {
+                return -EPERM;
+            }
+            ret = vcpu_translate(vcpu, dst_va, 0, &dst_pa, NULL, true,
+                                 fault_gfn);
+            if (ret == TF_FAILED | TF_GPA_PROT) {
+                return -EPERM;
+            }
             is_src_mmio = src_pa == dc->gpa || is_mmio_address(vcpu, src_pa);
             is_dst_mmio = dst_pa == dc->gpa || is_mmio_address(vcpu, dst_pa);
             if (is_src_mmio && is_dst_mmio) {
@@ -2480,8 +2529,13 @@ static int hax_setup_fastmmio(struct vcpu_t *vcpu, struct hax_tunnel *htun,
             break;
         }
         case OPCODE_MOVS_MEM_TO_IOMEM: {
+            uint32 cnt_read;
+            uint64 fault_gfn;
             // Source operand (saved in dec->va) is a non-I/O GVA
-            if (!vcpu_read_guest_virtual(vcpu, dec->va, buf, 8, dec->size, 0)) {
+            if (!vcpu_read_guest_virtual(vcpu, dec->va, buf, 8, dec->size, 0,
+                                         &cnt_read, &fault_gfn)) {
+                // hax_simple_decode should have detect protection fault
+                // and we do not do it twice here.
                 hax_panic_vcpu(vcpu, "Error reading %u bytes from guest RAM"
                                " (va=0x%llx, DS:RSI=0x%llx:0x%llx)\n",
                                dec->size, dec->va, vcpu->state->_ds.base,
@@ -2618,7 +2672,7 @@ static int exit_exc_nmi(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
     struct vcpu_state_t *state = vcpu->state;
     interruption_info_t exit_intr_info;
-    uint64 cr0;
+    uint64 cr0, fault_gfn;
 
     exit_intr_info.raw = vmx(vcpu, exit_intr_info).raw;
     htun->_exit_reason = vmx(vcpu, exit_reason).basic_reason;
@@ -2631,22 +2685,41 @@ static int exit_exc_nmi(struct vcpu_t *vcpu, struct hax_tunnel *htun)
         }
         case EXC_PAGEFAULT: {
             if (vtlb_active(vcpu)) {
-                if (handle_vtlb(vcpu))
+                int ret;
+                if ((ret = handle_vtlb(vcpu, &fault_gfn)) > 0)
                     return HAX_RESUME;
-
+                if (ret == -EPERM) {
+                    htun->_exit_status = HAX_EXIT_GPAPROT;
+                    htun->gpaprot.gpa = fault_gfn << PG_ORDER_4K;
+                    htun->gpaprot.access = 1;
+                    return HAX_EXIT;
+                }
                 paddr_t pa;
                 struct decode dec;
-                int ret;
                 vaddr_t cr2 = vmx(vcpu, exit_qualification).address;
+                uint64 fault_gfn;
 
-                ret = vcpu_simple_decode(vcpu, &dec);
+                ret = vcpu_simple_decode(vcpu, &dec, &fault_gfn);
                 if (ret < 0) {
+                    if (ret == -EPERM) {
+                        htun->_exit_status = HAX_EXIT_GPAPROT;
+                        htun->gpaprot.gpa = fault_gfn << PG_ORDER_4K;
+                        htun->gpaprot.access = 0x1;
+                        return HAX_EXIT;
+                    }
                     // vcpu_simple_decode() has called hax_panic_vcpu()
                     return HAX_RESUME;
                 } else if (ret > 0) {
                     handle_mem_fault(vcpu, htun);
                 } else {
-                    vcpu_translate(vcpu, cr2, 0, &pa, (uint64_t *)NULL, 0);
+                    ret = vcpu_translate(vcpu, cr2, 0, &pa, (uint64_t *)NULL,
+                                         0, &fault_gfn);
+                    if (ret == -EPERM) {
+                        htun->_exit_status = HAX_EXIT_GPAPROT;
+                        htun->gpaprot.gpa = fault_gfn << PG_ORDER_4K;
+                        htun->gpaprot.access = 0x1;
+                        return HAX_EXIT;
+                    }
                     dec.gpa = pa & 0xffffffff;
                     if (hax_setup_fastmmio(vcpu, htun, &dec)) {
                         // hax_setup_fastmmio() has called hax_panic_vcpu()
@@ -3168,13 +3241,16 @@ static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
                 // Vol. 3A 4.1.2, Figure 4-1) and needs to load its PDPTE
                 // registers, or already in PAE mode and needs to reload those
                 // registers
-                int ret = vcpu_prepare_pae_pdpt(vcpu);
-                if (ret) {
-                    hax_panic_vcpu(vcpu, "vCPU #%u failed to (re)load PDPT for"
+                int ret = vcpu_prepare_pae_pdpt(vcpu, htun);
+                switch (ret) {
+                    case HAX_EXIT:
+                        return ret;
+                    default:
+                        hax_panic_vcpu(vcpu, "vCPU #%u failed to (re)load PDPT for"
                                    " EPT+PAE mode: ret=%d\n",
                                    vcpu->vcpu_id, ret);
-                    dump_vmcs(vcpu);
-                    return HAX_RESUME;
+                        dump_vmcs(vcpu);
+                        return HAX_RESUME;
                 }
             }
 
@@ -3331,6 +3407,9 @@ static int handle_string_io(struct vcpu_t *vcpu, exit_qualification_t *qual,
     struct vcpu_state_t *state = vcpu->state;
     uint real_size, count, required_size;
     vaddr_t start, rindex;
+    int ret;
+    uint32 cnt_read, cnt_write;
+    uint64 fault_gfn;
 
     htun->io._flags = 1;
 
@@ -3368,14 +3447,30 @@ static int handle_string_io(struct vcpu_t *vcpu, exit_qualification_t *qual,
     }
 
     if (qual->io.direction == HAX_IO_OUT) {
-        if (!vcpu_read_guest_virtual(vcpu, start, vcpu->io_buf, IOS_MAX_BUFFER,
-                                     real_size, 0))
+        if (!(ret = vcpu_read_guest_virtual(vcpu, start, vcpu->io_buf,
+                                            IOS_MAX_BUFFER, real_size, 0,
+                                            &cnt_read, &fault_gfn))) {
+            if (ret == -EPERM) {
+                htun->_exit_status = HAX_EXIT_GPAPROT;
+                htun->gpaprot.gpa = fault_gfn << PG_ORDER_4K;
+                htun->gpaprot.access = 1;
+                return HAX_EXIT;
+            }
             return HAX_RESUME;
+        }
     } else {
         // HACK: Just ensure the buffer is mapped in the kernel.
-        if (!vcpu_write_guest_virtual(vcpu, start, IOS_MAX_BUFFER, vcpu->io_buf,
-                                      real_size, 0))
+        if (!(ret = vcpu_write_guest_virtual(vcpu, start, IOS_MAX_BUFFER,
+                                             vcpu->io_buf, real_size, 0,
+                                             &cnt_write, &fault_gfn))) {
+            if (ret == -EPERM) {
+                htun->_exit_status = HAX_EXIT_GPAPROT;
+                htun->gpaprot.gpa = fault_gfn << PG_ORDER_4K;
+                htun->gpaprot.access = 1;
+                return HAX_EXIT;
+            }
             return HAX_RESUME;
+        }
     }
 
     if (required_size <= IOS_MAX_BUFFER) {
@@ -3958,6 +4053,7 @@ static int exit_ept_violation(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     paddr_t gpa;
     struct decode dec;
     int ret = 0;
+    uint64 fault_gfn;
 
     htun->_exit_reason = vmx(vcpu, exit_reason).basic_reason;
 
@@ -3972,7 +4068,13 @@ static int exit_ept_violation(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 
 #ifdef CONFIG_HAX_EPT2
     ret = ept_handle_access_violation(&vcpu->vm->gpa_space, &vcpu->vm->ept_tree,
-                                      *qual, gpa);
+                                      *qual, gpa, &fault_gfn);
+    if (ret == -EPERM) {
+        htun->gpaprot.access = (qual->raw >> 3) & 7;
+        htun->gpaprot.gpa = fault_gfn << PG_ORDER_4K;
+        htun->_exit_status = HAX_EXIT_GPAPROT;
+        return HAX_EXIT;
+    }
     if (ret == -EACCES) {
         /*
          * For some reason, during boot-up, Chrome OS guests make hundreds of
@@ -3998,8 +4100,14 @@ static int exit_ept_violation(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 mmio_handler:
 #endif
 
-    ret = vcpu_simple_decode(vcpu, &dec);
+    ret = vcpu_simple_decode(vcpu, &dec, &fault_gfn);
     if (ret < 0) {
+        if (ret == -EPERM) {
+            htun->_exit_status = HAX_EXIT_GPAPROT;
+            htun->gpaprot.gpa = fault_gfn << PG_ORDER_4K;
+            htun->gpaprot.access = 1;
+            return HAX_EXIT;
+        }
         // vcpu_simple_decode() has called hax_panic_vcpu()
         return HAX_RESUME;
     } else if (ret > 0) {

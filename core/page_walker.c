@@ -561,8 +561,9 @@ static void pw_update_ad_bits(
 uint32 pw_perform_page_walk(
         IN struct vcpu_t *vcpu, IN uint64 virt_addr, IN uint32 access,
         OUT uint64 *gpa_out, OUT uint *order, IN bool set_ad_bits,
-        IN bool is_fetch)
+        IN bool is_fetch, OUT uint64 *fault_gfn)
 {
+    int ret;
     uint32 retval = TF_OK;
     uint64 efer_value = vcpu->state->_efer;
     bool is_nxe = ((efer_value & IA32_EFER_XD) != 0);
@@ -617,9 +618,16 @@ uint32 pw_perform_page_walk(
         if (is_lme) {
             pml4t_gpa = first_table;
 #ifdef CONFIG_HAX_EPT2
-            pml4t_hva = gpa_space_map_page(&vcpu->vm->gpa_space,
-                                           pml4t_gpa >> PG_ORDER_4K,
-                                           &pml4t_kmap, NULL);
+            ret = gpa_space_map_page(&vcpu->vm->gpa_space,
+                                     pml4t_gpa >> PG_ORDER_4K,
+                                     &pml4t_kmap, NULL,
+                                     &pml4t_hva, fault_gfn);
+            if (ret < 0) {
+                retval = TF_FAILED;
+                if (ret == -EPERM)
+                    retval |= TF_GPA_PROT;
+                goto out;
+            }
 #else // !CONFIG_HAX_EPT2
 #if (!defined(__MACH__) && !defined(_WIN64))
             pml4t_hva = hax_map_gpfn(vcpu->vm, pml4t_gpa >> 12, is_kernel, cr3,
@@ -653,9 +661,16 @@ uint32 pw_perform_page_walk(
         }
 
 #ifdef CONFIG_HAX_EPT2
-        pdpt_hva = gpa_space_map_page(&vcpu->vm->gpa_space,
+        ret = gpa_space_map_page(&vcpu->vm->gpa_space,
                                       pdpt_gpa >> PG_ORDER_4K,
-                                      &pdpt_kmap, NULL);
+                                      &pdpt_kmap, NULL,
+                                      &pdpt_hva, fault_gfn);
+        if (ret < 0) {
+            retval = TF_FAILED;
+            if (ret == -EPERM)
+                retval |= TF_GPA_PROT;
+            goto out;
+        }
 #else // !CONFIG_HAX_EPT2
 #if (!defined(__MACH__) && !defined(_WIN64))
         pdpt_hva = hax_map_gpfn(vcpu->vm, pdpt_gpa >> 12, is_kernel, cr3, 1);
@@ -729,8 +744,14 @@ uint32 pw_perform_page_walk(
 
     pd_gpa = is_pae ? pw_retrieve_phys_addr(&pdpte_val, is_pae) : first_table;
 #ifdef CONFIG_HAX_EPT2
-    pd_hva = gpa_space_map_page(&vcpu->vm->gpa_space, pd_gpa >> PG_ORDER_4K,
-                                &pd_kmap, NULL);
+    ret = gpa_space_map_page(&vcpu->vm->gpa_space, pd_gpa >> PG_ORDER_4K,
+                             &pd_kmap, NULL, &pd_hva, fault_gfn);
+    if (ret < 0) {
+        retval = TF_FAILED;
+        if (ret == -EPERM)
+            retval |= TF_GPA_PROT;
+        goto out;
+    }
 #else // !CONFIG_HAX_EPT2
 #if (!defined(__MACH__) && !defined(_WIN64))
     pd_hva = hax_map_gpfn(vcpu->vm, pd_gpa >> 12, is_kernel, cr3, 2);
@@ -807,8 +828,14 @@ uint32 pw_perform_page_walk(
     *order = PG_ORDER_4K;
     pt_gpa = pw_retrieve_phys_addr(&pde_val, is_pae);
 #ifdef CONFIG_HAX_EPT2
-    pt_hva = gpa_space_map_page(&vcpu->vm->gpa_space, pt_gpa >> 12, &pt_kmap,
-                                NULL);
+    ret = gpa_space_map_page(&vcpu->vm->gpa_space, pt_gpa >> 12, &pt_kmap,
+                             NULL, &pt_hva, fault_gfn);
+    if (ret < 0) {
+        retval = TF_FAILED;
+        if (ret == -EPERM)
+            retval |= TF_GPA_PROT;
+        goto out;
+    }
 #else // !CONFIG_HAX_EPT2
 #if (!defined(__MACH__) && !defined(_WIN64))
     pt_hva = hax_map_gpfn(vcpu->vm, pt_gpa >> 12, is_kernel, cr3, 1);

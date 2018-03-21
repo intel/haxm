@@ -33,6 +33,7 @@
 #include "../include/hax.h"
 #include "include/paging.h"
 #include "../include/hax_host_mem.h"
+#include "ept2.h"
 
 int gpa_space_init(hax_gpa_space *gpa_space)
 {
@@ -59,6 +60,13 @@ int gpa_space_init(hax_gpa_space *gpa_space)
     return ret;
 }
 
+static uint64 gpa_space_prot_bitmap_size(uint64 npages)
+{
+    uint64 bitmap_size = (npages + 7)/8;
+    bitmap_size += 8;
+    return bitmap_size;
+}
+
 void gpa_space_free(hax_gpa_space *gpa_space)
 {
     hax_gpa_space_listener *listener, *tmp;
@@ -75,6 +83,9 @@ void gpa_space_free(hax_gpa_space *gpa_space)
                                  hax_gpa_space_listener, entry) {
         hax_list_del(&listener->entry);
     }
+    if (gpa_space->prot_bitmap.bitmap)
+        hax_vfree(gpa_space->prot_bitmap.bitmap,
+                  gpa_space_prot_bitmap_size(gpa_space->prot_bitmap.max_gpfn));
 }
 
 void gpa_space_add_listener(hax_gpa_space *gpa_space,
@@ -109,9 +120,9 @@ void gpa_space_remove_listener(hax_gpa_space *gpa_space,
 // hax_unmap_user_pages().
 static int gpa_space_map_range(hax_gpa_space *gpa_space, uint64 start_gpa,
                                int len, uint8 **buf, hax_kmap_user *kmap,
-                               bool *writable)
+                               bool *writable, uint64 *fault_gfn)
 {
-    uint64 gfn;
+    uint64 gfn, i;
     uint delta, size, npages;
     hax_memslot *slot;
     hax_ramblock *block;
@@ -133,6 +144,14 @@ static int gpa_space_map_range(hax_gpa_space *gpa_space, uint64 start_gpa,
     delta = (uint) (start_gpa - (gfn << PG_ORDER_4K));
     size = (uint) len + delta;
     npages = (size + PAGE_SIZE_4K - 1) >> PG_ORDER_4K;
+
+    // Check gpa protection bitmap
+    for (i = gfn; i < gfn + npages;)
+        if (gpa_space_chunk_protected(gpa_space, i, fault_gfn))
+            return -EPERM;
+        else
+            i = (i/HAX_CHUNK_NR_PAGES + 1)*HAX_CHUNK_NR_PAGES;
+
     slot = memslot_find(gpa_space, gfn);
     if (!slot) {
         hax_error("%s: start_gpa=0x%llx is reserved for MMIO\n", __func__,
@@ -183,7 +202,7 @@ static int gpa_space_map_range(hax_gpa_space *gpa_space, uint64 start_gpa,
 }
 
 int gpa_space_read_data(hax_gpa_space *gpa_space, uint64 start_gpa, int len,
-                        uint8 *data)
+                        uint8 *data, uint64 *fault_gfn)
 {
     uint8 *buf;
     hax_kmap_user kmap;
@@ -194,10 +213,12 @@ int gpa_space_read_data(hax_gpa_space *gpa_space, uint64 start_gpa, int len,
         return -EINVAL;
     }
 
-    ret = gpa_space_map_range(gpa_space, start_gpa, len, &buf, &kmap, NULL);
+    ret = gpa_space_map_range(gpa_space, start_gpa, len,
+                              &buf, &kmap, NULL, fault_gfn);
     if (ret < 0) {
-        hax_error("%s: gpa_space_map_range() failed: start_gpa=0x%llx,"
-                  " len=%d\n", __func__, start_gpa, len);
+        if (ret != -EPERM)
+            hax_error("%s: gpa_space_map_range() failed: start_gpa=0x%llx,"
+                      " len=%d\n", __func__, start_gpa, len);
         return ret;
     }
 
@@ -221,7 +242,7 @@ int gpa_space_read_data(hax_gpa_space *gpa_space, uint64 start_gpa, int len,
 }
 
 int gpa_space_write_data(hax_gpa_space *gpa_space, uint64 start_gpa, int len,
-                         uint8 *data)
+                         uint8 *data, uint64 *fault_gfn)
 {
     uint8 *buf;
     hax_kmap_user kmap;
@@ -234,10 +255,11 @@ int gpa_space_write_data(hax_gpa_space *gpa_space, uint64 start_gpa, int len,
     }
 
     ret = gpa_space_map_range(gpa_space, start_gpa, len, &buf, &kmap,
-                              &writable);
+                              &writable, fault_gfn);
     if (ret < 0) {
-        hax_error("%s: gpa_space_map_range() failed: start_gpa=0x%llx,"
-                  " len=%d\n", __func__, start_gpa, len);
+        if (ret != -EPERM)
+            hax_error("%s: gpa_space_map_range() failed: start_gpa=0x%llx,"
+                      " len=%d\n", __func__, start_gpa, len);
         return ret;
     }
     if (!writable) {
@@ -265,24 +287,26 @@ int gpa_space_write_data(hax_gpa_space *gpa_space, uint64 start_gpa, int len,
     return nbytes;
 }
 
-void * gpa_space_map_page(hax_gpa_space *gpa_space, uint64 gfn,
-                          hax_kmap_user *kmap, bool *writable)
+int gpa_space_map_page(hax_gpa_space *gpa_space, uint64 gfn,
+                          hax_kmap_user *kmap, bool *writable,
+                          void **kva, uint64 *fault_gfn)
 {
     uint8 *buf;
     int ret;
-    void *kva;
 
     assert(gpa_space != NULL);
     assert(kmap != NULL);
     ret = gpa_space_map_range(gpa_space, gfn << PG_ORDER_4K, PAGE_SIZE_4K, &buf,
-                              kmap, writable);
+                              kmap, writable, fault_gfn);
     if (ret < PAGE_SIZE_4K) {
-        hax_error("%s: gpa_space_map_range() returned %d\n", __func__, ret);
-        return NULL;
+        if (ret != -EPERM)
+            hax_error("%s: gpa_space_map_range() returned %d\n", __func__, ret);
+        *kva = NULL;
+        return ret;
     }
-    kva = (void *) buf;
-    assert(kva != NULL);
-    return kva;
+    *kva = (void *) buf;
+    assert(*kva != NULL);
+    return 0;
 }
 
 void gpa_space_unmap_page(hax_gpa_space *gpa_space, hax_kmap_user *kmap)
@@ -345,4 +369,119 @@ uint64 gpa_space_get_pfn(hax_gpa_space *gpa_space, uint64 gfn, uint8 *flags)
     assert(pfn != INVALID_PFN);
 
     return pfn;
+}
+
+int gpa_space_adjust_prot_bitmap(hax_gpa_space *gpa_space, uint64 max_gpfn)
+{
+    prot_bitmap *pb = &gpa_space->prot_bitmap;
+    uint8 *bmold = pb->bitmap, *bmnew = NULL;
+
+    /* Bitmap size only grows until it is destroyed */
+    if (max_gpfn <= pb->max_gpfn)
+        return 0;
+
+    bmnew = hax_vmalloc(gpa_space_prot_bitmap_size(max_gpfn), HAX_MEM_NONPAGE);
+    if (!bmnew) {
+        hax_error("%s: Not enought memory for new protection bitmap\n",
+                  __func__);
+        return -ENOMEM;
+    }
+    pb->bitmap = bmnew;
+    if (bmold) {
+        memcpy(bmnew, bmold, gpa_space_prot_bitmap_size(pb->max_gpfn));
+        hax_vfree(bmold, gpa_space_prot_bitmap_size(pb->max_gpfn));
+    }
+    pb->max_gpfn = max_gpfn;
+    return 0;
+}
+
+static void gpa_space_set_prot_bitmap(uint64 start, uint64 nbits,
+                                      uint8 *bitmap, bool set)
+{
+    uint64 i = 0;
+    uint64 start_index = start / 8;
+    uint64 start_bit = start % 8;
+    uint64 end_index = (start + nbits) / 8;
+    uint64 end_bit = (start + nbits) % 8;
+
+    if (start_index == end_index) {
+        for (i = start; i < start + nbits; i++)
+            if (set)
+                hax_test_and_set_bit(i, (uint64 *)bitmap);
+            else
+                hax_test_and_clear_bit(i, (uint64 *)bitmap);
+        return;
+    }
+
+    for (i = start; i < (start_index + 1) * 8; i++)
+        if (set)
+            hax_test_and_set_bit(i, (uint64 *)bitmap);
+        else
+            hax_test_and_clear_bit(i, (uint64 *)bitmap);
+
+    for (i = end_index * 8; i < start + nbits; i++)
+        if (set)
+            hax_test_and_set_bit(i, (uint64 *)bitmap);
+        else
+            hax_test_and_clear_bit(i, (uint64 *)bitmap);
+
+    for (i = start_index + 1; i < end_index; i++)
+        if (set)
+            bitmap[i] = 0xFF;
+        else
+            bitmap[i] = 0;
+}
+
+int gpa_space_test_prot_bitmap(struct hax_gpa_space *gpa_space, uint64 gfn)
+{
+    struct prot_bitmap *pbm = &gpa_space->prot_bitmap;
+
+    if (!pbm)
+        return 0;
+
+    if (gfn >= pbm->max_gpfn)
+        return 0;
+
+    return hax_test_bit(gfn, (uint64 *)pbm->bitmap);
+}
+
+int gpa_space_chunk_protected(struct hax_gpa_space *gpa_space, uint64 gfn,
+                              uint64 *fault_gfn)
+{
+    uint64 __gfn = gfn / HAX_CHUNK_NR_PAGES * HAX_CHUNK_NR_PAGES;
+    for (gfn = __gfn; gfn < __gfn + HAX_CHUNK_NR_PAGES; gfn++)
+        if (gpa_space_test_prot_bitmap(gpa_space, gfn)) {
+            *fault_gfn = gfn;
+            return 1;
+        }
+
+    return 0;
+}
+
+int gpa_space_protect_range(struct hax_gpa_space *gpa_space,
+                            struct hax_ept_tree *ept_tree,
+                            uint64 start_gpa, uint64 len, int8 flags)
+{
+    uint64 gfn;
+    uint npages;
+    hax_memslot *slot;
+
+    if (len == 0) {
+        hax_error("%s: len = 0\n", __func__);
+        return -EINVAL;
+    }
+
+    /* Did not support specific prot on r/w/e now */
+    if (flags != 0 && (flags & HAX_GPA_PROT_MASK) != HAX_GPA_PROT_ALL)
+        return -EINVAL;
+
+    gfn = start_gpa >> PG_ORDER_4K;
+    npages = (len + PAGE_SIZE_4K - 1) >> PG_ORDER_4K;
+
+    gpa_space_set_prot_bitmap(gfn, npages, gpa_space->prot_bitmap.bitmap, !flags);
+
+    if (!flags)
+        ept_tree_invalidate_entries(ept_tree, gfn, npages);
+
+    return 0;
 }

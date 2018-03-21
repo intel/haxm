@@ -354,6 +354,7 @@ hax_chunk * ramblock_get_chunk(hax_ramblock *block, uint64 uva_offset,
             hax_error("%s: Failed to allocate chunk: ret=%d, index=%llu,"
                       " base_uva=0x%llx, size=0x%llx, was_clear=%d\n", __func__,
                       ret, chunk_index, chunk_base_uva, chunk_size, was_clear);
+            DbgBreakPoint();
             return NULL;
         }
         assert(chunk != NULL);

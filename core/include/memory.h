@@ -36,6 +36,7 @@
 
 #define HAX_CHUNK_SHIFT 21
 #define HAX_CHUNK_SIZE  (1U << HAX_CHUNK_SHIFT)  // 2MB
+#define HAX_CHUNK_NR_PAGES (HAX_CHUNK_SIZE/PAGE_SIZE_4K)
 
 typedef struct hax_chunk {
     hax_memdesc_user memdesc;
@@ -80,12 +81,20 @@ typedef struct hax_memslot {
 // Used only by memslot_set_mapping(), not by any hax_memslot
 #define HAX_MEMSLOT_INVALID  0x80
 
+typedef struct prot_bitmap {
+    // R/W/E Protection Bitmap
+    uint8 *bitmap;
+    // Last gpfn
+    uint64 max_gpfn;
+} prot_bitmap;
+
 typedef struct hax_gpa_space {
     // TODO: Add a lock to prevent concurrent accesses to |ramblock_list| and
     // |memslot_list|
     hax_list_head ramblock_list;
     hax_list_head memslot_list;
     hax_list_head listener_list;
+    prot_bitmap prot_bitmap;
 } hax_gpa_space;
 
 typedef struct hax_gpa_space_listener hax_gpa_space_listener;
@@ -245,13 +254,15 @@ void gpa_space_remove_listener(hax_gpa_space *gpa_space,
 // |len|: The number of bytes to copy.
 // |data|: The destination buffer to copy the bytes into, whose size must be at
 //         least |len| bytes.
+// |fault_gpn|: The faulting gpn as a result of gpa range protection.
 // Returns the number of bytes actually copied, or one of the following error
 // codes:
 // -EINVAL: Invalid input, e.g. |data| is NULL, or the GPA range specified by
 //          |start_gpa| and |len| touches an MMIO region.
 // -ENOMEM: Unable to map the requested guest page frames into KVA space.
+// -EPARM:  Fault occurred due to violation of gpa range protection.
 int gpa_space_read_data(hax_gpa_space *gpa_space, uint64 start_gpa, int len,
-                        uint8 *data);
+                        uint8 *data, uint64 *fault_gfn);
 
 // Copies the given number of bytes from the given buffer to guest RAM.
 // |gpa_space|: The |hax_gpa_space| of the guest.
@@ -261,6 +272,7 @@ int gpa_space_read_data(hax_gpa_space *gpa_space, uint64 start_gpa, int len,
 // |len|: The number of bytes to copy.
 // |data|: The source buffer to copy the bytes from, whose size must be at least
 //         |len| bytes.
+// |fault_gpn|: The faulting gpn as a result of gpa range protection.
 // Returns the number of bytes actually copied, or one of the following error
 // codes:
 // -EINVAL: Invalid input, e.g. |data| is NULL, or the GPA range specified by
@@ -268,8 +280,9 @@ int gpa_space_read_data(hax_gpa_space *gpa_space, uint64 start_gpa, int len,
 // -ENOMEM: Unable to map the requested guest page frames into KVA space.
 // -EACCES: The GPA range specified by |start_gpa| and |len| touches a ROM
 //          region.
+// -EPARM:  Fault occurred due to violation of gpa range protection.
 int gpa_space_write_data(hax_gpa_space *gpa_space, uint64 start_gpa, int len,
-                         uint8 *data);
+                         uint8 *data, uint64 *fault_gfn);
 
 // Maps the given guest page frame into KVA space, stores the KVA mapping in the
 // given buffer, and returns the KVA. The caller must destroy the KVA mapping
@@ -282,8 +295,9 @@ int gpa_space_write_data(hax_gpa_space *gpa_space, uint64 start_gpa, int len,
 //             page frame is writable (i.e. maps to RAM). Can be NULL if the
 //             caller only wants to read from the page.
 // Returns NULL on error.
-void * gpa_space_map_page(hax_gpa_space *gpa_space, uint64 gfn,
-                          hax_kmap_user *kmap, bool *writable);
+int gpa_space_map_page(hax_gpa_space *gpa_space, uint64 gfn,
+                       hax_kmap_user *kmap, bool *writable,
+                       void **kva, uint64 *fault_gfn);
 
 // Destroys the KVA mapping previously created by gpa_space_map_page().
 void gpa_space_unmap_page(hax_gpa_space *gpa_space, hax_kmap_user *kmap);
@@ -297,6 +311,21 @@ void gpa_space_unmap_page(hax_gpa_space *gpa_space, hax_kmap_user *kmap);
 // Returns INVALID_PFN on error, including the case where |gfn| is reserved for
 // MMIO.
 uint64 gpa_space_get_pfn(hax_gpa_space *gpa_space, uint64 gfn, uint8 *flags);
+
+int gpa_space_protect_range(struct hax_gpa_space *gpa_space,
+                            struct hax_ept_tree *ept_tree,
+                            uint64 start_gpa, uint64 len, int8 flags);
+
+// Adjust gpa protection bitmap size. Once a bigger gfn is met, allocate
+// a new bitmap and copy the old bitmap contents.
+// |gpa_space|: The GPA space of the guest.
+// |max_gpfn|: max gfn that the bitmap can hold.
+int gpa_space_adjust_prot_bitmap(struct hax_gpa_space *gpa_space,
+                                 uint64 max_gpfn);
+
+int gpa_space_test_prot_bitmap(struct hax_gpa_space *gpa_space, uint64 gfn);
+int gpa_space_chunk_protected(struct hax_gpa_space *gpa_space, uint64 gfn,
+                              uint64 *fault_gfn);
 
 // Allocates a |hax_chunk| for the given UVA range, and pins the corresponding
 // host page frames in RAM.
