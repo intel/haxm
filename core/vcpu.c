@@ -3329,73 +3329,70 @@ static int handle_string_io(struct vcpu_t *vcpu, exit_qualification_t *qual,
                             struct hax_tunnel *htun)
 {
     struct vcpu_state_t *state = vcpu->state;
-    uint real_size, count, required_size;
-    vaddr_t start, rindex;
+    uint64 count, total_size;
+    uint elem_size, n, copy_size;
+    vaddr_t gla, start_gva;
 
+    // 1 indicates string I/O (i.e. OUTS or INS)
     htun->io._flags = 1;
 
     count = qual->io.rep ? state->_rcx : 1;
-    required_size = count * htun->io._size;
+    elem_size = htun->io._size;
+    total_size = count * elem_size;
 
-    if (required_size <= IOS_MAX_BUFFER) {
-        real_size = count * htun->io._size;
-        htun->io._count = count;
-    } else {
-        real_size = IOS_MAX_BUFFER;
-        htun->io._count = IOS_MAX_BUFFER / htun->io._size;
-    }
+    // Number of data elements to copy
+    n = total_size > IOS_MAX_BUFFER ? IOS_MAX_BUFFER / elem_size : (uint)count;
+    htun->io._count = n;
+    copy_size = n * elem_size;
 
-    rindex = qual->io.direction == HAX_IO_OUT ? state->_rsi : state->_rdi;
-
+    // Both OUTS and INS instructions reference a GVA, which indicates the
+    // source (for OUTS) or destination (for INS) of data transfer. This GVA is
+    // conveniently recorded in VMCS by hardware at VM exit time (see IA SDM
+    // Vol. 3C 27.2.1, "Guest-linear address"), so there is no need to fetch the
+    // instruction and parse it manually (e.g. to determine the address-size
+    // attribute of the instruction, or to check the presence of a segment
+    // override prefix that can make OUTS read from ES:ESI instead of DS:ESI).
+    gla = vmread(vcpu, VM_EXIT_INFO_GUEST_LINEAR_ADDRESS);
     if (state->_rflags & EFLAGS_DF) {
-        start = rindex - real_size + htun->io._size;
+        start_gva = gla - (n - 1) * elem_size;
         htun->io._df = 1;
     } else {
-        start = rindex;
+        start_gva = gla;
         htun->io._df = 0;
     }
-
-    htun->io._vaddr = start;
-
-    // For UG platform and real mode
-    if (hax->ug_enable_flag && !(vcpu->state->_cr0 & CR0_PE)) {
-        if (qual->io.direction == HAX_IO_OUT) {
-            htun->io._vaddr += state->_ds.selector * 16;
-        } else {
-            htun->io._vaddr += state->_es.selector * 16;
-        }
-        start = htun->io._vaddr;
-    }
+    // For INS (see handle_io_post())
+    htun->io._vaddr = start_gva;
 
     if (qual->io.direction == HAX_IO_OUT) {
-        if (!vcpu_read_guest_virtual(vcpu, start, vcpu->io_buf, IOS_MAX_BUFFER,
-                                     real_size, 0))
+        if (!vcpu_read_guest_virtual(vcpu, start_gva, vcpu->io_buf,
+                                     IOS_MAX_BUFFER, copy_size, 0)) {
+            hax_panic_vcpu(vcpu, "%s: vcpu_read_guest_virtual() failed,"
+                           " start_gva=0x%llx, elem_size=%u, count=%llu\n",
+                           __func__, start_gva, elem_size, count);
+            dump_vmcs(vcpu);
             return HAX_RESUME;
-    } else {
-        // HACK: Just ensure the buffer is mapped in the kernel.
-        if (!vcpu_write_guest_virtual(vcpu, start, IOS_MAX_BUFFER, vcpu->io_buf,
-                                      real_size, 0))
-            return HAX_RESUME;
+        }
     }
 
-    if (required_size <= IOS_MAX_BUFFER) {
-        state->_rcx = 0;
+    state->_rcx -= n;
+    if (n == count) {
         advance_rip(vcpu);
-    } else {
-        state->_rcx -= IOS_MAX_BUFFER / htun->io._size;
     }
 
     if (state->_rflags & EFLAGS_DF) {
-        rindex -= real_size ;
+        if (qual->io.direction == HAX_IO_OUT) {
+            state->_rsi -= copy_size;
+        } else {
+            state->_rdi -= copy_size;
+        }
     } else {
-        rindex += real_size;
+        if (qual->io.direction == HAX_IO_OUT) {
+            state->_rsi += copy_size;
+        } else {
+            state->_rdi += copy_size;
+        }
     }
 
-    if (qual->io.direction == HAX_IO_OUT) {
-        state->_rsi = rindex;
-    } else {
-        state->_rdi = rindex;
-    }
     htun->_exit_status = HAX_EXIT_IO;
     return HAX_EXIT;
 }
