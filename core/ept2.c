@@ -103,8 +103,20 @@ int ept_handle_access_violation(hax_gpa_space *gpa_space, hax_ept_tree *tree,
         return 0;
     }
 
-    if (gpa_space_chunk_protected(gpa_space, gfn, fault_gfn))
-        return -EPERM;
+    // Ideally we should call gpa_space_is_page_protected() and ask user space
+    // to unprotect just the host virtual page that |gfn| maps to. But since we
+    // pin host RAM one chunk (rather than one page) at a time, if the chunk
+    // that |gfn| maps to contains any other host virtual page that is protected
+    // (by means of a VirtualProtect() or mprotect() call from user space), we
+    // will not be able to pin the chunk when we handle the next EPT violation
+    // caused by the same |gfn|.
+    // For now, we ask user space to unprotect all host virtual pages in the
+    // chunk, so our next hax_pin_user_pages() call will not fail. This is a
+    // dirty hack.
+    // TODO: Make chunks more flexible, so we can pin host RAM in finer
+    // granularity (as small as one page) and hide chunks from user space.
+    if (gpa_space_is_chunk_protected(gpa_space, gfn, fault_gfn))
+        return -EFAULT;
 
     // The faulting GPA maps to RAM/ROM
     is_rom = slot->flags & HAX_MEMSLOT_READONLY;

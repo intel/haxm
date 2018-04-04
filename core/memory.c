@@ -375,15 +375,13 @@ int hax_vm_set_ram2(struct vm_t *vm, struct hax_set_ram_info2 *info)
     return handle_set_ram(vm, info->pa_start, info->size, info->va,
                           info->flags);
 }
-#endif  // CONFIG_HAX_EPT2
 
-int hax_vm_protect_ram(struct vm_t *vm, struct hax_ram_prot_info *info)
+int hax_vm_protect_ram(struct vm_t *vm, struct hax_protect_ram_info *info)
 {
-    uint8_t flags = info->flags;
-
-    return gpa_space_protect_range(&vm->gpa_space, &vm->ept_tree,
-                                   info->pa_start, info->size, info->flags);
+    return gpa_space_protect_range(&vm->gpa_space, info->pa_start, info->size,
+                                   info->flags);
 }
+#endif  // CONFIG_HAX_EPT2
 
 int hax_vcpu_setup_hax_tunnel(struct vcpu_t *cv, struct hax_tunnel_info *info)
 {

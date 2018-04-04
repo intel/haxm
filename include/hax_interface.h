@@ -101,6 +101,16 @@ struct hax_msr_data {
 #define HAX_IO_OUT 0
 #define HAX_IO_IN  1
 
+/*
+ * For hax_tunnel::pagefault::flags
+ */
+#define HAX_PAGEFAULT_ACC_R  (1 << 0)
+#define HAX_PAGEFAULT_ACC_W  (1 << 1)
+#define HAX_PAGEFAULT_ACC_X  (1 << 2)
+#define HAX_PAGEFAULT_PERM_R (1 << 4)
+#define HAX_PAGEFAULT_PERM_W (1 << 5)
+#define HAX_PAGEFAULT_PERM_X (1 << 6)
+
 /* The area to communicate with device model */
 struct hax_tunnel {
     uint32_t _exit_reason;
@@ -130,8 +140,9 @@ struct hax_tunnel {
         } mmio;
         struct {
             paddr_t gpa;
-            uint8_t access;
-            uint8_t pad[7];
+            uint32_t flags;
+            uint32_t reserved1;
+            uint64_t reserved2;
         } pagefault;
         struct {
             paddr_t dummy;
@@ -247,10 +258,11 @@ struct hax_set_ram_info2 {
 // All accesses (R/W/X) are allowed
 #define HAX_RAM_PERM_RWX  0x7
 #define HAX_RAM_PERM_MASK 0x7
-struct hax_ram_prot_info {
+struct hax_protect_ram_info {
     uint64_t pa_start;
     uint64_t size;
-    uint64_t flags;
+    uint32_t flags;
+    uint32_t reserved;
 } PACKED;
 
 /* This interface is support only after API version 2 */

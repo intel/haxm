@@ -33,7 +33,6 @@
 #include "../include/hax.h"
 #include "include/paging.h"
 #include "../include/hax_host_mem.h"
-#include "ept2.h"
 
 int gpa_space_init(hax_gpa_space *gpa_space)
 {
@@ -60,9 +59,18 @@ int gpa_space_init(hax_gpa_space *gpa_space)
     return ret;
 }
 
-static uint64 gpa_space_prot_bitmap_size(uint64 npages)
+// Returns the protection bitmap size in bytes, or 0 on error.
+static uint gpa_space_prot_bitmap_size(uint64 npages)
 {
-    uint64 bitmap_size = (npages + 7)/8;
+    uint bitmap_size;
+
+    if (npages >> 31) {
+        // Require |npages| to be < 2^31, which is reasonable, because 2^31
+        // pages implies a huge guest RAM size (8TB).
+        return 0;
+    }
+
+    bitmap_size = ((uint)npages + 7) / 8;
     bitmap_size += 8;
     return bitmap_size;
 }
@@ -360,68 +368,82 @@ uint64 gpa_space_get_pfn(hax_gpa_space *gpa_space, uint64 gfn, uint8 *flags)
 
 int gpa_space_adjust_prot_bitmap(hax_gpa_space *gpa_space, uint64 end_gfn)
 {
-    hax_prot_bitmap *pb = &gpa_space->prot;
+    hax_gpa_prot *pb = &gpa_space->prot;
+    uint new_size;
     uint8 *bmold = pb->bitmap, *bmnew = NULL;
 
     /* Bitmap size only grows until it is destroyed */
     if (end_gfn <= pb->end_gfn)
         return 0;
 
-    bmnew = hax_vmalloc(gpa_space_prot_bitmap_size(end_gfn), HAX_MEM_NONPAGE);
+    hax_info("%s: end_gfn 0x%llx -> 0x%llx\n", __func__, pb->end_gfn, end_gfn);
+    new_size = gpa_space_prot_bitmap_size(end_gfn);
+    if (!new_size) {
+        hax_error("%s: end_gfn=0x%llx is too big\n", __func__, end_gfn);
+        return -EINVAL;
+    }
+    bmnew = hax_vmalloc(new_size, HAX_MEM_NONPAGE);
     if (!bmnew) {
-        hax_error("%s: Not enought memory for new protection bitmap\n",
+        hax_error("%s: Not enough memory for new protection bitmap\n",
                   __func__);
         return -ENOMEM;
     }
     pb->bitmap = bmnew;
     if (bmold) {
-        memcpy(bmnew, bmold, gpa_space_prot_bitmap_size(pb->end_gfn));
-        hax_vfree(bmold, gpa_space_prot_bitmap_size(pb->end_gfn));
+        uint old_size = gpa_space_prot_bitmap_size(pb->end_gfn);
+        assert(old_size != 0);
+        memcpy(bmnew, bmold, old_size);
+        hax_vfree(bmold, old_size);
     }
     pb->end_gfn = end_gfn;
     return 0;
 }
 
-static void gpa_space_set_prot_bitmap(uint64 start, uint64 nbits,
-                                      uint8 *bitmap, bool set)
+// Sets or clears consecutive bits in a byte.
+static inline void set_bits_in_byte(uint8 *byte, int start, int nbits, bool set)
 {
-    uint64 i = 0;
-    uint64 start_index = start / 8;
-    uint64 start_bit = start % 8;
-    uint64 end_index = (start + nbits) / 8;
-    uint64 end_bit = (start + nbits) % 8;
+    uint mask;
 
-    if (start_index == end_index) {
-        for (i = start; i < start + nbits; i++)
-            if (set)
-                hax_test_and_set_bit(i, (uint64 *)bitmap);
-            else
-                hax_test_and_clear_bit(i, (uint64 *)bitmap);
+    assert(byte != NULL);
+    assert(start >= 0 && start < 8);
+    assert(nbits >= 0 && start + nbits < 8);
+
+    mask = ((1 << nbits) - 1) << start;
+    if (set) {
+        *byte = (uint8)(*byte | mask);
+    } else {
+        mask = ~mask & 0xff;
+        *byte = (uint8)(*byte & mask);
+    }
+}
+
+// Sets or clears consecutive bits in a bitmap.
+static void set_bit_block(uint8 *bitmap, uint64 start, uint64 nbits, bool set)
+{
+    // TODO: Is it safe to use 64-bit array indices on 32-bit hosts?
+    uint64 first_byte_index = start / 8;
+    uint64 last_byte_index = (start + nbits - 1) / 8;
+    uint64 i;
+    int first_bit_index = (int)(start % 8);
+    int last_bit_index = (int)((start + nbits - 1) % 8);
+
+    if (first_byte_index == last_byte_index) {
+        set_bits_in_byte(&bitmap[first_byte_index], first_bit_index, (int)nbits,
+                         set);
         return;
     }
 
-    for (i = start; i < (start_index + 1) * 8; i++)
-        if (set)
-            hax_test_and_set_bit(i, (uint64 *)bitmap);
-        else
-            hax_test_and_clear_bit(i, (uint64 *)bitmap);
-
-    for (i = end_index * 8; i < start + nbits; i++)
-        if (set)
-            hax_test_and_set_bit(i, (uint64 *)bitmap);
-        else
-            hax_test_and_clear_bit(i, (uint64 *)bitmap);
-
-    for (i = start_index + 1; i < end_index; i++)
-        if (set)
-            bitmap[i] = 0xFF;
-        else
-            bitmap[i] = 0;
+    set_bits_in_byte(&bitmap[first_byte_index], first_bit_index,
+                     8 - first_bit_index, set);
+    for (i = first_byte_index + 1; i < last_byte_index; i++) {
+        bitmap[i] = set ? 0xff : 0;
+    }
+    set_bits_in_byte(&bitmap[last_byte_index], 0, last_bit_index + 1, set);
 }
 
 bool gpa_space_is_page_protected(struct hax_gpa_space *gpa_space, uint64 gfn)
 {
-    struct hax_prot_bitmap *pbm = &gpa_space->prot;
+    struct hax_gpa_prot *pbm = &gpa_space->prot;
 
     if (!pbm)
         return false;
@@ -429,16 +451,24 @@ bool gpa_space_is_page_protected(struct hax_gpa_space *gpa_space, uint64 gfn)
     if (gfn >= pbm->end_gfn)
         return false;
 
-    return hax_test_bit(gfn, (uint64 *)pbm->bitmap);
+    // Since gfn < pbm->end_gfn < 2^31 (cf. gpa_space_prot_bitmap_size()), it's
+    // safe to convert it to int.
+    return hax_test_bit((int)gfn, (uint64 *)pbm->bitmap);
 }
 
-bool gpa_space_chunk_protected(struct hax_gpa_space *gpa_space, uint64 gfn,
-                              uint64 *fault_gfn)
+bool gpa_space_is_chunk_protected(struct hax_gpa_space *gpa_space, uint64 gfn,
+                                  uint64 *fault_gfn)
 {
-    uint64 __gfn = gfn / HAX_CHUNK_NR_PAGES * HAX_CHUNK_NR_PAGES;
-    for (gfn = __gfn; gfn < __gfn + HAX_CHUNK_NR_PAGES; gfn++)
-        if (gpa_space_is_page_protected(gpa_space, gfn)) {
-            *fault_gfn = gfn;
+#define HAX_CHUNK_NR_PAGES (HAX_CHUNK_SIZE / PAGE_SIZE_4K)
+    // FIXME: Chunks are created in HVA space (by dividing a RAM block), not in
+    // GPA space. So rounding a GPA down to the nearest HAX_CHUNK_SIZE boundary
+    // is not guaranteed to yield a GPA that maps to the same chunk.
+    uint64 start_gfn = gfn / HAX_CHUNK_NR_PAGES * HAX_CHUNK_NR_PAGES;
+    uint64 temp_gfn = start_gfn;
+
+    for (; temp_gfn < start_gfn + HAX_CHUNK_NR_PAGES; temp_gfn++)
+        if (gpa_space_is_page_protected(gpa_space, temp_gfn)) {
+            *fault_gfn = temp_gfn;
             return true;
         }
 
@@ -446,29 +476,56 @@ bool gpa_space_chunk_protected(struct hax_gpa_space *gpa_space, uint64 gfn,
 }
 
 int gpa_space_protect_range(struct hax_gpa_space *gpa_space,
-                            struct hax_ept_tree *ept_tree,
-                            uint64 start_gpa, uint64 len, int8 flags)
+                            uint64 start_gpa, uint64 len, uint32 flags)
 {
-    uint64 gfn;
-    uint npages;
-    hax_memslot *slot;
+    uint perm = (uint)(flags & HAX_RAM_PERM_MASK);
+    uint64 first_gfn, last_gfn, npages;
+    hax_gpa_space_listener *listener;
+
+    hax_info("%s: start_gpa=0x%llx, len=0x%llx, flags=%x\n", __func__,
+             start_gpa, len, flags);
 
     if (len == 0) {
         hax_error("%s: len = 0\n", __func__);
         return -EINVAL;
     }
 
-    /* Did not support specific prot on r/w/e now */
-    if (flags != HAX_RAM_PERM_NONE && (flags & HAX_RAM_PERM_MASK) != HAX_RAM_PERM_RWX)
+    // Find-grained protection (R/W/X) is not supported yet
+    if (perm != HAX_RAM_PERM_NONE && perm != HAX_RAM_PERM_RWX) {
+        hax_error("%s: Unsupported flags=%d\n", __func__, flags);
         return -EINVAL;
+    }
 
-    gfn = start_gpa >> PG_ORDER_4K;
-    npages = (len + PAGE_SIZE_4K - 1) >> PG_ORDER_4K;
+    first_gfn = start_gpa >> PG_ORDER_4K;
+    last_gfn = (start_gpa + len - 1) >> PG_ORDER_4K;
+    if (last_gfn >= gpa_space->prot.end_gfn) {
+        hax_error("%s: GPA range exceeds protection bitmap, start_gpa=0x%llx,"
+                  " len=0x%llx, flags=0x%x, end_gfn=0x%llx\n", __func__,
+                  start_gpa, len, flags, gpa_space->prot.end_gfn);
+        return -EINVAL;
+    }
+    npages = last_gfn - first_gfn + 1;
 
-    gpa_space_set_prot_bitmap(gfn, npages, gpa_space->prot.bitmap, !flags);
+    set_bit_block(gpa_space->prot.bitmap, first_gfn, npages,
+                  perm == HAX_RAM_PERM_NONE);
 
-    if (!flags)
-        ept_tree_invalidate_entries(ept_tree, gfn, npages);
+    if (perm == HAX_RAM_PERM_RWX) {
+        goto done;
+    }
 
+    // perm == HAX_RAM_PERM_NONE requires invalidating the EPT entries that map
+    // the GPAs being protected. But ept_tree_invalidate_entries() needs a
+    // |hax_ept_tree| pointer, so invoke it through the GPA space listener
+    // interface instead.
+    hax_list_entry_for_each(listener, &gpa_space->listener_list,
+                            hax_gpa_space_listener, entry) {
+        if (listener->mapping_removed) {
+            // The last 2 parameters, |uva| and |flags|, are not important, so
+            // just use dummy values.
+            listener->mapping_removed(listener, first_gfn, npages, 0, 0);
+        }
+    }
+
+done:
     return 0;
 }

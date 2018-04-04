@@ -110,7 +110,7 @@ enum exit_status {
     HAX_EXIT_STATECHANGE,
     HAX_EXIT_PAUSED,
     HAX_EXIT_FAST_MMIO,
-    HAX_EXIT_EPT_FAULT
+    HAX_EXIT_PAGEFAULT
 };
 
 enum run_flag {

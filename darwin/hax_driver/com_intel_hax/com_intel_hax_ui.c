@@ -417,6 +417,17 @@ static int hax_vm_ioctl(dev_t dev, ulong cmd, caddr_t data, int flag,
             ret = hax_vm_set_ram2(cvm, info);
             break;
         }
+        case HAX_VM_IOCTL_PROTECT_RAM: {
+            struct hax_protect_ram_info *info;
+            info = (struct hax_protect_ram_info *)data;
+            if (info->reserved) {
+                hax_error("IOCTL_PROTECT_RAM: vm_id=%d, reserved=0x%x\n",
+                          vm_mac->vm_id, info->reserved);
+                return -EINVAL;
+            }
+            ret = hax_vm_protect_ram(cvm, info);
+            break;
+        }
 #endif
         case HAX_VM_IOCTL_NOTIFY_QEMU_VERSION: {
             int pid;
