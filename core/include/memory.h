@@ -80,12 +80,22 @@ typedef struct hax_memslot {
 // Used only by memslot_set_mapping(), not by any hax_memslot
 #define HAX_MEMSLOT_INVALID  0x80
 
+typedef struct hax_gpa_prot {
+    // A bitmap where each bit represents the protection status of a guest page
+    // frame: 1 means protected (i.e. no access allowed), 0 not protected.
+    // TODO: Support fine-grained protection (R/W/X).
+    uint8 *bitmap;
+    // the first gfn not covered by the bitmap
+    uint64 end_gfn;
+} hax_gpa_prot;
+
 typedef struct hax_gpa_space {
     // TODO: Add a lock to prevent concurrent accesses to |ramblock_list| and
     // |memslot_list|
     hax_list_head ramblock_list;
     hax_list_head memslot_list;
     hax_list_head listener_list;
+    hax_gpa_prot prot;
 } hax_gpa_space;
 
 typedef struct hax_gpa_space_listener hax_gpa_space_listener;
@@ -297,6 +307,20 @@ void gpa_space_unmap_page(hax_gpa_space *gpa_space, hax_kmap_user *kmap);
 // Returns INVALID_PFN on error, including the case where |gfn| is reserved for
 // MMIO.
 uint64 gpa_space_get_pfn(hax_gpa_space *gpa_space, uint64 gfn, uint8 *flags);
+
+int gpa_space_protect_range(struct hax_gpa_space *gpa_space,
+                            uint64 start_gpa, uint64 len, uint32 flags);
+
+// Adjust gpa protection bitmap size. Once a bigger gfn is met, allocate
+// a new bitmap and copy the old bitmap contents.
+// |gpa_space|: The GPA space of the guest.
+// |end_gfn|: The first GFN not covered by the new bitmap.
+int gpa_space_adjust_prot_bitmap(struct hax_gpa_space *gpa_space,
+                                 uint64 end_gfn);
+
+bool gpa_space_is_page_protected(struct hax_gpa_space *gpa_space, uint64 gfn);
+bool gpa_space_is_chunk_protected(struct hax_gpa_space *gpa_space, uint64 gfn,
+                                  uint64 *fault_gfn);
 
 // Allocates a |hax_chunk| for the given UVA range, and pins the corresponding
 // host page frames in RAM.

@@ -3955,6 +3955,9 @@ static int exit_ept_violation(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     paddr_t gpa;
     struct decode dec;
     int ret = 0;
+#ifdef CONFIG_HAX_EPT2
+    uint64 fault_gfn;
+#endif
 
     htun->_exit_reason = vmx(vcpu, exit_reason).basic_reason;
 
@@ -3969,7 +3972,18 @@ static int exit_ept_violation(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 
 #ifdef CONFIG_HAX_EPT2
     ret = ept_handle_access_violation(&vcpu->vm->gpa_space, &vcpu->vm->ept_tree,
-                                      *qual, gpa);
+                                      *qual, gpa, &fault_gfn);
+    if (ret == -EFAULT) {
+        // Extract bits 5..0 from Exit Qualification. They indicate the type of
+        // the faulting access (HAX_PAGEFAULT_ACC_R/W/X) and the types of access
+        // allowed (HAX_PAGEFAULT_PERM_R/W/X).
+        htun->pagefault.flags = qual->raw & 0x3f;
+        htun->pagefault.gpa = fault_gfn << PG_ORDER_4K;
+        htun->pagefault.reserved1 = 0;
+        htun->pagefault.reserved2 = 0;
+        htun->_exit_status = HAX_EXIT_PAGEFAULT;
+        return HAX_EXIT;
+    }
     if (ret == -EACCES) {
         /*
          * For some reason, during boot-up, Chrome OS guests make hundreds of

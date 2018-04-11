@@ -261,6 +261,7 @@ static int handle_set_ram(struct vm_t *vm, uint64 start_gpa, uint64 size,
     gpa_space = &vm->gpa_space;
     start_gfn = start_gpa >> PG_ORDER_4K;
     npages = size >> PG_ORDER_4K;
+    gpa_space_adjust_prot_bitmap(gpa_space, start_gfn + npages);
     ret = memslot_set_mapping(gpa_space, start_gfn, npages, start_uva, flags);
     if (ret) {
         hax_error("%s: memslot_set_mapping() failed: ret=%d, start_gfn=0x%llx,"
@@ -373,6 +374,12 @@ int hax_vm_set_ram2(struct vm_t *vm, struct hax_set_ram_info2 *info)
 {
     return handle_set_ram(vm, info->pa_start, info->size, info->va,
                           info->flags);
+}
+
+int hax_vm_protect_ram(struct vm_t *vm, struct hax_protect_ram_info *info)
+{
+    return gpa_space_protect_range(&vm->gpa_space, info->pa_start, info->size,
+                                   info->flags);
 }
 #endif  // CONFIG_HAX_EPT2
 

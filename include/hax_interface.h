@@ -129,6 +129,18 @@ struct hax_tunnel {
             paddr_t gla;
         } mmio;
         struct {
+            paddr_t gpa;
+#define HAX_PAGEFAULT_ACC_R  (1 << 0)
+#define HAX_PAGEFAULT_ACC_W  (1 << 1)
+#define HAX_PAGEFAULT_ACC_X  (1 << 2)
+#define HAX_PAGEFAULT_PERM_R (1 << 4)
+#define HAX_PAGEFAULT_PERM_W (1 << 5)
+#define HAX_PAGEFAULT_PERM_X (1 << 6)
+            uint32_t flags;
+            uint32_t reserved1;
+            uint64_t reserved2;
+        } pagefault;
+        struct {
             paddr_t dummy;
         } state;
     };
@@ -169,6 +181,7 @@ struct hax_module_version {
 #define HAX_CAP_64BIT_RAMBLOCK     (1 << 3)
 #define HAX_CAP_64BIT_SETRAM       (1 << 4)
 #define HAX_CAP_TUNNEL_PAGE        (1 << 5)
+#define HAX_CAP_RAM_PROTECTION     (1 << 6)
 
 struct hax_capabilityinfo {
     /*
@@ -234,6 +247,18 @@ struct hax_set_ram_info2 {
     uint32_t flags;
     uint32_t reserved1;
     uint64_t reserved2;
+} PACKED;
+
+// No access (R/W/X) is allowed
+#define HAX_RAM_PERM_NONE 0x0
+// All accesses (R/W/X) are allowed
+#define HAX_RAM_PERM_RWX  0x7
+#define HAX_RAM_PERM_MASK 0x7
+struct hax_protect_ram_info {
+    uint64_t pa_start;
+    uint64_t size;
+    uint32_t flags;
+    uint32_t reserved;
 } PACKED;
 
 /* This interface is support only after API version 2 */
