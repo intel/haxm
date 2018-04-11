@@ -482,8 +482,13 @@ int gpa_space_protect_range(struct hax_gpa_space *gpa_space,
     uint64 first_gfn, last_gfn, npages;
     hax_gpa_space_listener *listener;
 
-    hax_info("%s: start_gpa=0x%llx, len=0x%llx, flags=%x\n", __func__,
-             start_gpa, len, flags);
+    if (perm == HAX_RAM_PERM_NONE) {
+        hax_info("%s: Restricting access to GPA range 0x%llx..0x%llx\n",
+                 __func__, start_gpa, start_gpa + len);
+    } else {
+        hax_debug("%s: start_gpa=0x%llx, len=0x%llx, flags=%x\n", __func__,
+                  start_gpa, len, flags);
+    }
 
     if (len == 0) {
         hax_error("%s: len = 0\n", __func__);
