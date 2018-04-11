@@ -101,16 +101,6 @@ struct hax_msr_data {
 #define HAX_IO_OUT 0
 #define HAX_IO_IN  1
 
-/*
- * For hax_tunnel::pagefault::flags
- */
-#define HAX_PAGEFAULT_ACC_R  (1 << 0)
-#define HAX_PAGEFAULT_ACC_W  (1 << 1)
-#define HAX_PAGEFAULT_ACC_X  (1 << 2)
-#define HAX_PAGEFAULT_PERM_R (1 << 4)
-#define HAX_PAGEFAULT_PERM_W (1 << 5)
-#define HAX_PAGEFAULT_PERM_X (1 << 6)
-
 /* The area to communicate with device model */
 struct hax_tunnel {
     uint32_t _exit_reason;
@@ -140,6 +130,12 @@ struct hax_tunnel {
         } mmio;
         struct {
             paddr_t gpa;
+#define HAX_PAGEFAULT_ACC_R  (1 << 0)
+#define HAX_PAGEFAULT_ACC_W  (1 << 1)
+#define HAX_PAGEFAULT_ACC_X  (1 << 2)
+#define HAX_PAGEFAULT_PERM_R (1 << 4)
+#define HAX_PAGEFAULT_PERM_W (1 << 5)
+#define HAX_PAGEFAULT_PERM_X (1 << 6)
             uint32_t flags;
             uint32_t reserved1;
             uint64_t reserved2;

@@ -3977,7 +3977,7 @@ static int exit_ept_violation(struct vcpu_t *vcpu, struct hax_tunnel *htun)
         // Extract bits 5..0 from Exit Qualification. They indicate the type of
         // the faulting access (HAX_PAGEFAULT_ACC_R/W/X) and the types of access
         // allowed (HAX_PAGEFAULT_PERM_R/W/X).
-        htun->pagefault.flags = qual->raw & 0x37;
+        htun->pagefault.flags = qual->raw & 0x3f;
         htun->pagefault.gpa = fault_gfn << PG_ORDER_4K;
         htun->pagefault.reserved1 = 0;
         htun->pagefault.reserved2 = 0;

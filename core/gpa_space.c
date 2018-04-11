@@ -506,6 +506,9 @@ int gpa_space_protect_range(struct hax_gpa_space *gpa_space,
     }
     npages = last_gfn - first_gfn + 1;
 
+    // TODO: Properly handle concurrent accesses to the protection bitmap,
+    // since gpa_space_protect_range() and gpa_space_is_page_protected() may be
+    // called by multiple vCPU threads simultaneously.
     set_bit_block(gpa_space->prot.bitmap, first_gfn, npages,
                   perm == HAX_RAM_PERM_NONE);
 
