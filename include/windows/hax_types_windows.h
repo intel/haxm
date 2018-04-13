@@ -102,8 +102,11 @@ typedef struct hax_kmap_phys {
 
 typedef struct {
     KSPIN_LOCK lock;
-    uint32_t flags;
-    KIRQL old_irq;
+    // According to MSDN:
+    //  https://docs.microsoft.com/en-us/windows-hardware/drivers/kernel/queued-spin-locks
+    // "Drivers for Windows XP and later versions of Windows should use queued
+    // spin locks instead of ordinary spin locks."
+    KLOCK_QUEUE_HANDLE handle;
 } hax_spinlock;
 
 typedef FAST_MUTEX *hax_mutex;
