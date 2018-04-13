@@ -75,17 +75,14 @@ static inline hax_spinlock *hax_spinlock_alloc_init(void)
 
 static inline void hax_spin_lock(hax_spinlock *lock)
 {
-    KIRQL old_irq;
     ASSERT(lock);
-    KeAcquireSpinLock(&lock->lock, &old_irq);
-    lock->old_irq = old_irq;
+    KeAcquireInStackQueuedSpinLockAtDpcLevel(&lock->lock, &lock->handle);
 }
 
-/* Do we need a flag to track if old_irq is valid? */
 static inline void hax_spin_unlock(hax_spinlock *lock)
 {
     ASSERT(lock);
-    KeReleaseSpinLock(&lock->lock, lock->old_irq);
+    KeReleaseInStackQueuedSpinLockFromDpcLevel(&lock->handle);
 }
 
 static inline hax_mutex hax_mutex_alloc_init(void)
