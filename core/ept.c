@@ -327,6 +327,8 @@ struct invept_bundle {
 static void invept_smpfunc(struct invept_bundle *bundle)
 {
     struct per_cpu_data *cpu_data;
+    uint64 cr0, cr0_fixed_0, cr0_fixed_1;
+    uint64 cr4, cr4_fixed_0, cr4_fixed_1;
 
     smp_mb();
     cpu_data = current_cpu_data();
@@ -334,19 +336,26 @@ static void invept_smpfunc(struct invept_bundle *bundle)
     cpu_data->vmxoff_err = VMX_SUCCEED;
     cpu_data->invept_err = VMX_SUCCEED;
 
-    cpu_data->host_cr4_vmxe = get_cr4() & CR4_VMXE;
-    set_cr4(get_cr4() | CR4_VMXE);
+    cr0 = get_cr0();
+    cr0_fixed_0 = cpu_data->vmx_info._cr0_fixed_0;
+    cr0_fixed_1 = cpu_data->vmx_info._cr0_fixed_1;
+
+    cr4 = get_cr4();
+    cr4_fixed_0 = cpu_data->vmx_info._cr4_fixed_0;
+    cr4_fixed_1 = cpu_data->vmx_info._cr4_fixed_1;
+
+    cpu_data->host_cr4_vmxe = cr4 & CR4_VMXE;
+    set_cr0((cr0 & cr0_fixed_1) | cr0_fixed_0);
+    set_cr4((cr4 & cr4_fixed_1) | cr4_fixed_0 | CR4_VMXE);
     cpu_data->vmxon_err = __vmxon(hax_page_pa(cpu_data->vmxon_page));
 
     if (!(cpu_data->vmxon_err & VMX_FAIL_MASK)) {
         cpu_data->invept_err = __invept(bundle->type, bundle->desc);
         cpu_data->vmxoff_err = __vmxoff();
-        if (cpu_data->host_cr4_vmxe) {
-            set_cr4(get_cr4() | CR4_VMXE);
-        } else {
-            set_cr4(get_cr4() & ~CR4_VMXE);
-        }
     }
+
+    set_cr0(cr0);
+    set_cr4(cr4);
 }
 
 void invept(hax_vm_t *hax_vm, uint type)
