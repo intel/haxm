@@ -330,23 +330,17 @@ static void invept_smpfunc(struct invept_bundle *bundle)
 
     smp_mb();
     cpu_data = current_cpu_data();
-    cpu_data->vmxon_err = VMX_SUCCEED;
-    cpu_data->vmxoff_err = VMX_SUCCEED;
-    cpu_data->invept_err = VMX_SUCCEED;
+    cpu_data->vmxon_err = vmxroot_enter(cpu_data);
 
-    cpu_data->host_cr4_vmxe = get_cr4() & CR4_VMXE;
-    set_cr4(get_cr4() | CR4_VMXE);
-    cpu_data->vmxon_err = __vmxon(hax_page_pa(cpu_data->vmxon_page));
-
-    if (!(cpu_data->vmxon_err & VMX_FAIL_MASK)) {
-        cpu_data->invept_err = __invept(bundle->type, bundle->desc);
-        cpu_data->vmxoff_err = __vmxoff();
-        if (cpu_data->host_cr4_vmxe) {
-            set_cr4(get_cr4() | CR4_VMXE);
-        } else {
-            set_cr4(get_cr4() & ~CR4_VMXE);
-        }
+    if (cpu_data->vmxon_err & VMX_FAIL_MASK) {
+        cpu_data->invept_err = VMX_SUCCEED;
+        cpu_data->vmxoff_err = VMX_SUCCEED;
+        restore_host_cr(cpu_data);
+        return;
     }
+
+    cpu_data->invept_err = __invept(bundle->type, bundle->desc);
+    cpu_data->vmxoff_err = vmxroot_leave(cpu_data);
 }
 
 void invept(hax_vm_t *hax_vm, uint type)
