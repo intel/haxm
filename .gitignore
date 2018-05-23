@@ -6,6 +6,8 @@ packages/
 
 # Windows
 /obj/
+Debug/
+Release/
 Win7Debug/
 Win7Release/
 Win8Debug/
