@@ -7,6 +7,6 @@
     <INCLUDES Condition="'$(OVERRIDE_INCLUDES)'!='true'">$(ProjectDir)\include;$(SolutionDir)\include</INCLUDES>
     <MSC_WARNING_LEVEL Condition="'$(OVERRIDE_MSC_WARNING_LEVEL)'!='true'">/W1</MSC_WARNING_LEVEL>
     <C_DEFINES Condition="'$(OVERRIDE_C_DEFINES)'!='true'">$(C_DEFINES) /D__WINNT__</C_DEFINES>
-    <SOURCES Condition="'$(OVERRIDE_SOURCES)'!='true'">ept.c	 	vm.c	 	vcpu.c	 	cpu.c	 	vmx.c	 	vtlb.c	 	dump_vmcs.c	 	hax.c	 	intr_exc.c	 	vmcs_names.c         memory.c      page_walker.c      ramblock.c      gpa_space.c      chunk.c      memslot.c      ept_tree.c      ept2.c</SOURCES>
+    <SOURCES Condition="'$(OVERRIDE_SOURCES)'!='true'">ept.c	 	vm.c	 	vcpu.c	 	cpu.c	 	vmx.c	 	vtlb.c	 	dump_vmcs.c	 	hax.c	 	intr_exc.c	 	vmcs_names.c         memory.c      page_walker.c      ramblock.c      gpa_space.c      chunk.c      memslot.c      ept_tree.c      ept2.c      emulate.c</SOURCES>
   </PropertyGroup>
 </Project>

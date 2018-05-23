@@ -40,6 +40,7 @@ If successful, the driver binary (`IntelHaxm.sys`) will be generated in
 Prerequisites:
 * Xcode 7.2.1 or later
 * OS X 10.10 SDK (archived [here][osx-sdks])
+* NASM 2.11 or later (`brew install nasm`)
 
 Build steps:
 1. `cd /path/to/haxm/`

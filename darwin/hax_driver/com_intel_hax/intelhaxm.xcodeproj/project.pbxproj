@@ -73,7 +73,22 @@
 		CFB6FDDB1ED43C540048A750 /* ramblock.c in Sources */ = {isa = PBXBuildFile; fileRef = CFB6FDDA1ED43C540048A750 /* ramblock.c */; };
 		CFD697471ED2DC9700F10631 /* gpa_space.c in Sources */ = {isa = PBXBuildFile; fileRef = CFD697461ED2DC9700F10631 /* gpa_space.c */; };
 		CFD697491ED2DCB700F10631 /* memory.h in Headers */ = {isa = PBXBuildFile; fileRef = CFD697481ED2DCB700F10631 /* memory.h */; };
+		FA8F651E208BAD9A00C8E91F /* emulate.c in Sources */ = {isa = PBXBuildFile; fileRef = FA8F651D208BAD9A00C8E91F /* emulate.c */; };
+		FA8F6520208BC1BA00C8E91F /* emulate_ops.asm in Sources */ = {isa = PBXBuildFile; fileRef = FA8F651F208BC1BA00C8E91F /* emulate_ops.asm */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXBuildRule section */
+		FA8F6523208BDF6600C8E91F /* PBXBuildRule */ = {
+			isa = PBXBuildRule;
+			compilerSpec = com.apple.compilers.proxy.script;
+			fileType = sourcecode.nasm;
+			isEditable = 1;
+			outputFiles = (
+				"$(DERIVED_FILE_DIR)/${INPUT_FILE_BASE}.o",
+			);
+			script = "/usr/local/bin/nasm -f macho64 --prefix _ -o ${SCRIPT_OUTPUT_FILE_0} ${INPUT_FILE_PATH}";
+		};
+/* End PBXBuildRule section */
 
 /* Begin PBXFileReference section */
 		089C167EFE841241C02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
@@ -145,6 +160,8 @@
 		CFD697461ED2DC9700F10631 /* gpa_space.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = gpa_space.c; path = ../../../core/gpa_space.c; sourceTree = "<group>"; };
 		CFD697481ED2DCB700F10631 /* memory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = memory.h; sourceTree = "<group>"; };
 		D27513B306A6225300ADB3A4 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = /System/Library/Frameworks/Kernel.framework; sourceTree = "<absolute>"; };
+		FA8F651D208BAD9A00C8E91F /* emulate.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = emulate.c; path = ../../../core/emulate.c; sourceTree = "<group>"; };
+		FA8F651F208BC1BA00C8E91F /* emulate_ops.asm */ = {isa = PBXFileReference; explicitFileType = sourcecode.nasm; fileEncoding = 4; name = emulate_ops.asm; path = ../../../core/emulate_ops.asm; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -212,6 +229,8 @@
 				B98ECF9E13A059BB00485DDB /* hax.c */,
 				B98ECF9F13A059BB00485DDB /* include */,
 				B98ECFB213A059BB00485DDB /* vcpu.c */,
+				FA8F651D208BAD9A00C8E91F /* emulate.c */,
+				FA8F651F208BC1BA00C8E91F /* emulate_ops.asm */,
 				B98ECFB313A059BB00485DDB /* vm.c */,
 				CF6A32281EDEB86E00468E62 /* pmu.h */,
 				B98ECFB413A059BB00485DDB /* vmcs_names.c */,
@@ -344,6 +363,7 @@
 				32A4FEC00562C75700D090E7 /* Rez */,
 			);
 			buildRules = (
+				FA8F6523208BDF6600C8E91F /* PBXBuildRule */,
 			);
 			dependencies = (
 			);
@@ -418,6 +438,7 @@
 				B98ECFB813A059BB00485DDB /* hax.c in Sources */,
 				B98ECFCB13A059BB00485DDB /* vcpu.c in Sources */,
 				B98ECFCC13A059BB00485DDB /* vm.c in Sources */,
+				FA8F651E208BAD9A00C8E91F /* emulate.c in Sources */,
 				CFB6FDDB1ED43C540048A750 /* ramblock.c in Sources */,
 				CFD697471ED2DC9700F10631 /* gpa_space.c in Sources */,
 				B98ECFCD13A059BB00485DDB /* vmcs_names.c in Sources */,
@@ -425,6 +446,7 @@
 				43440F3113A3B69A002E1442 /* hax_mem_alloc.cpp in Sources */,
 				43440F3213A3B69A002E1442 /* hax_wrapper.cpp in Sources */,
 				6E2DBBCC18EB6125003B66C9 /* page_walker.c in Sources */,
+				FA8F6520208BC1BA00C8E91F /* emulate_ops.asm in Sources */,
 				CF148D601EE6BAEB0097A058 /* memslot.c in Sources */,
 				22BFCFCE13A59A4300AD9F0F /* ept.c in Sources */,
 				22BFCFD213A59A6500AD9F0F /* intr_exc.c in Sources */,

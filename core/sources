@@ -25,5 +25,6 @@ SOURCES= ept.c	\
     chunk.c \
     memslot.c \
     ept_tree.c \
-    ept2.c
+    ept2.c \
+    emulate.c
 
