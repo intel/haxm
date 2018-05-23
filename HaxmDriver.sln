@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2013
-VisualStudioVersion = 12.0
+# Visual Studio 15
+VisualStudioVersion = 15.0.27428.2037
 MinimumVisualStudioVersion = 12.0
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Dirs-Package", "Dirs-Package", "{D81DC995-DB74-4766-906A-BCE6F0D5C4CB}"
 EndProject
@@ -111,5 +111,8 @@ Global
 		{A5FB804B-F439-4A01-A53B-489094D35A27} = {D81DC995-DB74-4766-906A-BCE6F0D5C4CB}
 		{BA777056-A57E-492D-A821-68D08A2DACE6} = {64E1CC85-832B-4062-9134-2F3852769FB2}
 		{BC80D1E0-5738-4048-A742-8A20949A6587} = {247C0037-7F0A-4694-B918-1160A913DDFF}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {6858D286-AAC4-4D68-B5E1-C3320ABEE28C}
 	EndGlobalSection
 EndGlobal
