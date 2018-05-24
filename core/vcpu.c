@@ -3486,9 +3486,10 @@ static int exit_ept_violation(struct vcpu_t *vcpu, struct hax_tunnel *htun)
          * (read-only) and thus result in EPT violations.
          * TODO: Handle this case properly.
          */
-        hax_warning("%s: Treating unsupported EPT violation cause as MMIO.\n",
-                    __func__);
-        goto mmio_handler;
+        hax_warning("%s: Unexpected EPT violation cause. Skipping instruction"
+                    " (len=%u)\n", __func__, vcpu->vmx.exit_instr_length);
+        advance_rip(vcpu);
+        return HAX_EXIT;
     }
     if (ret < 0) {
         hax_panic_vcpu(vcpu, "%s: ept_handle_access_violation() returned %d.\n",
