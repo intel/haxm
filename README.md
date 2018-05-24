@@ -9,25 +9,47 @@ HAXM can be built as either a kernel-mode driver for Windows or a kernel
 extension for macOS.
 
 ## Building for Windows
-Prerequisites:
-* [Enterprise WDK (EWDK) 10][ewdk10]
+### Prerequisites
 
-   Alternatively, install [all of the following][wdk10] instead of EWDK 10:
-   * Visual Studio 2015
-   * Windows Driver Kit (WDK) for Windows 10
-   * Windows SDK for Windows 10
+**Option A (Visual Studio)**
+* [Visual Studio 2017][visualstudio]
+  * Install at least the following components:
+_Universal Windows Platform development_, _Desktop development with C++_.
+* [Windows SDK for Windows 10][sdk10]
+* [Windows Driver Kit (WDK) for Windows 10][wdk10]
 
-Build steps:
-1. `cd X:\path\to\EWDK\`
-1. `LaunchBuildEnv.cmd`
-   * Or, if Visual Studio 2015 is installed, launch *Developer Command Prompt
-for VS2015* from *Start* > *All apps* > *Visual Studio 2015* instead.
-1. `cd X:\path\to\haxm\`
-1. `msbuild HaxmDriver.sln /p:Configuration="Win7 Debug" /p:Platform="x64"`
+Note that the version/build number of Windows SDK must match that of WDK.
+In particular, the Windows 10 SDK installed by Visual Studio 2017 (version 1709,
+build 10.0.16299 as of this writing) may not be the latest version. If you want
+to use the latest WDK (version 1803 as of this writing), you may need to
+download and install the latest Windows 10 SDK (version 1803, build 10.0.17134
+as of this writing).
+
+**Option B (EWDK)**
+* [Enterprise WDK (EWDK) 10][ewdk10] with Visual Studio Build Tools 15.6
+  * Install the downloaded ISO image by mounting it or extracting it to an empty
+folder.
+* [NuGet CLI tool][nuget] (`nuget.exe`) version 4.x or later
+
+### Build steps
+**Option A (Visual Studio)**
+1. Open `HaxmDriver.sln` in Visual Studio 2017.
+1. Select either `Win7 Debug` or `Win7 Release` configuration.
    * The `Win7` configuration ensures the driver is compatible with Windows 7
 and later.
    * The `Debug` configuration also signs the driver with a test certificate.
 The `Release` configuration does not do that.
+1. Select either `x64` or `Win32` platform.
+1. Build solution.
+
+**Option B (EWDK)**
+1. `cd X:\path\to\EWDK\`
+1. `LaunchBuildEnv.cmd`
+1. `cd X:\path\to\haxm\`
+1. `X:\path\to\nuget.exe restore`
+1. `msbuild HaxmDriver.sln /p:Configuration="Win7 Debug" /p:Platform="x64"`
+   * Use `Win7 Release` instead of `Win7 Debug` to build a faster driver without
+a digital signature.
    * Use `Win32` instead of `x64` to build a 32-bit driver that works on 32-bit
 Windows.
    * Add `/t:rebuild` for a clean rebuild instead of an incremental build.
@@ -37,12 +59,14 @@ If successful, the driver binary (`IntelHaxm.sys`) will be generated in
 `Platform="Win32"`).
 
 ## Building for macOS
-Prerequisites:
+### Prerequisites
 * Xcode 7.2.1 or later
 * OS X 10.10 SDK (archived [here][osx-sdks])
-* NASM 2.11 or later (`brew install nasm`)
+* NASM 2.11 or later
+  * Install to `/usr/local/bin/` using Homebrew: `brew install nasm`
+  * Note that Apple NASM (`/usr/bin/nasm`) cannot be used.
 
-Build steps:
+### Build steps
 1. `cd /path/to/haxm/`
 1. `cd darwin/hax_driver/com_intel_hax/`
 1. `xcodebuild -config Release`
@@ -66,7 +90,10 @@ sensitive information.
 [intel-vt]: https://www.intel.com/content/www/us/en/virtualization/virtualization-technology/intel-virtualization-technology.html
 [android-studio]: https://developer.android.com/studio/index.html
 [qemu]: https://www.qemu.org/
-[ewdk10]: https://docs.microsoft.com/en-us/windows-hardware/drivers/develop/installing-the-enterprise-wdk
-[wdk10]: https://developer.microsoft.com/en-us/windows/hardware/windows-driver-kit
+[visualstudio]: https://www.visualstudio.com/downloads/
+[ewdk10]: https://docs.microsoft.com/en-us/windows-hardware/drivers/develop/using-the-enterprise-wdk
+[sdk10]: https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk
+[wdk10]: https://docs.microsoft.com/en-us/windows-hardware/drivers/download-the-wdk
+[nuget]: https://www.nuget.org/downloads
 [osx-sdks]: https://github.com/phracker/MacOSX-SDKs
 [intel-security-email]: mailto:secure@intel.com
