@@ -74,6 +74,7 @@ extern uint32 pw_reserved_bits_high_mask;
 
 static void vcpu_init(struct vcpu_t *vcpu);
 static void vcpu_prepare(struct vcpu_t *vcpu);
+static void vcpu_init_emulator(struct vcpu_t *vcpu);
 
 static void vmread_cr(struct vcpu_t *vcpu);
 static void vmwrite_cr(struct vcpu_t *vcpu);
@@ -469,6 +470,9 @@ struct vcpu_t *vcpu_create(struct vm_t *vm, void *vm_host, int vcpu_id)
     // The caller should get_vm thus no race with vm destroy
     hax_atomic_add(&vm->ref_count, 1);
     hax_mutex_unlock(vm->vm_lock);
+
+    // Initialize emulator
+    vcpu_init_emulator(vcpu);
 
     hax_debug("HAX: vcpu %d is created.\n", vcpu->vcpu_id);
     return vcpu;
@@ -1404,51 +1408,6 @@ static int write_low_bits(uint64 *pdst, uint64 src, uint8 size)
     return 0;
 }
 
-static void handle_mmio_post(struct vcpu_t *vcpu, struct hax_fastmmio *hft)
-{
-    struct vcpu_state_t *state = vcpu->state;
-
-    if (hft->direction)
-        return;
-
-    if (vcpu->post_mmio.op == VCPU_POST_MMIO_WRITE_REG) {
-        uint64 value;
-        // No special treatment for MOVZX, because the source value is
-        // automatically zero-extended to 64 bits
-        read_low_bits(&value, hft->value, hft->size);
-        switch (vcpu->post_mmio.manip) {
-            case VCPU_POST_MMIO_MANIP_AND: {
-                value &= vcpu->post_mmio.value;
-                break;
-            }
-            case VCPU_POST_MMIO_MANIP_OR: {
-                value |= vcpu->post_mmio.value;
-                break;
-            }
-            case VCPU_POST_MMIO_MANIP_XOR: {
-                value ^= vcpu->post_mmio.value;
-                break;
-            }
-            default: {
-                break;
-            }
-        }
-        // Avoid overwriting high bits of the register if hft->size < 8
-        write_low_bits(&state->_regs[vcpu->post_mmio.reg_index], value,
-                       hft->size);
-    } else if (vcpu->post_mmio.op == VCPU_POST_MMIO_WRITE_MEM) {
-        // Assume little-endian
-        if (!vcpu_write_guest_virtual(vcpu, vcpu->post_mmio.va, hft->size,
-                                      (uint8 *)&hft->value, hft->size, 0)) {
-            hax_panic_vcpu(vcpu, "Error writing %u bytes to guest RAM "
-                           "(va=0x%llx, value=0x%llx)\n", hft->size,
-                           vcpu->post_mmio.va, hft->value);
-        }
-    } else {
-        hax_warning("Unknown post-MMIO operation %d\n", vcpu->post_mmio.op);
-    }
-}
-
 static void handle_io_post(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
     int size;
@@ -1488,6 +1447,8 @@ static void handle_io_post(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 int vcpu_execute(struct vcpu_t *vcpu)
 {
     struct hax_tunnel *htun = vcpu->tunnel;
+    struct em_context_t *em_ctxt = &vcpu->emulate_ctxt;
+    em_status_t rc;
     int err = 0;
 
     hax_mutex_lock(vcpu->tmutex);
@@ -1504,8 +1465,19 @@ int vcpu_execute(struct vcpu_t *vcpu)
     if (htun->_exit_status == HAX_EXIT_IO) {
         handle_io_post(vcpu, htun);
     }
-    if (htun->_exit_status == HAX_EXIT_FAST_MMIO) {
-        handle_mmio_post(vcpu, (struct hax_fastmmio *)vcpu->io_buf);
+    // Continue until emulation finishes
+    if (!em_ctxt->finished) {
+        rc = em_emulate_insn(em_ctxt);
+        if (rc < 0) {
+            hax_panic_vcpu(vcpu, "%s: em_emulate_insn() failed: vcpu_id=%u",
+                           __func__, vcpu->vcpu_id);
+            err = HAX_RESUME;
+            goto out;
+        }
+        if (rc > 0) {
+            err = HAX_EXIT;
+            goto out;
+        }
     }
     err = cpu_vmx_execute(vcpu, htun);
     vcpu_is_panic(vcpu);
@@ -1907,75 +1879,6 @@ static void vcpu_exit_fpu_state(struct vcpu_t *vcpu)
     }
 }
 
-struct decode {
-    paddr_t gpa;
-    paddr_t value;
-    uint8_t size;       // Operand/value size in bytes (1, 2, 4 or 8)
-    uint8_t addr_size;  // Address size in bytes (2, 4 or 8)
-    uint8_t opcode_dir;
-    uint8_t reg_index;
-    vaddr_t va;         // Non-I/O GVA operand (e.g. in MOVS instructions)
-    paddr_t src_pa;
-    paddr_t dst_pa;
-    uint8_t advance;
-    bool    has_rep;    // Whether the instruction is prefixed with REP
-};
-
-// ModR/M byte (see IA SDM Vol. 2A 2.1 Figure 2-1)
-union modrm_byte {
-    uint8_t value;
-    struct {
-        uint8_t rm  : 3;
-        uint8_t reg : 3;
-        uint8_t mod : 2;
-    };
-} PACKED;
-
-// SIB byte (see IA SDM Vol. 2A 2.1 Figure 2-1)
-union sib_byte {
-    uint8_t value;
-    struct {
-        uint8_t base  : 3;
-        uint8_t index : 3;
-        uint8_t scale : 2;
-    };
-} PACKED;
-
-// Data transfer operations
-#define OPCODE_MOV_IOMEM_TO_REG     0
-#define OPCODE_MOV_REG_TO_IOMEM     1
-#define OPCODE_MOV_NUM_TO_IOMEM     3
-#define OPCODE_STOS                 4
-#define OPCODE_MOVS_MEM_TO_IOMEM    5
-#define OPCODE_MOVS_IOMEM_TO_MEM    6
-#define OPCODE_MOVS_IOMEM_TO_IOMEM  7
-#define OPCODE_MOVZX_IOMEM_TO_REG   8
-
-// Bitwise operations
-#define OPCODE_AND_NUM_TO_IOMEM     20  // not supported yet
-#define OPCODE_AND_REG_TO_IOMEM     21  // not supported yet
-#define OPCODE_AND_IOMEM_TO_REG     22
-#define OPCODE_OR_NUM_TO_IOMEM      23  // not supported yet
-#define OPCODE_OR_REG_TO_IOMEM      24  // not supported yet
-#define OPCODE_OR_IOMEM_TO_REG      25
-#define OPCODE_XOR_NUM_TO_IOMEM     26  // not supported yet
-#define OPCODE_XOR_REG_TO_IOMEM     27  // not supported yet
-#define OPCODE_XOR_IOMEM_TO_REG     28
-#define OPCODE_NOT_IOMEM            29  // not supported yet
-
-#define PF_SEG_OVERRIDE_NONE        0
-// Each of the following denotes the presence of a segment override prefix
-//   http://wiki.osdev.org/X86-64_Instruction_Encoding
-#define PF_SEG_OVERRIDE_CS          1  // 0x2e
-#define PF_SEG_OVERRIDE_SS          2  // 0x36
-#define PF_SEG_OVERRIDE_DS          3  // 0x3e
-#define PF_SEG_OVERRIDE_ES          4  // 0x26
-#define PF_SEG_OVERRIDE_FS          5  // 0x64
-#define PF_SEG_OVERRIDE_GS          6  // 0x65
-
-// An instruction can have up to 4 legacy prefixes:
-//   http://wiki.osdev.org/X86-64_Instruction_Encoding
-#define INSTR_MAX_LEGACY_PF         4
 // Instructions are never longer than 15 bytes:
 //   http://wiki.osdev.org/X86-64_Instruction_Encoding
 #define INSTR_MAX_LEN               15
@@ -2012,48 +1915,35 @@ static bool is_mmio_address(struct vcpu_t *vcpu, paddr_t gpa)
     }
 }
 
-// Returns 0 on success, < 0 on error, > 0 if HAX_EXIT_MMIO is necessary.
-static int vcpu_simple_decode(struct vcpu_t *vcpu, struct decode *dc)
+static int vcpu_emulate_insn(struct vcpu_t *vcpu)
 {
+    em_status_t rc;
+    em_mode_t mode;
+    em_context_t *em_ctxt = &vcpu->emulate_ctxt;
+    uint8 instr[INSTR_MAX_LEN] = {0};
     uint64 cs_base = vcpu->state->_cs.base;
     uint64 rip = vcpu->state->_rip;
-    vaddr_t va;
-    uint8 instr[INSTR_MAX_LEN] = {0};
-    uint8 len = 0;
-    bool has_modrm;          // Whether ModR/M byte is present
-    union modrm_byte modrm;  // ModR/M byte
-    bool has_sib;            // Whether SIB byte is present
-    union sib_byte sib;      // SIB byte
-    uint8 disp_size;         // Displacement size in bytes
-    uint8 imm_size;          // Immediate size in bytes
-    int num;
-    int rex_w = 0;
-    int rex_r = 0;
-    bool is_64bit_mode;
-    int default_16bit;  // Whether operand/address sizes default to 16-bit
-    int override_operand_size = 0;
-    int override_address_size = 0;
-    int override_segment = PF_SEG_OVERRIDE_NONE;
-    int use_16bit_operands;
-    uint8 operand_size;
-    bool has_esc = false;  // Whether opcode begins with 0f (escape opcode byte)
+    uint64 va;
 
-    if (!qemu_support_fastmmio(vcpu)) {
-        hax_warning("vcpu_simple_decode: QEMU does not support fast MMIO!\n");
-        return 1;
-    }
-
-    // TODO: Is this the correct way to check if we are in 64-bit mode?
-    is_64bit_mode = vcpu->state->_cs.long_mode != 0;
+    // Detect guest mode
+    if (!(vcpu->state->_cr0 & CR0_PE))
+        mode = EM_MODE_REAL;
+    else if (vcpu->state->_cs.long_mode == 1)
+        mode = EM_MODE_PROT64;
+    else if (vcpu->state->_cs.operand_size == 1)
+        mode = EM_MODE_PROT32;
+    else
+        mode = EM_MODE_PROT16;
+    em_ctxt->mode = mode;
 
     // Fetch the instruction at guest CS:IP = CS.Base + IP, omitting segment
     // limit and privilege checks
-    va = is_64bit_mode ? rip : cs_base + rip;
+    va = (mode == EM_MODE_PROT64) ? rip : cs_base + rip;
 #ifdef CONFIG_HAX_EPT2
     if (mmio_fetch_instruction(vcpu, va, instr, INSTR_MAX_LEN)) {
         hax_panic_vcpu(vcpu, "%s: mmio_fetch_instruction() failed: vcpu_id=%u,"
-                       " gva=0x%llx (CS:IP=0x%llx:0x%llx), mmio_gpa=0x%llx\n",
-                       __func__, vcpu->vcpu_id, va, cs_base, rip, dc->gpa);
+                       " gva=0x%llx (CS:IP=0x%llx:0x%llx)\n",
+                       __func__, vcpu->vcpu_id, va, cs_base, rip);
         dump_vmcs(vcpu);
         return -1;
     }
@@ -2067,551 +1957,177 @@ static int vcpu_simple_decode(struct vcpu_t *vcpu, struct decode *dc)
     }
 #endif  // CONFIG_HAX_EPT2
 
-    // See http://wiki.osdev.org/X86-64_Instruction_Encoding
-    default_16bit = !is_64bit_mode && ((vcpu->state->_cr0 & CR0_PE) == 0 ||
-                    vcpu->state->_cs.operand_size == 0);
-
-    // Parse legacy prefixes
-    dc->has_rep = false;
-    for (num = 0; num < INSTR_MAX_LEGACY_PF; num++) {
-        switch (instr[num]) {
-            case 0xf0: {
-                // LOCK prefix
-                // Ignored (is it possible to emulate atomic operations?)
-                break;
-            }
-            case 0xf3: {
-                // REP prefix
-                dc->has_rep = true;
-                break;
-            }
-            case 0x66: {
-                // Operand-size override prefix
-                override_operand_size = 1;
-                break;
-            }
-            case 0x67: {
-                // Address-size override prefix
-                override_address_size = 1;
-                break;
-            }
-            case 0x2e: {
-                // CS segment override prefix
-                override_segment = PF_SEG_OVERRIDE_CS;
-                break;
-            }
-            case 0x36: {
-                // SS segment override prefix
-                override_segment = PF_SEG_OVERRIDE_SS;
-                break;
-            }
-            case 0x3e: {
-                // DS segment override prefix
-                override_segment = PF_SEG_OVERRIDE_DS;
-                break;
-            }
-            case 0x26: {
-                // ES segment override prefix
-                override_segment = PF_SEG_OVERRIDE_ES;
-                break;
-            }
-            case 0x64: {
-                // FS segment override prefix
-                override_segment = PF_SEG_OVERRIDE_FS;
-                break;
-            }
-            case 0x65: {
-                // GS segment override prefix
-                override_segment = PF_SEG_OVERRIDE_GS;
-                break;
-            }
-            default: {
-                goto done_legacy_pf;
-            }
-        }
+    em_ctxt->rip = rip;
+    rc = em_decode_insn(em_ctxt, instr);
+    if (rc < 0) {
+        hax_panic_vcpu(vcpu, "%s: em_decode_insn() failed: vcpu_id=%u",
+                       __func__, vcpu->vcpu_id);
+        return HAX_RESUME;
     }
-
-done_legacy_pf:
-    // (1) For 32-bit code, 0x40 ~ 0x4f are inc/dec to one of general purpose
-    //     registers.  This does not apply.
-    // (2) For 64-bit code, 0x40 ~ 0x4f are size/reg (REX) prefix.
-
-    if (instr[num] >= 0x40 && instr[num] <= 0x4f) {
-        rex_w = (instr[num] & 0x08) != 0;
-        rex_r = (instr[num] & 0x04) != 0;
-        num++;
-    }
-
-    // See http://wiki.osdev.org/X86-64_Instruction_Encoding
-    use_16bit_operands = default_16bit ^ override_operand_size;
-    operand_size = rex_w ? 8 : (use_16bit_operands ? 2 : 4);
-    if (is_64bit_mode) {
-        dc->addr_size = override_address_size ? 4 : 8;
-    } else {
-        int use_16bit_addresses = default_16bit ^ override_address_size;
-        dc->addr_size = use_16bit_addresses ? 2 : 4;
-    }
-
-    if (instr[num] == 0x0f) {  // Escape opcode byte
-        has_esc = true;
-        num++;
-        // TODO: Support 3-byte opcodes
-    }
-
-    // ModR/M byte is present in most instructions we deal with
-    has_modrm = true;
-    modrm.value = instr[num + 1];  // Valid only if has_modrm is true
-    sib.value = instr[num + 2];    // Valid only if has_sib is true
-
-    // Assuming ModR/M byte is valid, determine has_sib and disp_size (see IA
-    // SDM Vol. 2A 2.1.5, Table 2-1 and Table 2-2)
-    // Mod == 01b always indicates an 8-bit displacement
-    disp_size = modrm.mod == 1 ? 1 : 0;
-    if (dc->addr_size == 2) {  // 16-bit addressing
-        has_sib = false;
-        if ((modrm.mod == 0 && modrm.rm == 6) || modrm.mod == 2) {
-            disp_size = 2;
-        }
-    } else {  // 32 or 64-bit addressing
-        has_sib = modrm.mod != 3 && modrm.rm == 4;
-        // The third case is documented in the notes below IA SDM Vol. 2A 2.1.5,
-        // Table 2-3
-        if ((modrm.mod == 0 && modrm.rm == 5) || modrm.mod == 2 ||
-            (has_sib && modrm.mod == 0 && sib.base == 5)) {
-            disp_size = 4;
-        }
-    }
-
-    imm_size = 0;
-    // Parse the real opcode
-    switch (instr[num]) {
-        case 0x88:    // MOV reg => reg/mem, 8-bit
-        case 0x89:    // MOV reg => reg/mem, 16/32/64-bit
-        case 0x8a:    // MOV reg/mem => reg, 8-bit
-        case 0x8b: {  // MOV reg/mem => reg, 16/32/64-bit
-            if (modrm.mod == 3) {
-                hax_error("Unexpected reg-to-reg MOV instruction\n");
-                goto case_unexpected_opcode;
-            }
-
-            dc->opcode_dir = instr[num] == 0x88 || instr[num] == 0x89
-                             ? OPCODE_MOV_REG_TO_IOMEM
-                             : OPCODE_MOV_IOMEM_TO_REG;
-
-            dc->size = instr[num] == 0x88 || instr[num] == 0x8a
-                       ? 1 : operand_size;
-            dc->reg_index = modrm.reg + (rex_r ? 8 : 0);
-            break;
-        }
-        case 0xa0:    // MOV mem => AL
-        case 0xa1:    // MOV mem => *AX
-        case 0xa2:    // MOV AL => mem
-        case 0xa3: {  // MOV *AX => mem
-            has_modrm = false;
-            dc->opcode_dir = instr[num] == 0xa0 || instr[num] == 0xa1
-                             ? OPCODE_MOV_IOMEM_TO_REG
-                             : OPCODE_MOV_REG_TO_IOMEM;
-
-            dc->size = instr[num] == 0xa0 || instr[num] == 0xa2
-                       ? 1 : operand_size;
-            // The moffset (direct memory-offset) operand is similar to an
-            // immediate as far as instruction length calculation is concerned
-            // (see IA SDM Vol. 2A 2.2.1.4)
-            imm_size = dc->size;
-            dc->reg_index = 0;
-            break;
-        }
-        case 0xc6:    // MOV imm => reg/mem, 8-bit
-        case 0xc7: {  // MOV imm => reg/mem, 16/32-bit
-            int imm_offset;
-            uint32 imm_value;
-
-            if (modrm.reg != 0) {
-                hax_error("Invalid MOV instruction\n");
-                goto case_unexpected_opcode;
-            }
-            if (modrm.mod == 3) {
-                hax_error("Unexpected reg-to-reg MOV instruction\n");
-                goto case_unexpected_opcode;
-            }
-
-            dc->size = operand_size;
-            dc->opcode_dir = OPCODE_MOV_NUM_TO_IOMEM;
-            // In 64-bit mode, source operand is still a 32-bit immediate
-            imm_size = instr[num] == 0xc6 ? 1 : (operand_size == 2 ? 2 : 4);
-            imm_offset = num + 2;  // 1 for opcode, 1 for ModR/M
-            if (has_sib) {
-                imm_offset++;
-            }
-            imm_offset += disp_size;
-            switch (imm_size) {
-                case 1: {
-                    imm_value = *((uint8 *)&instr[imm_offset]);
-                    break;
-                }
-                case 2: {
-                    imm_value = *((uint16 *)&instr[imm_offset]);
-                    break;
-                }
-                case 4: {
-                    imm_value = *((uint32 *)&instr[imm_offset]);
-                    break;
-                }
-                default: {
-                    // Should never happen
-                    hax_error("Invalid MOV instruction\n");
-                    goto case_unexpected_opcode;
-                }
-            }
-            if (operand_size == 8) {
-                // In 64-bit mode, the 32-bit immediate is sign-extended
-                int64 imm_signed = (int32)imm_value;
-                dc->value = (uint64)imm_signed;
-            } else {
-                dc->value = imm_value;
-            }
-            break;
-        }
-        case 0xaa:    // STOSB
-        case 0xab: {  // STOSW, STOSD, STOSQ
-            has_modrm = false;
-            dc->opcode_dir = OPCODE_STOS;
-            dc->reg_index = 0;  // Source operand of STOS is always AL/*AX
-            dc->size = instr[num] == 0xaa ? 1 : operand_size;
-            break;
-        }
-        case 0xa4:    // MOVSB
-        case 0xa5: {  // MOVSW, MOVSD, MOVSQ
-            vaddr_t src_va, dst_va;
-            paddr_t src_pa, dst_pa;
-            bool is_src_mmio, is_dst_mmio;
-
-            has_modrm = false;
-            if (is_64bit_mode) {
-                src_va = dc->addr_size == 8
-                         ? vcpu->state->_rsi : vcpu->state->_esi;
-                dst_va = dc->addr_size == 8
-                         ? vcpu->state->_rdi : vcpu->state->_edi;
-            } else {
-                // Source segment defaults to DS but may be overridden
-                uint64 src_base;
-                // Destination segment is always ES
-                uint64 dst_base = vcpu->state->_es.base;
-                switch (override_segment) {
-                    case PF_SEG_OVERRIDE_CS: {
-                        src_base = vcpu->state->_cs.base;
-                        break;
-                    }
-                    case PF_SEG_OVERRIDE_SS: {
-                        src_base = vcpu->state->_ss.base;
-                        break;
-                    }
-                    case PF_SEG_OVERRIDE_ES: {
-                        src_base = vcpu->state->_es.base;
-                        break;
-                    }
-                    case PF_SEG_OVERRIDE_FS: {
-                        src_base = vcpu->state->_fs.base;
-                        break;
-                    }
-                    case PF_SEG_OVERRIDE_GS: {
-                        src_base = vcpu->state->_gs.base;
-                        break;
-                    }
-                    default: {
-                        src_base = vcpu->state->_ds.base;
-                        break;
-                    }
-                }
-                src_va = dc->addr_size == 2 ? (src_base + vcpu->state->_si)
-                         : (src_base + vcpu->state->_esi);
-                dst_va = dc->addr_size == 2 ? (dst_base + vcpu->state->_di)
-                         : (dst_base + vcpu->state->_edi);
-            }
-            src_pa = dst_pa = 0xffffffffffffffffULL;
-            // TODO: Can vcpu_translate() fail?
-            vcpu_translate(vcpu, src_va, 0, &src_pa, NULL, true);
-            vcpu_translate(vcpu, dst_va, 0, &dst_pa, NULL, true);
-            is_src_mmio = src_pa == dc->gpa || is_mmio_address(vcpu, src_pa);
-            is_dst_mmio = dst_pa == dc->gpa || is_mmio_address(vcpu, dst_pa);
-            if (is_src_mmio && is_dst_mmio) {
-                dc->opcode_dir = OPCODE_MOVS_IOMEM_TO_IOMEM;
-                dc->src_pa = src_pa;
-                dc->dst_pa = dst_pa;
-            } else if (is_dst_mmio) {
-                dc->opcode_dir = OPCODE_MOVS_MEM_TO_IOMEM;
-                dc->va = src_va;
-            } else {
-                // is_src_mmio
-                dc->opcode_dir = OPCODE_MOVS_IOMEM_TO_MEM;
-                dc->va = dst_va;
-            }
-            dc->size = instr[num] == 0xa4 ? 1 : operand_size;
-            break;
-        }
-        case 0xb6:    // MOVZX, 8-bit to 16/32/64-bit
-        case 0xb7: {  // MOVZX, 16-bit to 32/64-bit
-            if (!has_esc) {
-                hax_error("Invalid MOVZX instruction: missing 0x0f\n");
-                goto case_unexpected_opcode;
-            }
-            if (modrm.mod == 3) {
-                hax_error("Unexpected reg-to-reg MOVZX instruction\n");
-                goto case_unexpected_opcode;
-            }
-
-            dc->opcode_dir = OPCODE_MOVZX_IOMEM_TO_REG;
-            dc->size = instr[num] == 0xb6 ? 1 : 2;  // Source operand size
-            // Destination operand size does not really matter; the value is
-            // always zero-extended to 64 bits
-            dc->reg_index = modrm.reg + (rex_r ? 8 : 0);
-            break;
-        }
-        // TODO: Handle 0x20, 0x21, 0x80 (/4), 0x81 (/4) and 0x83 (/4)
-        case 0x22:    // AND reg/mem => reg, 8-bit
-        case 0x23: {  // AND reg/mem => reg, 16/32/64-bit
-            if (modrm.mod == 3) {
-                hax_error("Unexpected reg-to-reg AND instruction\n");
-                goto case_unexpected_opcode;
-            }
-
-            dc->opcode_dir = OPCODE_AND_IOMEM_TO_REG;
-            dc->size = instr[num] == 0x22 ? 1 : operand_size;
-            dc->reg_index = modrm.reg + (rex_r ? 8 : 0);
-            break;
-        }
-        // TODO: Handle 0x08, 0x09, 0x80 (/1), 0x81 (/1) and 0x83 (/1)
-        case 0x0a:    // OR reg/mem => reg, 8-bit
-        case 0x0b: {  // OR reg/mem => reg, 16/32/64-bit
-            if (modrm.mod == 3) {
-                hax_error("Unexpected reg-to-reg OR instruction\n");
-                goto case_unexpected_opcode;
-            }
-
-            dc->opcode_dir = OPCODE_OR_IOMEM_TO_REG;
-            dc->size = instr[num] == 0x0a ? 1 : operand_size;
-            dc->reg_index = modrm.reg + (rex_r ? 8 : 0);
-            break;
-        }
-        // TODO: Handle 0x30, 0x31, 0x80 (/6), 0x81 (/6) and 0x83 (/6)
-        case 0x32:    // XOR reg/mem => reg, 8-bit
-        case 0x33: {  // XOR reg/mem => reg, 16/32/64-bit
-            if (modrm.mod == 3) {
-                hax_error("Unexpected reg-to-reg XOR instruction\n");
-                goto case_unexpected_opcode;
-            }
-
-            dc->opcode_dir = OPCODE_XOR_IOMEM_TO_REG;
-            dc->size = instr[num] == 0x32 ? 1 : operand_size;
-            dc->reg_index = modrm.reg + (rex_r ? 8 : 0);
-            break;
-        }
-case_unexpected_opcode:
-        default: {
-            hax_panic_vcpu(vcpu, "Unexpected MMIO instruction (opcode=0x%x,"
-                           " exit_instr_length=%u, num=%d, gpa=0x%llx,"
-                           " instr[0..5]=0x%x 0x%x 0x%x 0x%x 0x%x 0x%x)\n",
-                           instr[num], vcpu->vmx.exit_instr_length, num,
-                           dc->gpa, instr[0], instr[1], instr[2], instr[3],
-                           instr[4], instr[5]);
-            dump_vmcs(vcpu);
-            return -1;
-        }
-    }
-
-    // Calculate instruction length
-    len = (uint8)(num + 1);  // 1 for opcode
-    if (has_modrm) {
-        len++;
-        if (has_sib) {
-            len++;
-        }
-        len += disp_size;
-    }
-    len += imm_size;
-
-    if (len != vcpu->vmx.exit_instr_length) {
+    if (em_ctxt->len != vcpu->vmx.exit_instr_length) {
         hax_debug("Inferred instruction length %u does not match VM-exit"
                   " instruction length %u (CS:IP=0x%llx:0x%llx, instr[0..5]="
-                  "0x%x 0x%x 0x%x 0x%x 0x%x 0x%x)\n", len,
+                  "0x%x 0x%x 0x%x 0x%x 0x%x 0x%x)\n", em_ctxt->len,
                   vcpu->vmx.exit_instr_length, cs_base, rip, instr[0], instr[1],
                   instr[2], instr[3], instr[4], instr[5]);
     }
-    dc->advance = len;
-    return 0;
+    rc = em_emulate_insn(em_ctxt);
+    if (rc < 0) {
+        hax_panic_vcpu(vcpu, "%s: em_emulate_insn() failed: vcpu_id=%u",
+                       __func__, vcpu->vcpu_id);
+        return HAX_RESUME;
+    }
+    return HAX_EXIT;
 }
 
-static int hax_setup_fastmmio(struct vcpu_t *vcpu, struct hax_tunnel *htun,
-                              struct decode *dec)
+static uint64_t vcpu_read_gpr(void *obj, uint32_t reg_index, uint32_t size)
 {
+    struct vcpu_t *vcpu = obj;
+    if (reg_index >= 16) {
+        hax_panic_vcpu(vcpu, "vcpu_read_gpr: Invalid register index\n");
+        return 0;
+    }
+    uint64_t value = 0;
+    memcpy(&value, &vcpu->state->_regs[reg_index], size);
+    return value;
+}
+
+static void vcpu_write_gpr(void *obj, uint32_t reg_index, uint64_t value,
+                           uint32_t size)
+{
+    struct vcpu_t *vcpu = obj;
+    if (reg_index >= 16) {
+        hax_panic_vcpu(vcpu, "vcpu_write_gpr: Invalid register index\n");
+        return;
+    }
+    memcpy(&vcpu->state->_regs[reg_index], &value, size);
+}
+
+uint64_t vcpu_read_rflags(void *obj)
+{
+    struct vcpu_t *vcpu = obj;
+    return vcpu->state->_rflags;
+}
+
+void vcpu_write_rflags(void *obj, uint64_t value)
+{
+    struct vcpu_t *vcpu = obj;
+    vcpu->state->_rflags = value;
+}
+
+static uint64_t vcpu_get_segment_base(void *obj, uint32_t segment)
+{
+    struct vcpu_t *vcpu = obj;
+    switch (segment) {
+    case SEG_CS:
+        return vcpu->state->_cs.base;
+    case SEG_DS:
+        return vcpu->state->_ds.base;
+    case SEG_ES:
+        return vcpu->state->_es.base;
+    case SEG_FS:
+        return vcpu->state->_fs.base;
+    case SEG_GS:
+        return vcpu->state->_gs.base;
+    case SEG_SS:
+        return vcpu->state->_ss.base;
+    default:
+        return vcpu->state->_ds.base;
+    }
+}
+
+static void vcpu_advance_rip(void *obj, uint64_t len)
+{
+    struct vcpu_t *vcpu = obj;
+    advance_rip(vcpu);
+}
+
+static em_status_t vcpu_read_memory(void *obj, uint64_t ea, uint64_t *value,
+                                    uint32_t size, uint32_t flags)
+{
+    struct vcpu_t *vcpu = obj;
+    uint64_t pa;
+
+    if (flags & EM_OPS_NO_TRANSLATION) {
+        pa = vmread(vcpu, VM_EXIT_INFO_GUEST_PHYSICAL_ADDRESS);
+    } else {
+        vcpu_translate(vcpu, ea, 0, &pa, NULL, false);
+    }
+
+    // Assume that instructions that don't require translation access MMIO
+    if (flags & EM_OPS_NO_TRANSLATION || is_mmio_address(vcpu, pa)) {
+        struct hax_tunnel *htun = vcpu->tunnel;
+        struct hax_fastmmio *hft = (struct hax_fastmmio *)vcpu->io_buf;
+        htun->_exit_status = HAX_EXIT_FAST_MMIO;
+        hft->gpa = pa;
+        hft->size = size;
+        hft->direction = 0;
+        return EM_EXIT_MMIO;
+    } else {
+        if (!vcpu_read_guest_virtual(vcpu, ea, value, size, size, 0)) {
+            return EM_ERROR;
+        }
+        return EM_CONTINUE;
+    }
+}
+
+static em_status_t vcpu_read_memory_post(void *obj,
+                                         uint64_t *value, uint32_t size)
+{
+    struct vcpu_t *vcpu = obj;
     struct hax_fastmmio *hft = (struct hax_fastmmio *)vcpu->io_buf;
-    struct vcpu_state_t *state = vcpu->state;
-    bool advance = true;
-    uint8_t buf[8] = { 0 };
+    memcpy(value, &hft->value, size);
+    return EM_CONTINUE;
+}
 
-    htun->_exit_status = HAX_EXIT_FAST_MMIO;
-    hft->gpa = dec->gpa;
-    hft->size = dec->size;
+static em_status_t vcpu_write_memory(void *obj, uint64_t ea, uint64_t *value,
+                                     uint32_t size, uint32_t flags)
+{
+    struct vcpu_t *vcpu = obj;
+    uint64_t pa;
 
-    hft->reg_index = 0;
-    hft->value = 0;
-    vcpu->post_mmio.op = VCPU_POST_MMIO_NOOP;
-
-    switch (dec->opcode_dir) {
-        case OPCODE_MOV_REG_TO_IOMEM:
-        case OPCODE_STOS: {
-            hft->value = vcpu->state->_regs[dec->reg_index];
-            hft->direction = 1;
-            break;
-        }
-        case OPCODE_MOV_IOMEM_TO_REG:
-        case OPCODE_MOVZX_IOMEM_TO_REG:
-        case OPCODE_AND_IOMEM_TO_REG:
-        case OPCODE_OR_IOMEM_TO_REG:
-        case OPCODE_XOR_IOMEM_TO_REG: {
-            vcpu->post_mmio.op = VCPU_POST_MMIO_WRITE_REG;
-            vcpu->post_mmio.reg_index = dec->reg_index;
-            hft->direction = 0;
-            break;
-        }
-        case OPCODE_MOV_NUM_TO_IOMEM: {
-            hft->value = dec->value;
-            hft->direction = 1;
-            break;
-        }
-        case OPCODE_MOVS_MEM_TO_IOMEM: {
-            // Source operand (saved in dec->va) is a non-I/O GVA
-            if (!vcpu_read_guest_virtual(vcpu, dec->va, buf, 8, dec->size, 0)) {
-                hax_panic_vcpu(vcpu, "Error reading %u bytes from guest RAM"
-                               " (va=0x%llx, DS:RSI=0x%llx:0x%llx)\n",
-                               dec->size, dec->va, vcpu->state->_ds.base,
-                               vcpu->state->_rsi);
-                dump_vmcs(vcpu);
-                return -1;
-            }
-            hft->value = *((uint64 *)buf);  // Assume little-endian
-            hft->direction = 1;
-            break;
-        }
-        case OPCODE_MOVS_IOMEM_TO_MEM: {
-            // Destination operand (saved in dec->va) is a non-I/O GVA
-            vcpu->post_mmio.op = VCPU_POST_MMIO_WRITE_MEM;
-            vcpu->post_mmio.va = dec->va;
-            hft->direction = 0;
-            break;
-        }
-        case OPCODE_MOVS_IOMEM_TO_IOMEM: {
-            if (!qemu_support_fastmmio_extra(vcpu)) {
-                hax_panic_vcpu(vcpu, "MOVS between two MMIO addresses requires"
-                               " a newer version of QEMU HAXM module.\n");
-                dump_vmcs(vcpu);
-                return -1;
-            }
-            if (dec->src_pa == dec->gpa) {
-                hft->direction = 2;
-                hft->gpa2 = dec->dst_pa;
-            } else {
-                hft->direction = 3;
-                hft->gpa2 = dec->src_pa;
-                hax_warning("MOVS MMIO=>MMIO in reverse direction!\n");
-            }
-            break;
-        }
-        default: {
-            hax_panic_vcpu(vcpu, "Unsupported MMIO operation %d\n",
-                           dec->opcode_dir);
-            dump_vmcs(vcpu);
-            return -1;
-        }
+    if (flags & EM_OPS_NO_TRANSLATION) {
+        pa = vmread(vcpu, VM_EXIT_INFO_GUEST_PHYSICAL_ADDRESS);
+    } else {
+        vcpu_translate(vcpu, ea, 0, &pa, NULL, false);
     }
 
-    // Set up additional post-MMIO fields for value manipulation
-    switch (dec->opcode_dir) {
-        case OPCODE_AND_IOMEM_TO_REG: {
-            vcpu->post_mmio.manip = VCPU_POST_MMIO_MANIP_AND;
-            read_low_bits(&vcpu->post_mmio.value,
-                          vcpu->state->_regs[dec->reg_index], dec->size);
-            break;
+    // Assume that instructions that don't require translation access MMIO
+    if (flags & EM_OPS_NO_TRANSLATION || is_mmio_address(vcpu, pa)) {
+        struct hax_tunnel *htun = vcpu->tunnel;
+        struct hax_fastmmio *hft = (struct hax_fastmmio *)vcpu->io_buf;
+        htun->_exit_status = HAX_EXIT_FAST_MMIO;
+        hft->gpa = pa;
+        hft->size = size;
+        hft->value = *value;
+        hft->direction = 1;
+        return EM_EXIT_MMIO;
+    } else {
+        if (!vcpu_write_guest_virtual(vcpu, ea, size, value, size, 0)) {
+            return EM_ERROR;
         }
-        case OPCODE_OR_IOMEM_TO_REG: {
-            vcpu->post_mmio.manip = VCPU_POST_MMIO_MANIP_OR;
-            read_low_bits(&vcpu->post_mmio.value,
-                          vcpu->state->_regs[dec->reg_index], dec->size);
-            break;
-        }
-        case OPCODE_XOR_IOMEM_TO_REG: {
-            vcpu->post_mmio.manip = VCPU_POST_MMIO_MANIP_XOR;
-            read_low_bits(&vcpu->post_mmio.value,
-                          vcpu->state->_regs[dec->reg_index], dec->size);
-            break;
-        }
-        default: {
-            vcpu->post_mmio.manip = VCPU_POST_MMIO_MANIP_NONE;
-            vcpu->post_mmio.value = 0;
-            break;
-        }
+        return EM_CONTINUE;
     }
+}
 
-    state = vcpu->state;
-    hft->_cr0 = state->_cr0;
-    hft->_cr2 = state->_cr2;
-    hft->_cr3 = state->_cr3;
-    hft->_cr4 = state->_cr4;
+static const struct em_vcpu_ops_t em_ops = {
+    .read_gpr = vcpu_read_gpr,
+    .write_gpr = vcpu_write_gpr,
+    .read_rflags = vcpu_read_rflags,
+    .write_rflags = vcpu_write_rflags,
+    .get_segment_base = vcpu_get_segment_base,
+    .advance_rip = vcpu_advance_rip,
+    .read_memory = vcpu_read_memory,
+    .read_memory_post = vcpu_read_memory_post,
+    .write_memory = vcpu_write_memory,
+};
 
-    if (dec->opcode_dir == OPCODE_STOS ||
-        (dec->opcode_dir >= OPCODE_MOVS_MEM_TO_IOMEM &&
-        dec->opcode_dir <= OPCODE_MOVS_IOMEM_TO_IOMEM)) {
-        // STOS and MOVS require incrementing (DF=0) or decrementing (DF=1) *DI
-        // MOVS also requires incrementing (DF=0) or decrementing (DF=1) *SI
-        int df = (int)(state->_rflags & 0x0400);
-        if (df) {
-            state->_rdi -= dec->size;
-            if (dec->opcode_dir >= OPCODE_MOVS_MEM_TO_IOMEM &&
-                dec->opcode_dir <= OPCODE_MOVS_IOMEM_TO_IOMEM) {
-                state->_rsi -= dec->size;
-            }
-        } else {
-            state->_rdi += dec->size;
-            if (dec->opcode_dir >= OPCODE_MOVS_MEM_TO_IOMEM &&
-                dec->opcode_dir <= OPCODE_MOVS_IOMEM_TO_IOMEM) {
-                state->_rsi += dec->size;
-            }
-        }
-    }
-
-    if (dec->has_rep) {
-        // REP means the instruction is to be repeated *CX times
-        // The exact *CX (CX/ECX/RCX) is determined by the address size
-        advance = false;
-        switch (dec->addr_size) {
-            case 2: {
-                if (--state->_cx == 0) {
-                    advance = true;
-                }
-                break;
-            }
-            case 4: {
-                if (--state->_ecx == 0) {
-                    advance = true;
-                }
-                break;
-            }
-            case 8: {
-                if (--state->_rcx == 0) {
-                    advance = true;
-                }
-                break;
-            }
-            default: {
-                hax_panic_vcpu(vcpu, "Invalid address size %u\n",
-                               dec->addr_size);
-                dump_vmcs(vcpu);
-                return -1;
-            }
-        }
-    }
-    advance_rip_step(vcpu, advance ? dec->advance : 0);
-    return 0;
+static void vcpu_init_emulator(struct vcpu_t *vcpu)
+{
+    struct em_context_t *em_ctxt = &vcpu->emulate_ctxt;
+    em_ctxt->vcpu = vcpu;
+    em_ctxt->ops = &em_ops;
+    em_ctxt->finished = true;
 }
 
 static int exit_exc_nmi(struct vcpu_t *vcpu, struct hax_tunnel *htun)
@@ -2634,26 +2150,7 @@ static int exit_exc_nmi(struct vcpu_t *vcpu, struct hax_tunnel *htun)
                 if (handle_vtlb(vcpu))
                     return HAX_RESUME;
 
-                paddr_t pa;
-                struct decode dec;
-                int ret;
-                vaddr_t cr2 = vmx(vcpu, exit_qualification).address;
-
-                ret = vcpu_simple_decode(vcpu, &dec);
-                if (ret < 0) {
-                    // vcpu_simple_decode() has called hax_panic_vcpu()
-                    return HAX_RESUME;
-                } else if (ret > 0) {
-                    handle_mem_fault(vcpu, htun);
-                } else {
-                    vcpu_translate(vcpu, cr2, 0, &pa, (uint64_t *)NULL, 0);
-                    dec.gpa = pa & 0xffffffff;
-                    if (hax_setup_fastmmio(vcpu, htun, &dec)) {
-                        // hax_setup_fastmmio() has called hax_panic_vcpu()
-                        return HAX_RESUME;
-                    }
-                }
-                return HAX_EXIT;
+                return vcpu_emulate_insn(vcpu);
             } else {
                 hax_panic_vcpu(vcpu, "Page fault shouldn't happen when EPT is "
                                "enabled.\n");
@@ -3953,7 +3450,6 @@ static int exit_ept_violation(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
     exit_qualification_t *qual = &vmx(vcpu, exit_qualification);
     paddr_t gpa;
-    struct decode dec;
     int ret = 0;
 #ifdef CONFIG_HAX_EPT2
     uint64 fault_gfn;
@@ -3968,7 +3464,6 @@ static int exit_ept_violation(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     }
 
     gpa = vmread(vcpu, VM_EXIT_INFO_GUEST_PHYSICAL_ADDRESS);
-    dec.gpa = gpa;
 
 #ifdef CONFIG_HAX_EPT2
     ret = ept_handle_access_violation(&vcpu->vm->gpa_space, &vcpu->vm->ept_tree,
@@ -4008,24 +3503,7 @@ static int exit_ept_violation(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     // ret == 0: The EPT violation is due to MMIO
 mmio_handler:
 #endif
-
-    ret = vcpu_simple_decode(vcpu, &dec);
-    if (ret < 0) {
-        // vcpu_simple_decode() has called hax_panic_vcpu()
-        return HAX_RESUME;
-    } else if (ret > 0) {
-        // Let the device model do the emulation
-        hax_warning("exit_ept_violation: Setting exit status to "
-                    "HAX_EXIT_MMIO.\n");
-        htun->_exit_status = HAX_EXIT_MMIO;
-        htun->mmio.gla = gpa;
-    } else {
-        if (hax_setup_fastmmio(vcpu, htun, &dec)) {
-            // hax_setup_fastmmio() has called hax_panic_vcpu()
-            return HAX_RESUME;
-        }
-    }
-    return HAX_EXIT;
+    return vcpu_emulate_insn(vcpu);
 }
 
 static void handle_mem_fault(struct vcpu_t *vcpu, struct hax_tunnel *htun)

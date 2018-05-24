@@ -135,6 +135,7 @@
   <!-- Needed by any VcxProj -->
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
+    <Import Project="..\packages\nasm2.2.13.3.1\build\native\nasm.props" Condition="Exists('..\packages\nasm2.2.13.3.1\build\native\nasm.props')" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Win7 Release|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" />
@@ -175,36 +176,58 @@
   <PropertyGroup Label="UserMacros" />
   <!-- The WrappedTaskItems label is used by the conversion tool to identify the location where items 
         associated with wrapped tasks will reside.-->
-  <ItemGroup Label="WrappedTaskItems" />
+  <ItemGroup Label="WrappedTaskItems">
+    <NASM Include="emulate_ops.asm">
+      <FileType>Document</FileType>
+    </NASM>
+  </ItemGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Win8 Debug|Win32'">
     <ClCompile>
       <SDLCheck>true</SDLCheck>
     </ClCompile>
+    <NASM>
+      <AdditionalOptions>--prefix _ %(AdditionalOptions)</AdditionalOptions>
+    </NASM>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Win7 Debug|Win32'">
     <ClCompile>
       <SDLCheck>true</SDLCheck>
     </ClCompile>
+    <NASM>
+      <AdditionalOptions>--prefix _ %(AdditionalOptions)</AdditionalOptions>
+    </NASM>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Win7 Release|Win32'">
     <ClCompile>
       <SDLCheck>true</SDLCheck>
     </ClCompile>
+    <NASM>
+      <AdditionalOptions>--prefix _ %(AdditionalOptions)</AdditionalOptions>
+    </NASM>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Win8.1 Debug|Win32'">
     <ClCompile>
       <SDLCheck>true</SDLCheck>
     </ClCompile>
+    <NASM>
+      <AdditionalOptions>--prefix _ %(AdditionalOptions)</AdditionalOptions>
+    </NASM>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Win8 Release|Win32'">
     <ClCompile>
       <SDLCheck>true</SDLCheck>
     </ClCompile>
+    <NASM>
+      <AdditionalOptions>--prefix _ %(AdditionalOptions)</AdditionalOptions>
+    </NASM>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Win8.1 Release|Win32'">
     <ClCompile>
       <SDLCheck>true</SDLCheck>
     </ClCompile>
+    <NASM>
+      <AdditionalOptions>--prefix _ %(AdditionalOptions)</AdditionalOptions>
+    </NASM>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Win8 Debug|x64'">
     <ClCompile>
@@ -242,7 +265,6 @@
     <ResourceCompile Include="@(RcSourceFiles)" Exclude="@(ResourceCompile)" />
     <Midl Include="@(IdlSourceFiles)" Exclude="@(Midl)" />
     <MessageCompile Include="@(McSourceFiles)" Exclude="@(MessageCompile)" />
-    <MASM Include="@(AsmSourceFiles)" Exclude="@(MASM)" />
     <GenerateBmf Include="@(MofSourceFiles)" Exclude="@(GenerateBmf)" />
   </ItemGroup>
   <!-- Set default environment variables, e.g. for stampinf -->
@@ -263,10 +285,21 @@
     <None Exclude="@(None)" Include="*.txt;*.htm;*.html" />
     <None Exclude="@(None)" Include="*.ico;*.cur;*.bmp;*.dlg;*.rct;*.gif;*.jpg;*.jpeg;*.wav;*.jpe;*.tiff;*.tif;*.png;*.rc2" />
     <None Exclude="@(None)" Include="*.def;*.bat;*.hpj;*.asmx" />
+    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Exclude="@(ClInclude)" Include="*.h;*.hpp;*.hxx;*.hm;*.inl;*.xsd" />
   </ItemGroup>
   <!-- /Necessary to pick up proper files from local directory when in the IDE-->
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+    <Import Project="..\packages\nasm2.2.13.3.1\build\native\nasm.targets" Condition="Exists('..\packages\nasm2.2.13.3.1\build\native\nasm.targets')" />
+  </ImportGroup>
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('..\packages\nasm2.2.13.3.1\build\native\nasm.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\nasm2.2.13.3.1\build\native\nasm.props'))" />
+    <Error Condition="!Exists('..\packages\nasm2.2.13.3.1\build\native\nasm.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\nasm2.2.13.3.1\build\native\nasm.targets'))" />
+  </Target>
 </Project>

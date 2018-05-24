@@ -1,7 +1,20 @@
+# Visual Studio
+.vs/
+packages/
+*.suo
+*.vcxproj.user
+
 # Windows
 /obj/
+Debug/
+Release/
 Win7Debug/
 Win7Release/
+Win8Debug/
+Win8Release/
+Win8.1Debug/
+Win8.1Release/
 
 # macOS
 /darwin/hax_driver/com_intel_hax/build/
+.DS_Store

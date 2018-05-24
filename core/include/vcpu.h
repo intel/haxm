@@ -31,6 +31,7 @@
 #ifndef HAX_CORE_VCPU_H_
 #define HAX_CORE_VCPU_H_
 
+#include "emulate.h"
 #include "ia32.h"
 #include "vmx.h"
 #include "mtrr.h"
@@ -217,6 +218,7 @@ struct vcpu_t {
     struct hax_vcpu_mem *iobuf_vcpumem;
     struct cvtlb prefetch[16];
 
+    struct em_context_t emulate_ctxt;
     struct vcpu_post_mmio post_mmio;
 #ifdef CONFIG_HAX_EPT2
     struct mmio_fetch_cache mmio_fetch;
