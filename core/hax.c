@@ -547,8 +547,8 @@ int hax_module_init(void)
     hax_pmu_init();
 
     hax_init_list_head(&hax->hax_vmlist);
-    hax_error("-------- HAXM release %s --------\n", HAXM_RELEASE_VERSION_STR);
-    hax_error("This log collects running status of HAXM driver.\n\n");
+    hax_warning("-------- HAXM v%s Start --------\n", HAXM_RELEASE_VERSION_STR);
+
     return 0;
 
 out_2:
@@ -593,7 +593,8 @@ int hax_module_exit(void)
     hax_vfree(hax_cpu_data, max_cpus * sizeof(void *));
     hax_mutex_free(hax->hax_lock);
     hax_vfree(hax, sizeof(struct hax_t));
-    hax_log("HAX: hax module unloaded.\n");
+    hax_warning("-------- HAXM v%s End --------\n", HAXM_RELEASE_VERSION_STR);
+
     return 0;
 }
 
