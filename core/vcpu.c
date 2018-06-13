@@ -929,6 +929,9 @@ void save_guest_msr(struct vcpu_t *vcpu)
         msr = (uint32)(IA32_PERFEVTSEL0 + i);
         gstate->apm_pes_msrs[i] = ia32_rdmsr(msr);
     }
+
+    // TODO: Check if host supports RDTSCP
+    gstate->tsc_aux = ia32_rdmsr(IA32_TSC_AUX);
 }
 
 void load_guest_msr(struct vcpu_t *vcpu)
@@ -952,6 +955,9 @@ void load_guest_msr(struct vcpu_t *vcpu)
         msr = (uint32)(IA32_PERFEVTSEL0 + i);
         ia32_wrmsr(msr, gstate->apm_pes_msrs[i]);
     }
+
+    // TODO: Check if host supports RDTSCP
+    ia32_wrmsr(IA32_TSC_AUX, gstate->tsc_aux);
 }
 
 static void save_host_msr(struct vcpu_t *vcpu)
@@ -976,6 +982,9 @@ static void save_host_msr(struct vcpu_t *vcpu)
         msr = (uint32)(IA32_PERFEVTSEL0 + i);
         hstate->apm_pes_msrs[i] = ia32_rdmsr(msr);
     }
+
+    // TODO: Check if host supports RDTSCP
+    hstate->tsc_aux = ia32_rdmsr(IA32_TSC_AUX);
 }
 
 static void load_host_msr(struct vcpu_t *vcpu)
@@ -999,6 +1008,9 @@ static void load_host_msr(struct vcpu_t *vcpu)
         msr = (uint32)(IA32_PERFEVTSEL0 + i);
         ia32_wrmsr(msr, hstate->apm_pes_msrs[i]);
     }
+
+    // TODO: Check if host supports RDTSCP
+    ia32_wrmsr(IA32_TSC_AUX, hstate->tsc_aux);
 }
 
 void vcpu_save_host_state(struct vcpu_t *vcpu)
@@ -1144,7 +1156,7 @@ static void fill_common_vmcs(struct vcpu_t *vcpu)
                 INTERRUPT_WINDOW_EXITING | USE_TSC_OFFSETTING | HLT_EXITING |
                 SECONDARY_CONTROLS;
 
-    scpu_ctls = ENABLE_EPT;
+    scpu_ctls = ENABLE_EPT | ENABLE_RDTSCP;
 
     // If UG exists, we want it.
     if (hax->ug_enable_flag) {
@@ -2337,6 +2349,7 @@ static void handle_cpuid_virtual(struct vcpu_t *vcpu, uint32 a, uint32 c)
     uint32 cpu_features_ext =
             feat_execute_disable |
             feat_syscall         |
+            feat_rdtscp          |
             feat_em64t;
 
     uint8 physical_address_size;
@@ -3062,6 +3075,11 @@ static int handle_msr_read(struct vcpu_t *vcpu, uint32 msr, uint64 *val)
             }
             break;
         }
+        case IA32_TSC_AUX: {
+            // TODO: Check if host supports RDTSCP
+            *val = gstate->tsc_aux & 0xFFFFFFFF;
+            break;
+        }
         case IA32_FS_BASE: {
             *val = vmread(vcpu, GUEST_FS_BASE);
             break;
@@ -3323,6 +3341,15 @@ static int handle_msr_write(struct vcpu_t *vcpu, uint32 msr, uint64 val)
                     break;
                 }
             }
+            break;
+        }
+        case IA32_TSC_AUX: {
+            // TODO: Check if host supports RDTSCP
+            if (val >> 32) {
+                r = 1;
+                break;
+            }
+            gstate->tsc_aux = val;
             break;
         }
         case IA32_FS_BASE: {
