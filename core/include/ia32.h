@@ -185,7 +185,8 @@ enum {
     IA32_SF_MASK                 = 0xc0000084,
     IA32_FS_BASE                 = 0xc0000100,
     IA32_GS_BASE                 = 0xc0000101,
-    IA32_KERNEL_GS_BASE          = 0xc0000102
+    IA32_KERNEL_GS_BASE          = 0xc0000102,
+    IA32_TSC_AUX                 = 0xc0000103
 };
 
 // EFER bits
@@ -302,6 +303,7 @@ enum {
 
     feat_syscall            = 1U << 11,      // 0x800
     feat_execute_disable    = 1U << 20,      // 0x10000
+    feat_rdtscp             = 1U << 27,      // 0x8000000
     feat_em64t              = 1U << 29       // 0x20000000
 };
 
