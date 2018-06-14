@@ -575,6 +575,30 @@ TEST_F(EmulatorTest, insn_movs) {
     run("rep movsw", vcpu_original, vcpu_expected);
 }
 
+TEST_F(EmulatorTest, insn_movzx) {
+    test_cpu_t vcpu_original;
+    test_cpu_t vcpu_expected;
+
+    vcpu_original = {};
+    vcpu_original.gpr[REG_RAX] = 0xFFFFFFFF'FFFFFFFF;
+    vcpu_original.gpr[REG_RCX] = 0xF0F1F2F3'F4F5F6F7;
+    vcpu_expected = vcpu_original;
+    vcpu_expected.gpr[REG_RAX] = 0x00000000'0000F6F7;
+    run("movzx eax, cx", vcpu_original, vcpu_expected);
+}
+
+TEST_F(EmulatorTest, insn_movsx) {
+    test_cpu_t vcpu_original;
+    test_cpu_t vcpu_expected;
+
+    vcpu_original = {};
+    vcpu_original.gpr[REG_RAX] = 0xFFFFFFFF'FFFFFFFF;
+    vcpu_original.gpr[REG_RCX] = 0xF0F1F2F3'F4F5F6F7;
+    vcpu_expected = vcpu_original;
+    vcpu_expected.gpr[REG_RAX] = 0x00000000'FFFFF6F7;
+    run("movsx eax, cx", vcpu_original, vcpu_expected);
+}
+
 TEST_F(EmulatorTest, insn_or) {
     test_alu_2op<8>("or", {
         { 0x55, 0xF0, RFLAGS_CF,

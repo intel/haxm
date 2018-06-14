@@ -92,6 +92,8 @@
 DECL_DECODER(op_none);
 DECL_DECODER(op_modrm_reg);
 DECL_DECODER(op_modrm_rm);
+DECL_DECODER(op_modrm_rm8);
+DECL_DECODER(op_modrm_rm16);
 DECL_DECODER(op_vex_reg);
 DECL_DECODER(op_moffs);
 DECL_DECODER(op_simm);
@@ -142,6 +144,7 @@ static void em_andn_soft(struct em_context_t *ctxt);
 static void em_bextr_soft(struct em_context_t *ctxt);
 static void em_mov(struct em_context_t *ctxt);
 static void em_movzx(struct em_context_t *ctxt);
+static void em_movsx(struct em_context_t *ctxt);
 static void em_xchg(struct em_context_t *ctxt);
 
 static const struct em_opcode_t opcode_group1[8] = {
@@ -235,8 +238,12 @@ static const struct em_opcode_t opcode_table_0F[256] = {
     /* 0xB0 - 0xBF */
     X4(N),
     X2(N),
-    I2_BV(em_movzx, op_modrm_reg, op_modrm_rm, op_none, INSN_MODRM | INSN_MOV),
-    X8(N),
+    I(em_movzx, op_modrm_reg, op_modrm_rm8, op_none, INSN_MODRM | INSN_MOV),
+    I(em_movzx, op_modrm_reg, op_modrm_rm16, op_none, INSN_MODRM | INSN_MOV),
+    X4(N),
+    X2(N),
+    I(em_movsx, op_modrm_reg, op_modrm_rm8, op_none, INSN_MODRM | INSN_MOV),
+    I(em_movsx, op_modrm_reg, op_modrm_rm16, op_none, INSN_MODRM | INSN_MOV),
     /* 0xC0 - 0xFF */
     X16(N), X16(N), X16(N), X16(N),
 };
@@ -397,6 +404,7 @@ static em_status_t operand_read(struct em_context_t *ctxt,
 static em_status_t operand_write(struct em_context_t *ctxt,
                                  struct em_operand_t *op)
 {
+    size_t size;
     em_status_t rc;
     if (op->flags & OP_WRITE_FINISHED) {
         return EM_CONTINUE;
@@ -408,7 +416,8 @@ static em_status_t operand_write(struct em_context_t *ctxt,
         rc = EM_CONTINUE;
         break;
     case OP_REG:
-        WRITE_GPR(op->reg.index, op->value, op->size);
+        size = (op->size == 4) ? 8 : op->size;
+        WRITE_GPR(op->reg.index, op->value, size);
         rc = EM_CONTINUE;
         break;
     case OP_MEM:
@@ -682,6 +691,24 @@ static em_status_t decode_op_modrm_rm(em_context_t *ctxt,
     return EM_CONTINUE;
 }
 
+static em_status_t decode_op_modrm_rm8(em_context_t *ctxt,
+                                       em_operand_t *op)
+{
+    em_status_t rc;
+    rc = decode_op_modrm_rm(ctxt, op);
+    op->size = 1;
+    return rc;
+}
+
+static em_status_t decode_op_modrm_rm16(em_context_t *ctxt,
+                                        em_operand_t *op)
+{
+    em_status_t rc;
+    rc = decode_op_modrm_rm(ctxt, op);
+    op->size = 2;
+    return rc;
+}
+
 static em_status_t decode_op_vex_reg(em_context_t *ctxt,
                                      em_operand_t *op)
 {
@@ -823,9 +850,19 @@ static void em_mov(struct em_context_t *ctxt)
 
 static void em_movzx(struct em_context_t *ctxt)
 {
-    uint64_t value = 0;
-    memcpy(&value, &ctxt->src1, ctxt->operand_size);
-    ctxt->dst.value = value;
+    ctxt->dst.value = 0;
+    memcpy(&ctxt->dst.value, &ctxt->src1.value, ctxt->src1.size);
+}
+
+static void em_movsx(struct em_context_t *ctxt)
+{
+    uint64_t extension = 0;
+    if (ctxt->src1.value & (1ULL << ((8 * ctxt->src1.size) - 1))) {
+        extension = ~0ULL;
+    }
+    ctxt->dst.value = 0;
+    memcpy(&ctxt->dst.value, &extension, ctxt->dst.size);
+    memcpy(&ctxt->dst.value, &ctxt->src1.value, ctxt->src1.size);
 }
 
 static void em_xchg(struct em_context_t *ctxt)
