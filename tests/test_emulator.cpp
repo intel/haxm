@@ -189,9 +189,18 @@ protected:
     }
 
     /* Test cases */
-    struct test_f6alu_t {
+    struct test_alu_2op_t {
         uint64_t in_dst;
         uint64_t in_src;
+        uint64_t in_flags;
+        uint64_t out_dst;
+        uint64_t out_flags;
+    };
+
+    struct test_alu_3op_t {
+        uint64_t in_dst;
+        uint64_t in_src1;
+        uint64_t in_src2;
         uint64_t in_flags;
         uint64_t out_dst;
         uint64_t out_flags;
@@ -246,7 +255,7 @@ protected:
 
     template <int N>
     void test_insn_rN_rN(const char* insn_name,
-                         const std::vector<test_f6alu_t>& tests) {
+                         const std::vector<test_alu_2op_t>& tests) {
         char insn[256];
         test_cpu_t vcpu_original;
         test_cpu_t vcpu_expected;
@@ -268,7 +277,7 @@ protected:
 
     template <int N>
     void test_insn_rN_iN(const char* insn_name,
-                         const std::vector<test_f6alu_t>& tests) {
+                         const std::vector<test_alu_2op_t>& tests) {
         char insn[256];
         test_cpu_t vcpu_original;
         test_cpu_t vcpu_expected;
@@ -289,7 +298,7 @@ protected:
 
     template <int N>
     void test_insn_mN_iN(const char* insn_name,
-                         const std::vector<test_f6alu_t>& tests) {
+                         const std::vector<test_alu_2op_t>& tests) {
         char insn[256];
         test_cpu_t vcpu_original;
         test_cpu_t vcpu_expected;
@@ -312,7 +321,7 @@ protected:
 
     template <int N>
     void test_insn_rN_mN(const char* insn_name,
-                         const std::vector<test_f6alu_t>& tests) {
+                         const std::vector<test_alu_2op_t>& tests) {
         char insn[256];
         test_cpu_t vcpu_original;
         test_cpu_t vcpu_expected;
@@ -336,7 +345,7 @@ protected:
 
     template <int N>
     void test_insn_mN_rN(const char* insn_name,
-                         const std::vector<test_f6alu_t>& tests) {
+                         const std::vector<test_alu_2op_t>& tests) {
         char insn[256];
         test_cpu_t vcpu_original;
         test_cpu_t vcpu_expected;
@@ -359,8 +368,81 @@ protected:
     }
 
     template <int N>
-    void test_f6alu(const char* insn_name,
-                    const std::vector<test_f6alu_t>& tests) {
+    void test_insn_rN_rN_rN(const char* insn_name,
+                         const std::vector<test_alu_3op_t>& tests) {
+        char insn[256];
+        test_cpu_t vcpu_original;
+        test_cpu_t vcpu_expected;
+        snprintf(insn, sizeof(insn), "%s %s, %s, %s", insn_name,
+            gpr<N>(REG_RAX), gpr<N>(REG_RCX), gpr<N>(REG_RDX));
+
+        // Run tests
+        for (const auto& test : tests) {
+            vcpu_original = {};
+            vcpu_original.gpr[REG_RAX] = test.in_dst;
+            vcpu_original.gpr[REG_RCX] = test.in_src1;
+            vcpu_original.gpr[REG_RDX] = test.in_src2;
+            vcpu_original.flags = test.in_flags;
+            vcpu_expected = vcpu_original;
+            vcpu_expected.gpr[REG_RAX] = test.out_dst;
+            vcpu_expected.flags = test.out_flags;
+            run(insn, vcpu_original, vcpu_expected);
+        }
+    }
+
+    template <int N>
+    void test_insn_rN_mN_rN(const char* insn_name,
+                            const std::vector<test_alu_3op_t>& tests) {
+        char insn[256];
+        test_cpu_t vcpu_original;
+        test_cpu_t vcpu_expected;
+        snprintf(insn, sizeof(insn), "%s %s, %s ptr [edx + 2*ecx + 0x10], %s",
+            insn_name, gpr<N>(REG_RAX), mem<N>(), gpr<N>(REG_RBX));
+
+        // Run tests
+        for (const auto& test : tests) {
+            vcpu_original = {};
+            vcpu_original.gpr[REG_RAX] = test.in_dst;
+            vcpu_original.gpr[REG_RDX] = 0x20;
+            vcpu_original.gpr[REG_RCX] = 0x08;
+            (uint64_t&)vcpu_original.mem[0x40] = test.in_src1;
+            vcpu_original.gpr[REG_RBX] = test.in_src2;
+            vcpu_original.flags = test.in_flags;
+            vcpu_expected = vcpu_original;
+            vcpu_expected.gpr[REG_RAX] = test.out_dst;
+            vcpu_expected.flags = test.out_flags;
+            run(insn, vcpu_original, vcpu_expected);
+        }
+    }
+
+    template <int N>
+    void test_insn_rN_rN_mN(const char* insn_name,
+                            const std::vector<test_alu_3op_t>& tests) {
+        char insn[256];
+        test_cpu_t vcpu_original;
+        test_cpu_t vcpu_expected;
+        snprintf(insn, sizeof(insn), "%s %s, %s, %s ptr [edx + 2*ecx + 0x10]",
+            insn_name, gpr<N>(REG_RAX), gpr<N>(REG_RBX), mem<N>());
+
+        // Run tests
+        for (const auto& test : tests) {
+            vcpu_original = {};
+            vcpu_original.gpr[REG_RAX] = test.in_dst;
+            vcpu_original.gpr[REG_RBX] = test.in_src1;
+            vcpu_original.gpr[REG_RDX] = 0x20;
+            vcpu_original.gpr[REG_RCX] = 0x08;
+            (uint64_t&)vcpu_original.mem[0x40] = test.in_src2;
+            vcpu_original.flags = test.in_flags;
+            vcpu_expected = vcpu_original;
+            vcpu_expected.gpr[REG_RAX] = test.out_dst;
+            vcpu_expected.flags = test.out_flags;
+            run(insn, vcpu_original, vcpu_expected);
+        }
+    }
+
+    template <int N>
+    void test_alu_2op(const char* insn_name,
+                      const std::vector<test_alu_2op_t>& tests) {
         if (N == 64 && sizeof(void*) < 8) {
             return;
         }
@@ -373,25 +455,25 @@ protected:
 };
 
 TEST_F(EmulatorTest, insn_add) {
-    test_f6alu<8>("add", {
+    test_alu_2op<8>("add", {
         { 0x04, 0x05, 0,
           0x09, RFLAGS_PF },
         { 0xFF, 0x01, 0,
           0x00, RFLAGS_CF | RFLAGS_PF | RFLAGS_AF | RFLAGS_ZF },
     });
-    test_f6alu<16>("add", {
+    test_alu_2op<16>("add", {
         { 0x0001, 0x1234, 0,
           0x1235, RFLAGS_PF },
         { 0xF000, 0x1001, 0,
           0x0001, RFLAGS_CF },
     });
-    test_f6alu<32>("add", {
+    test_alu_2op<32>("add", {
         { 0x55555555, 0x11111111, RFLAGS_CF,
           0x66666666, RFLAGS_PF },
         { 0xF0000000, 0x10000000, 0,
           0x00000000, RFLAGS_CF | RFLAGS_PF | RFLAGS_ZF },
     });
-    test_f6alu<64>("add", {
+    test_alu_2op<64>("add", {
         { 0x2'000000FFULL, 0x0'01010002ULL, RFLAGS_CF,
           0x2'01010101ULL, RFLAGS_AF },
         { 0x0'F0000000ULL, 0x0'10000001ULL, 0,
@@ -400,26 +482,63 @@ TEST_F(EmulatorTest, insn_add) {
 }
 
 TEST_F(EmulatorTest, insn_and) {
-    test_f6alu<8>("and", {
+    test_alu_2op<8>("and", {
         { 0x55, 0xF0, RFLAGS_CF,
           0x50, RFLAGS_PF },
         { 0xF0, 0x0F, RFLAGS_OF,
           0x00, RFLAGS_PF | RFLAGS_ZF },
     });
-    test_f6alu<16>("and", {
+    test_alu_2op<16>("and", {
         { 0x0001, 0xF00F, RFLAGS_CF | RFLAGS_OF,
           0x0001, 0 },
         { 0xFF00, 0xF0F0, 0,
           0xF000, RFLAGS_PF | RFLAGS_SF },
     });
-    test_f6alu<32>("and", {
+    test_alu_2op<32>("and", {
         { 0xFFFF0001, 0xFFFF0001, 0,
           0xFFFF0001, RFLAGS_SF },
     });
-    test_f6alu<64>("and", {
+    test_alu_2op<64>("and", {
         { 0x0000FFFF'F0F0FFFFULL, 0xFFFFFFFF'FFFF0000ULL, 0,
           0x0000FFFF'F0F00000ULL, RFLAGS_PF },
     });
+}
+
+
+TEST_F(EmulatorTest, insn_andn) {
+    const std::vector<test_alu_3op_t> tests32 = {
+        { 0x00000000'00000000, 0xF0F0F0F0'F0F0F0F0, 0xFF00FF00'FF00FF00, 0,
+          0x00000000'0F000F00, 0 },
+        { 0x00000000'00000000, 0xF0F0F0F0'0000FFFF, 0x00000000'FFFF0000, 0,
+          0x00000000'FFFF0000, RFLAGS_SF }};
+    test_insn_rN_rN_rN<32>("andn", tests32);
+    test_insn_rN_rN_mN<32>("andn", tests32);
+
+    const std::vector<test_alu_3op_t> tests64 = {
+        { 0x00000000'00000000, 0xF0F0F0F0'F0F0F0F0, 0xFF00FF00'FF00FF00, 0,
+          0x0F000F00'0F000F00, 0 },
+        { 0xFFFF0000'FFFF0000, 0xF0F0F0F0'0000FFFF, 0xF0F0F0F0'0000FFFF, 0,
+          0x00000000'00000000, RFLAGS_ZF }};
+    test_insn_rN_rN_rN<64>("andn", tests64);
+    test_insn_rN_rN_mN<64>("andn", tests64);
+}
+
+TEST_F(EmulatorTest, insn_bextr) {
+    const std::vector<test_alu_3op_t> tests32 = {
+        { 0x00000000'00000000, 0x00000000'12345678, 0x00000000'00000C04, 0,
+          0x00000000'00000567, 0 },
+        { 0x00000000'F0F0F0F0, 0xFFFFFFFF'00112233, 0x00000000'0000101C, 0,
+          0x00000000'00000000, RFLAGS_ZF }};
+    test_insn_rN_rN_rN<32>("bextr", tests32);
+    test_insn_rN_mN_rN<32>("bextr", tests32);
+
+    const std::vector<test_alu_3op_t> tests64 = {
+        { 0xFFFFFFFF'FFFFFFFF, 0x11223344'55667788, 0x00000000'00002814, 0,
+          0x00000012'23344556, 0 },
+        { 0x00000000'F0F0F0F0, 0xFFFFFFFF'00112233, 0x00000000'0000101C, 0,
+          0x00000000'0000FFF0, 0 }};
+    test_insn_rN_rN_rN<64>("bextr", tests64);
+    test_insn_rN_mN_rN<64>("bextr", tests64);
 }
 
 TEST_F(EmulatorTest, insn_movs) {
@@ -457,7 +576,7 @@ TEST_F(EmulatorTest, insn_movs) {
 }
 
 TEST_F(EmulatorTest, insn_or) {
-    test_f6alu<8>("or", {
+    test_alu_2op<8>("or", {
         { 0x55, 0xF0, RFLAGS_CF,
           0xF5, RFLAGS_PF | RFLAGS_SF },
         { 0xF0, 0x0E, RFLAGS_OF,
@@ -481,7 +600,7 @@ TEST_F(EmulatorTest, insn_stos) {
 }
 
 TEST_F(EmulatorTest, insn_xor) {
-    test_f6alu<8>("xor", {
+    test_alu_2op<8>("xor", {
         { 0x0F, 0xF0, RFLAGS_CF,
           0xFF, RFLAGS_PF| RFLAGS_SF },
         { 0xFF, 0xFF, RFLAGS_OF,
