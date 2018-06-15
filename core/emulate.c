@@ -92,6 +92,7 @@
 DECL_DECODER(op_none);
 DECL_DECODER(op_modrm_reg);
 DECL_DECODER(op_modrm_rm);
+DECL_DECODER(op_vex_reg);
 DECL_DECODER(op_moffs);
 DECL_DECODER(op_simm);
 DECL_DECODER(op_simm8);
@@ -137,6 +138,8 @@ DECL_DECODER(op_si);
     F2_BV(_handler, op_acc, op_simm, op_none, (_flags))
 
 /* Soft-emulation */
+static void em_andn_soft(struct em_context_t *ctxt);
+static void em_bextr_soft(struct em_context_t *ctxt);
 static void em_mov(struct em_context_t *ctxt);
 static void em_movzx(struct em_context_t *ctxt);
 static void em_xchg(struct em_context_t *ctxt);
@@ -239,11 +242,17 @@ static const struct em_opcode_t opcode_table_0F[256] = {
 };
 
 static const struct em_opcode_t opcode_table_0F38[256] = {
-    /* 0x00 - 0xFF */
+    /* 0x00 - 0xEF */
     X16(N), X16(N), X16(N), X16(N),
     X16(N), X16(N), X16(N), X16(N),
     X16(N), X16(N), X16(N), X16(N),
-    X16(N), X16(N), X16(N), X16(N),
+    X16(N), X16(N), X16(N),
+    /* 0xF0 - 0xFF */
+    X2(N),
+    I(em_andn_soft, op_modrm_reg, op_vex_reg, op_modrm_rm, INSN_MODRM),
+    X4(N),
+    I(em_bextr_soft, op_modrm_reg, op_modrm_rm, op_vex_reg, INSN_MODRM),
+    X8(N),
 };
 
 static const struct em_opcode_t opcode_table_0F3A[256] = {
@@ -673,6 +682,15 @@ static em_status_t decode_op_modrm_rm(em_context_t *ctxt,
     return EM_CONTINUE;
 }
 
+static em_status_t decode_op_vex_reg(em_context_t *ctxt,
+                                     em_operand_t *op)
+{
+    op->type = OP_REG;
+    op->size = ctxt->operand_size;
+    op->reg.index = ~ctxt->vex.v & 0xF;
+    return EM_CONTINUE;
+}
+
 static em_status_t decode_op_moffs(em_context_t *ctxt,
                                    em_operand_t *op)
 {
@@ -765,6 +783,39 @@ static em_status_t decode_op_si(em_context_t *ctxt,
 }
 
 /* Soft-emulation */
+static void em_andn_soft(struct em_context_t *ctxt)
+{
+    uint64_t temp;
+    int signbit = 63;
+    temp = ~ctxt->src1.value & ctxt->src2.value;
+    if (ctxt->operand_size == 4) {
+        temp &= 0xFFFFFFFF;
+        signbit = 31;
+    }
+    ctxt->dst.value = temp;
+    ctxt->rflags &= ~RFLAGS_MASK_OSZAPC;
+    ctxt->rflags |= (temp == 0) ? RFLAGS_ZF : 0;
+    ctxt->rflags |= (temp >> signbit) ? RFLAGS_SF : 0;
+}
+
+static void em_bextr_soft(struct em_context_t *ctxt)
+{
+    uint8_t start, len;
+    uint64_t temp;
+
+    start = ctxt->src2.value & 0xFF;
+    len = (ctxt->src2.value >> 8) & 0xFF;
+    temp = ctxt->src1.value;
+    if (ctxt->operand_size == 4) {
+        temp &= 0xFFFFFFFF;
+    }
+    temp >>= start;
+    temp &= ~(~0ULL << len);
+    ctxt->dst.value = temp;
+    ctxt->rflags &= ~RFLAGS_MASK_OSZAPC;
+    ctxt->rflags |= (temp == 0) ? RFLAGS_ZF : 0;
+}
+
 static void em_mov(struct em_context_t *ctxt)
 {
     memcpy(&ctxt->dst.value, &ctxt->src1.value, ctxt->operand_size);
@@ -843,7 +894,8 @@ em_status_t EMCALL em_decode_insn(struct em_context_t *ctxt, const uint8_t *insn
     /* Intel SDM Vol. 2A: 2.1.2 Opcodes */
     opcode = &ctxt->opcode;
     *opcode = opcode_table[b];
-    if (b == 0x0F) {
+    switch (b) {
+    case 0x0F:
         b = insn_fetch_u8(ctxt);
         switch (b) {
         case 0x38:
@@ -854,10 +906,60 @@ em_status_t EMCALL em_decode_insn(struct em_context_t *ctxt, const uint8_t *insn
             b = insn_fetch_u8(ctxt);
             *opcode = opcode_table_0F3A[b];
             break;
-
         default:
             *opcode = opcode_table_0F[b];
         }
+        break;
+
+    case 0xC4:
+    case 0xC5:
+        /* Intel SDM Vol. 2A: 2.3.5 The VEX Prefix */
+        ctxt->vex.prefix = b;
+        if (b == 0xC4) {
+            ctxt->vex.value = insn_fetch_u16(ctxt);
+        } else {
+            ctxt->vex.value = insn_fetch_u8(ctxt) << 8;
+            ctxt->vex.r = ctxt->vex.w;
+            ctxt->vex.w = 1;
+            ctxt->vex.x = 1;
+            ctxt->vex.b = 1;
+            ctxt->vex.m = 1;
+        }
+        if (ctxt->mode != EM_MODE_PROT64 && (!ctxt->vex.r || !ctxt->vex.x)) {
+            // TODO: Reinterpret as the LES (0xC4) or LDS (0xC5) instruction.
+            return EM_ERROR;
+        }
+        if (ctxt->lock || ctxt->rep || ctxt->override_operand_size || ctxt->rex.value) {
+            /* Intel SDM Vol. 2A: 2.3.2 VEX and the LOCK prefix */
+            /* Intel SDM Vol. 2A: 2.3.3 VEX and the 66H, F2H, and F3H prefixes */
+            /* Intel SDM Vol. 2A: 2.3.4 VEX and the REX prefix */
+            // TODO: Should throw #UD
+            return EM_ERROR;
+        }
+
+        ctxt->rex.r = ~ctxt->vex.r;
+        ctxt->rex.x = ~ctxt->vex.x;
+        ctxt->rex.b = ~ctxt->vex.b;
+        if (ctxt->mode == EM_MODE_PROT64 && ctxt->vex.w) {
+            ctxt->operand_size = 8;
+        }
+
+        b = insn_fetch_u8(ctxt);
+        switch (ctxt->vex.m) {
+        case 1:
+            *opcode = opcode_table_0F[b];
+            break;
+        case 2:
+            *opcode = opcode_table_0F38[b];
+            break;
+        case 3:
+            *opcode = opcode_table_0F3A[b];
+            break;
+        default:
+            // TODO: Should throw #UD
+            return EM_ERROR;
+        }
+        break;
     }
 
     /* Intel SDM Vol. 2A: 2.1.3 ModR/M and SIB Bytes */

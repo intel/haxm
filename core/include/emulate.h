@@ -176,6 +176,22 @@ typedef struct em_context_t {
     uint64_t rflags;
 
     /* Decoder */
+    struct {
+        uint8_t prefix;
+        union {
+            struct {
+                uint8_t m : 5;
+                uint8_t b : 1;
+                uint8_t x : 1;
+                uint8_t r : 1;
+                uint8_t p : 2;
+                uint8_t l : 1;
+                uint8_t v : 4;
+                uint8_t w : 1;
+            };
+            uint16_t value;
+        };
+    } vex;
     union {
         struct {
             uint8_t b : 1;
