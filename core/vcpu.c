@@ -34,6 +34,7 @@
 #include "include/mtrr.h"
 #include "include/vmx.h"
 #include "include/cpu.h"
+#include "include/cpuid.h"
 #include "include/vm.h"
 #include "include/debug.h"
 #include "include/dump_vmcs.h"
@@ -911,10 +912,11 @@ void save_guest_msr(struct vcpu_t *vcpu)
 {
     int i;
     struct gstate *gstate = &vcpu->gstate;
+    bool em64t_support = cpu_has_feature(X86_FEATURE_EM64T);
 
     for (i = 0; i < NR_GMSR; i++) {
         gstate->gmsr[i].entry = gmsr_list[i];
-        if (cpu_has_emt64_support() || !is_emt64_msr(gmsr_list[i])) {
+        if (em64t_support || !is_emt64_msr(gmsr_list[i])) {
             gstate->gmsr[i].value = ia32_rdmsr(gstate->gmsr[i].entry);
         }
     }
@@ -930,17 +932,19 @@ void save_guest_msr(struct vcpu_t *vcpu)
         gstate->apm_pes_msrs[i] = ia32_rdmsr(msr);
     }
 
-    // TODO: Check if host supports RDTSCP
-    gstate->tsc_aux = ia32_rdmsr(IA32_TSC_AUX);
+    if (!cpu_has_feature(X86_FEATURE_RDTSCP)) {
+        gstate->tsc_aux = ia32_rdmsr(IA32_TSC_AUX);
+    }
 }
 
 void load_guest_msr(struct vcpu_t *vcpu)
 {
     int i;
     struct gstate *gstate = &vcpu->gstate;
+    bool em64t_support = cpu_has_feature(X86_FEATURE_EM64T);
 
     for (i = 0; i < NR_GMSR; i++) {
-        if (cpu_has_emt64_support() || !is_emt64_msr(gstate->gmsr[i].entry)) {
+        if (em64t_support || !is_emt64_msr(gstate->gmsr[i].entry)) {
             ia32_wrmsr(gstate->gmsr[i].entry, gstate->gmsr[i].value);
         }
     }
@@ -956,18 +960,20 @@ void load_guest_msr(struct vcpu_t *vcpu)
         ia32_wrmsr(msr, gstate->apm_pes_msrs[i]);
     }
 
-    // TODO: Check if host supports RDTSCP
-    ia32_wrmsr(IA32_TSC_AUX, gstate->tsc_aux);
+    if (!cpu_has_feature(X86_FEATURE_RDTSCP)) {
+        ia32_wrmsr(IA32_TSC_AUX, gstate->tsc_aux);
+    }
 }
 
 static void save_host_msr(struct vcpu_t *vcpu)
 {
     int i;
     struct hstate *hstate = &get_cpu_data(vcpu->cpu_id)->hstate;
+    bool em64t_support = cpu_has_feature(X86_FEATURE_EM64T);
 
     for (i = 0; i < NR_HMSR; i++) {
         hstate->hmsr[i].entry = hmsr_list[i];
-        if (cpu_has_emt64_support() || !is_emt64_msr(hmsr_list[i])) {
+        if (em64t_support || !is_emt64_msr(hmsr_list[i])) {
             hstate->hmsr[i].value = ia32_rdmsr(hstate->hmsr[i].entry);
         }
     }
@@ -983,17 +989,19 @@ static void save_host_msr(struct vcpu_t *vcpu)
         hstate->apm_pes_msrs[i] = ia32_rdmsr(msr);
     }
 
-    // TODO: Check if host supports RDTSCP
-    hstate->tsc_aux = ia32_rdmsr(IA32_TSC_AUX);
+    if (!cpu_has_feature(X86_FEATURE_RDTSCP)) {
+        hstate->tsc_aux = ia32_rdmsr(IA32_TSC_AUX);
+    }
 }
 
 static void load_host_msr(struct vcpu_t *vcpu)
 {
     int i;
     struct hstate *hstate = &get_cpu_data(vcpu->cpu_id)->hstate;
+    bool em64t_support = cpu_has_feature(X86_FEATURE_EM64T);
 
     for (i = 0; i < NR_HMSR; i++) {
-        if (cpu_has_emt64_support() || !is_emt64_msr(hstate->hmsr[i].entry)) {
+        if (em64t_support || !is_emt64_msr(hstate->hmsr[i].entry)) {
             ia32_wrmsr(hstate->hmsr[i].entry, hstate->hmsr[i].value);
         }
     }
@@ -1009,8 +1017,9 @@ static void load_host_msr(struct vcpu_t *vcpu)
         ia32_wrmsr(msr, hstate->apm_pes_msrs[i]);
     }
 
-    // TODO: Check if host supports RDTSCP
-    ia32_wrmsr(IA32_TSC_AUX, hstate->tsc_aux);
+    if (!cpu_has_feature(X86_FEATURE_RDTSCP)) {
+        ia32_wrmsr(IA32_TSC_AUX, hstate->tsc_aux);
+    }
 }
 
 void vcpu_save_host_state(struct vcpu_t *vcpu)
@@ -2293,8 +2302,15 @@ static void handle_cpuid(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
     struct vcpu_state_t *state = vcpu->state;
     uint32 a = state->_eax, c = state->_ecx;
+    cpuid_args_t args;
 
-    __handle_cpuid(state);
+    args.eax = state->_eax;
+    args.ecx = state->_ecx;
+    __handle_cpuid(&args);
+    state->_eax = args.eax;
+    state->_ecx = args.ecx;
+    state->_edx = args.edx;
+    state->_ebx = args.ebx;
 
     handle_cpuid_virtual(vcpu, a, c);
 
@@ -2314,43 +2330,50 @@ static void handle_cpuid_virtual(struct vcpu_t *vcpu, uint32 a, uint32 c)
 
     static uint32 cpu_features_1 =
             // pat is disabled!
-            feat_fpu        |
-            feat_vme        |
-            feat_de         |
-            feat_tsc        |
-            feat_msr        |
-            feat_pae        |
-            feat_mce        |
-            feat_cx8        |
-            feat_apic       |
-            feat_sep        |
-            feat_mtrr       |
-            feat_pge        |
-            feat_mca        |
-            feat_cmov       |
-            feat_clfsh      |
-            feat_mmx        |
-            feat_fxsr       |
-            feat_sse        |
-            feat_sse2       |
-            feat_ss         |
-            feat_pse        |
-            feat_htt;
+            FEATURE(FPU)        |
+            FEATURE(VME)        |
+            FEATURE(DE)         |
+            FEATURE(TSC)        |
+            FEATURE(MSR)        |
+            FEATURE(PAE)        |
+            FEATURE(MCE)        |
+            FEATURE(CX8)        |
+            FEATURE(APIC)       |
+            FEATURE(SEP)        |
+            FEATURE(MTRR)       |
+            FEATURE(PGE)        |
+            FEATURE(MCA)        |
+            FEATURE(CMOV)       |
+            FEATURE(CLFSH)      |
+            FEATURE(MMX)        |
+            FEATURE(FXSR)       |
+            FEATURE(SSE)        |
+            FEATURE(SSE2)       |
+            FEATURE(SS)         |
+            FEATURE(PSE)        |
+            FEATURE(HTT);
 
     static uint32 cpu_features_2 =
-            feat_sse3       |
-            feat_ssse3      |
-            feat_sse41      |
-            feat_sse42      |
-            feat_cmpxchg16b |
-            feat_movbe      |
-            feat_popcnt;
+            FEATURE(SSE3)       |
+            FEATURE(SSSE3)      |
+            FEATURE(SSE41)      |
+            FEATURE(SSE42)      |
+            FEATURE(CMPXCHG16B) |
+            FEATURE(MOVBE)      |
+            FEATURE(POPCNT);
 
     uint32 cpu_features_ext =
-            feat_execute_disable |
-            feat_syscall         |
-            feat_rdtscp          |
-            feat_em64t;
+            FEATURE(NX)         |
+            FEATURE(SYSCALL)    |
+            FEATURE(EM64T);
+
+    // Conditional features
+    if (cpu_has_feature(X86_FEATURE_AESNI)) {
+        cpu_features_2 |= FEATURE(AESNI);
+    }
+    if (cpu_has_feature(X86_FEATURE_RDTSCP)) {
+        cpu_features_ext |= FEATURE(RDTSCP);
+    }
 
     uint8 physical_address_size;
 
@@ -2407,7 +2430,7 @@ static void handle_cpuid_virtual(struct vcpu_t *vcpu, uint32 a, uint32 c)
             // supported by the host CPU, but including "hypervisor", which is
             // desirable for VMMs.
             // TBD: This will need to be changed to emulate new features.
-            state->_ecx = (cpu_features_2 & state->_ecx) | feat_hypervisor;
+            state->_ecx = (cpu_features_2 & state->_ecx) | FEATURE(HYPERVISOR);
             state->_edx = cpu_features_1 & state->_edx;
             return;
         }
@@ -3076,7 +3099,10 @@ static int handle_msr_read(struct vcpu_t *vcpu, uint32 msr, uint64 *val)
             break;
         }
         case IA32_TSC_AUX: {
-            // TODO: Check if host supports RDTSCP
+            if (!cpu_has_feature(X86_FEATURE_RDTSCP)) {
+                r = 1;
+                break;
+            }
             *val = gstate->tsc_aux & 0xFFFFFFFF;
             break;
         }
@@ -3344,8 +3370,7 @@ static int handle_msr_write(struct vcpu_t *vcpu, uint32 msr, uint64 val)
             break;
         }
         case IA32_TSC_AUX: {
-            // TODO: Check if host supports RDTSCP
-            if (val >> 32) {
+            if (!cpu_has_feature(X86_FEATURE_RDTSCP) || (val >> 32)) {
                 r = 1;
                 break;
             }

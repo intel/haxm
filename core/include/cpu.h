@@ -169,6 +169,9 @@ void cpu_enter_vmx(void *arg);
 
 void cpu_pmu_init(void *arg);
 
+void cpu_init_feature_cache();
+bool cpu_has_feature(uint32_t feature);
+
 void hax_panic_log(struct vcpu_t *vcpu);
 void hax_clear_panic_log(struct vcpu_t *vcpu);
 

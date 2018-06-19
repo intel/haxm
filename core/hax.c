@@ -509,7 +509,7 @@ static void hax_pmu_init(void)
 
 int hax_module_init(void)
 {
-    int ret =0, cpu = 0;
+    int ret = 0, cpu = 0;
 
     hax = (struct hax_t *)hax_vmalloc(sizeof(struct hax_t), HAX_MEM_NONPAGE);
     if (!hax)
@@ -540,6 +540,7 @@ int hax_module_init(void)
         hax_clear_page(hax_cpu_data[cpu]->hstate.hfxpage);
         hax_cpu_data[cpu]->cpu_id = cpu;
     }
+    cpu_init_feature_cache();
     ret = hax_vmx_init();
     if (ret < 0)
         goto out_2;
