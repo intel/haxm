@@ -38,6 +38,9 @@
 		4BCC4E0513FB6729005E4BE4 /* ia32.c in Sources */ = {isa = PBXBuildFile; fileRef = 4BCC4E0213FB6729005E4BE4 /* ia32.c */; };
 		4BCC4E0613FB6729005E4BE4 /* segments.c in Sources */ = {isa = PBXBuildFile; fileRef = 4BCC4E0313FB6729005E4BE4 /* segments.c */; };
 		4BCC4E0713FB6729005E4BE4 /* vmcs.c in Sources */ = {isa = PBXBuildFile; fileRef = 4BCC4E0413FB6729005E4BE4 /* vmcs.c */; };
+		642FD41B20D9F74D00C197FF /* cpuid.h in Headers */ = {isa = PBXBuildFile; fileRef = 642FD41A20D9F74D00C197FF /* cpuid.h */; };
+		642FD41E20D9F79100C197FF /* emulate_ops.h in Headers */ = {isa = PBXBuildFile; fileRef = 642FD41C20D9F79100C197FF /* emulate_ops.h */; };
+		642FD41F20D9F79100C197FF /* emulate.h in Headers */ = {isa = PBXBuildFile; fileRef = 642FD41D20D9F79100C197FF /* emulate.h */; };
 		6448A2211EDFCDAB000B4B32 /* hax_host_mem.h in Headers */ = {isa = PBXBuildFile; fileRef = 6448A2201EDFCDAB000B4B32 /* hax_host_mem.h */; };
 		6456261F1EEFF705005280EF /* ept2.h in Headers */ = {isa = PBXBuildFile; fileRef = 6456261E1EEFF705005280EF /* ept2.h */; };
 		645626211EEFF720005280EF /* ept_tree.c in Sources */ = {isa = PBXBuildFile; fileRef = 645626201EEFF720005280EF /* ept_tree.c */; };
@@ -59,7 +62,6 @@
 		B98ECFC113A059BB00485DDB /* mtrr.h in Headers */ = {isa = PBXBuildFile; fileRef = B98ECFA813A059BB00485DDB /* mtrr.h */; };
 		B98ECFC213A059BB00485DDB /* paging.h in Headers */ = {isa = PBXBuildFile; fileRef = B98ECFA913A059BB00485DDB /* paging.h */; };
 		B98ECFC313A059BB00485DDB /* segments.h in Headers */ = {isa = PBXBuildFile; fileRef = B98ECFAA13A059BB00485DDB /* segments.h */; };
-		B98ECFC413A059BB00485DDB /* test.h in Headers */ = {isa = PBXBuildFile; fileRef = B98ECFAB13A059BB00485DDB /* test.h */; };
 		B98ECFC513A059BB00485DDB /* types.h in Headers */ = {isa = PBXBuildFile; fileRef = B98ECFAC13A059BB00485DDB /* types.h */; };
 		B98ECFC613A059BB00485DDB /* vcpu.h in Headers */ = {isa = PBXBuildFile; fileRef = B98ECFAD13A059BB00485DDB /* vcpu.h */; };
 		B98ECFC813A059BB00485DDB /* vm.h in Headers */ = {isa = PBXBuildFile; fileRef = B98ECFAF13A059BB00485DDB /* vm.h */; };
@@ -125,6 +127,9 @@
 		4BCC4E0213FB6729005E4BE4 /* ia32.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ia32.c; sourceTree = "<group>"; };
 		4BCC4E0313FB6729005E4BE4 /* segments.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = segments.c; sourceTree = "<group>"; };
 		4BCC4E0413FB6729005E4BE4 /* vmcs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = vmcs.c; sourceTree = "<group>"; };
+		642FD41A20D9F74D00C197FF /* cpuid.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cpuid.h; sourceTree = "<group>"; };
+		642FD41C20D9F79100C197FF /* emulate_ops.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = emulate_ops.h; sourceTree = "<group>"; };
+		642FD41D20D9F79100C197FF /* emulate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = emulate.h; sourceTree = "<group>"; };
 		6448A2201EDFCDAB000B4B32 /* hax_host_mem.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = hax_host_mem.h; path = ../../../include/hax_host_mem.h; sourceTree = "<group>"; };
 		6456261E1EEFF705005280EF /* ept2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ept2.h; path = ../../../core/include/ept2.h; sourceTree = "<group>"; };
 		645626201EEFF720005280EF /* ept_tree.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ept_tree.c; path = ../../../core/ept_tree.c; sourceTree = "<group>"; };
@@ -146,7 +151,6 @@
 		B98ECFA813A059BB00485DDB /* mtrr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = mtrr.h; sourceTree = "<group>"; };
 		B98ECFA913A059BB00485DDB /* paging.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = paging.h; sourceTree = "<group>"; };
 		B98ECFAA13A059BB00485DDB /* segments.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = segments.h; sourceTree = "<group>"; };
-		B98ECFAB13A059BB00485DDB /* test.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = test.h; sourceTree = "<group>"; };
 		B98ECFAC13A059BB00485DDB /* types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = types.h; sourceTree = "<group>"; };
 		B98ECFAD13A059BB00485DDB /* vcpu.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = vcpu.h; sourceTree = "<group>"; };
 		B98ECFAF13A059BB00485DDB /* vm.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = vm.h; sourceTree = "<group>"; };
@@ -280,6 +284,8 @@
 		B98ECF9F13A059BB00485DDB /* include */ = {
 			isa = PBXGroup;
 			children = (
+				642FD41C20D9F79100C197FF /* emulate_ops.h */,
+				642FD41D20D9F79100C197FF /* emulate.h */,
 				CFD697481ED2DCB700F10631 /* memory.h */,
 				6E2DBBCD18EB6155003B66C9 /* page_walker.h */,
 				22BFCFDD13A59AB100AD9F0F /* vtlb.h */,
@@ -289,6 +295,7 @@
 				B98ECFA013A059BB00485DDB /* compiler.h */,
 				B98ECFA113A059BB00485DDB /* config.h */,
 				B98ECFA213A059BB00485DDB /* cpu.h */,
+				642FD41A20D9F74D00C197FF /* cpuid.h */,
 				B98ECFA313A059BB00485DDB /* debug.h */,
 				B98ECFA413A059BB00485DDB /* dump_vmcs.h */,
 				B98ECFA513A059BB00485DDB /* hax_driver.h */,
@@ -296,7 +303,6 @@
 				B98ECFA813A059BB00485DDB /* mtrr.h */,
 				B98ECFA913A059BB00485DDB /* paging.h */,
 				B98ECFAA13A059BB00485DDB /* segments.h */,
-				B98ECFAB13A059BB00485DDB /* test.h */,
 				B98ECFAC13A059BB00485DDB /* types.h */,
 				B98ECFAD13A059BB00485DDB /* vcpu.h */,
 				B98ECFAF13A059BB00485DDB /* vm.h */,
@@ -317,6 +323,7 @@
 				438B72DB138CE46F009DF91B /* com_intel_hax.h in Headers */,
 				43C9A9E7138DDA93000A1071 /* hax_host.h in Headers */,
 				4397BF1E138F4530001A6A33 /* hax.h in Headers */,
+				642FD41F20D9F79100C197FF /* emulate.h in Headers */,
 				4397BF20138F4530001A6A33 /* hax_list.h in Headers */,
 				6E2DBBCE18EB6155003B66C9 /* page_walker.h in Headers */,
 				4397BF21138F4530001A6A33 /* hax_types.h in Headers */,
@@ -335,7 +342,6 @@
 				B98ECFC213A059BB00485DDB /* paging.h in Headers */,
 				CFD697491ED2DCB700F10631 /* memory.h in Headers */,
 				B98ECFC313A059BB00485DDB /* segments.h in Headers */,
-				B98ECFC413A059BB00485DDB /* test.h in Headers */,
 				B98ECFC513A059BB00485DDB /* types.h in Headers */,
 				B98ECFC613A059BB00485DDB /* vcpu.h in Headers */,
 				B98ECFC813A059BB00485DDB /* vm.h in Headers */,
@@ -344,7 +350,9 @@
 				43440D1F13A3834B002E1442 /* hax_interface_mac.h in Headers */,
 				43440D2013A3834B002E1442 /* hax_types_mac.h in Headers */,
 				43440D2C13A384D2002E1442 /* hax_mac.h in Headers */,
+				642FD41B20D9F74D00C197FF /* cpuid.h in Headers */,
 				4344104213A3C1B1002E1442 /* hax_interface.h in Headers */,
+				642FD41E20D9F79100C197FF /* emulate_ops.h in Headers */,
 				4344104313A3C1B1002E1442 /* vcpu_state.h in Headers */,
 				22BFCFD813A59A9100AD9F0F /* ept.h in Headers */,
 				22BFCFDC13A59AA000AD9F0F /* intr.h in Headers */,
