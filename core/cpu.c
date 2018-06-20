@@ -31,12 +31,17 @@
 #include "../include/hax.h"
 #include "include/ia32.h"
 #include "include/cpu.h"
+#include "include/cpuid.h"
 #include "include/vcpu.h"
 #include "include/debug.h"
 #include "include/dump_vmcs.h"
 #include "include/vtlb.h"
 #include "include/intr.h"
 #include "include/ept.h"
+
+static cpuid_cache_t cache = {
+    .initialized = 0
+};
 
 static vmx_error_t cpu_vmentry_failed(struct vcpu_t *vcpu, vmx_error_t err);
 static int cpu_vmexit_handler(struct vcpu_t *vcpu, exit_reason_t exit_reason,
@@ -58,6 +63,19 @@ static int cpu_nx_enable()
     return effer & 0x800;
 }
 
+bool cpu_has_feature(uint32_t feature)
+{
+    if (!cache.initialized) {
+        cpuid_host_init(&cache);
+    }
+    return cpuid_host_has_feature(&cache, feature);
+}
+
+void cpu_init_feature_cache()
+{
+    cpuid_host_init(&cache);
+}
+
 void cpu_init_vmx(void *arg)
 {
     struct info_t vmx_info;
@@ -69,17 +87,17 @@ void cpu_init_vmx(void *arg)
     cpu_data = current_cpu_data();
 
     cpu_data->cpu_features |= HAX_CPUF_VALID;
-    if (!cpu_has_vmx_support())
+    if (!cpu_has_feature(X86_FEATURE_VMX))
         return;
     else
         cpu_data->cpu_features |= HAX_CPUF_SUPPORT_VT;
 
-    if (!cpu_has_nx_support())
+    if (!cpu_has_feature(X86_FEATURE_NX))
         return;
     else
         cpu_data->cpu_features |= HAX_CPUF_SUPPORT_NX;
 
-    if(cpu_has_emt64_support())
+    if (cpu_has_feature(X86_FEATURE_EM64T))
         cpu_data->cpu_features |= HAX_CPUF_SUPPORT_EM64T;
 
     nx_enable = cpu_nx_enable();
@@ -168,26 +186,22 @@ void cpu_exit_vmx(void *arg)
 void cpu_pmu_init(void *arg)
 {
     struct cpu_pmu_info *pmu_info = &current_cpu_data()->pmu_info;
-    struct vcpu_state_t state;
+    cpuid_args_t cpuid_args;
 
     memset(pmu_info, 0, sizeof(struct cpu_pmu_info));
-    memset(&state, 0, sizeof(struct vcpu_state_t));
+
     // Call CPUID with EAX = 0
-    __handle_cpuid(&state);
-    if (state._eax < 0xa) {
+    cpuid_query_leaf(&cpuid_args, 0x00);
+    if (cpuid_args.eax < 0xa) {
         // Logical processor does not support APM
         return;
     }
 
-    state._eax = 0xa;
-    state._ebx = 0;
-    state._ecx = 0;
-    state._edx = 0;
     // Call CPUID with EAX = 0xa
-    __handle_cpuid(&state);
-    pmu_info->cpuid_eax = state._eax;
-    pmu_info->cpuid_ebx = state._ebx;
-    pmu_info->cpuid_edx = state._edx;
+    cpuid_query_leaf(&cpuid_args, 0xa);
+    pmu_info->cpuid_eax = cpuid_args.eax;
+    pmu_info->cpuid_ebx = cpuid_args.ebx;
+    pmu_info->cpuid_edx = cpuid_args.edx;
 }
 
 static void vmread_cr(struct vcpu_t *vcpu)

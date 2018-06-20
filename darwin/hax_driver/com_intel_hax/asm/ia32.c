@@ -32,6 +32,7 @@
 #include "../../../../core/include/segments.h"
 #include "../../../../core/include/ia32.h"
 #include "../../../../core/include/vcpu.h"
+#include "../../../../core/include/cpuid.h"
 #include "../../../../include/hax.h"
 
 mword get_cr0(void)
@@ -393,64 +394,15 @@ void bts(uint8 *addr, uint bit)
     );
 }
 
-int cpu_has_emt64_support(void)
+void __handle_cpuid(union cpuid_args_t *args)
 {
-    uint32 eax, ebx, ecx, edx;
-    uint32 op = 0x80000001;
+    uint32 a = args->eax, c = args->ecx;
 
     asm ("cpuid"
-         : "=a" (eax),
-           "=d" (edx),
-           "=b" (ebx),
-           "=c" (ecx)
-         : "a" (op)
-    );
-
-    return hax_test_bit(29, (uint64 *)&edx);
-}
-
-int cpu_has_vmx_support(void)
-{
-    uint32 eax, ebx, ecx, edx;
-    uint32 op = 1;
-
-    asm ("cpuid"
-         : "=a" (eax),
-           "=c" (ecx),
-           "=b" (ebx),
-           "=d" (edx)
-         : "a" (op)
-    );
-
-    return hax_test_bit(5, (uint64 *)&ecx);
-}
-
-int cpu_has_nx_support(void)
-{
-    uint32 eax, ebx, ecx, edx;
-    uint32 op = 0x80000001;
-
-    asm ("cpuid"
-         : "=a" (eax),
-           "=d" (edx),
-           "=b" (ebx),
-           "=c" (ecx)
-         : "a" (op)
-    );
-
-    return hax_test_bit(20, (uint64 *)&edx);
-}
-
-struct vcpu_state_t;
-void __handle_cpuid(struct vcpu_state_t *state)
-{
-    uint32 a = state->_eax, c = state->_ecx;
-
-    asm ("cpuid"
-         : "=a" (state->_eax),
-           "=c" (state->_ecx),
-           "=b" (state->_ebx),
-           "=d" (state->_edx)
+         : "=a" (args->eax),
+           "=c" (args->ecx),
+           "=b" (args->ebx),
+           "=d" (args->edx)
          : "0" (a),
            "1" (c)
     );

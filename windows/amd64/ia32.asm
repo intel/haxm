@@ -49,6 +49,13 @@ VCPU_STATE STRUCT
     _r15    QWORD   ?
 VCPU_STATE ENDS
 
+CPUID_ARGS STRUCT
+    _eax    DWORD   ?
+    _ecx    DWORD   ?
+    _edx    DWORD   ?
+    _ebx    DWORD   ?
+CPUID_ARGS ENDS
+
 .data
 ;
 
@@ -296,69 +303,6 @@ asm_bts PROC public
     ret
 asm_bts ENDP
 
-cpu_has_emt64_support PROC public
-    push rbx
-    xor rax, rax
-    xor rcx, rcx
-    xor rdx, rdx
-    xor rbx, rbx
-    mov rax, 80000001h
-    cpuid
-    mov eax, edx
-    test eax, 20000000h
-    pushf
-    pop ax
-    and eax, 40h
-    xor edx, edx
-    mov cl, 6h
-    shr eax, cl
-    xor eax, 1h
-    pop rbx
-    ret
-cpu_has_emt64_support ENDP
-
-cpu_has_vmx_support PROC public
-    push rbx
-    xor rax, rax
-    xor rcx, rcx
-    xor rdx, rdx
-    xor rbx, rbx
-    mov rax, 1h
-    cpuid
-    mov eax, ecx
-    test eax, 20h
-    pushf
-    pop ax
-    and eax, 40h
-    xor ecx, ecx
-    mov cl, 6h
-    shr eax, cl
-    xor eax, 1h
-    pop rbx
-    ret
-cpu_has_vmx_support ENDP
-
-cpu_has_nx_support PROC public
-    push rbx
-    xor rax, rax
-    xor rcx, rcx
-    xor rdx, rdx
-    xor rbx, rbx
-    mov rax, 80000001h
-    cpuid
-    mov eax, edx
-    test eax, 100000h
-    pushf
-    pop ax
-    and eax, 40h
-    xor edx, edx
-    mov cl, 6h
-    shr eax, cl
-    xor eax, 1h
-    pop rbx
-    ret
-cpu_has_nx_support ENDP
-
 get_kernel_rflags PROC public
     xor rax, rax
     pushf
@@ -384,13 +328,13 @@ __handle_cpuid PROC public
     xor rdx, rdx
     xor r8, r8
     mov r8, rcx
-    mov rax, [r8].VCPU_STATE._rax
-    mov rcx, [r8].VCPU_STATE._rcx
+    mov eax, [r8].CPUID_ARGS._eax
+    mov ecx, [r8].CPUID_ARGS._ecx
     cpuid
-    mov [r8].VCPU_STATE._rax, rax
-    mov [r8].VCPU_STATE._rbx, rbx
-    mov [r8].VCPU_STATE._rcx, rcx
-    mov [r8].VCPU_STATE._rdx, rdx
+    mov [r8].CPUID_ARGS._eax, eax
+    mov [r8].CPUID_ARGS._ebx, ebx
+    mov [r8].CPUID_ARGS._ecx, ecx
+    mov [r8].CPUID_ARGS._edx, edx
     pop rbx
     ret
 __handle_cpuid ENDP

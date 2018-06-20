@@ -12,6 +12,7 @@ SOURCES= ept.c	\
 	vm.c	\
 	vcpu.c	\
 	cpu.c	\
+	cpuid.c	\
 	vmx.c	\
 	vtlb.c	\
 	dump_vmcs.c	\

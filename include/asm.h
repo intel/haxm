@@ -33,7 +33,9 @@
 
 #include "hax_types.h"
 
+union cpuid_args_t;
 struct vcpu_t;
+struct vcpu_state_t;
 struct invept_desc;
 
 mword get_cr0(void);
@@ -83,9 +85,6 @@ void fxrstor(mword *addr);
 
 void btr(uint8 *addr, uint bit);
 void bts(uint8 *addr, uint bit);
-int cpu_has_emt64_support(void);
-int cpu_has_vmx_support(void);
-int cpu_has_nx_support(void);
 
 uint64 get_kernel_rflags(void);
 void __nmi(void);
@@ -99,7 +98,7 @@ void set_kernel_gdt(struct system_desc_t *sys_desc);
 void set_kernel_idt(struct system_desc_t *sys_desc);
 void get_kernel_gdt(struct system_desc_t *sys_desc);
 void get_kernel_idt(struct system_desc_t *sys_desc);
-void __handle_cpuid(struct vcpu_state_t *state);
+void __handle_cpuid(union cpuid_args_t *state);
 
 vmx_error_t __vmxon(paddr_t addr);
 vmx_error_t __vmxoff(void);

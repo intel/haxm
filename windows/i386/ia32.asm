@@ -58,6 +58,13 @@ VCPU_STATE STRUCT
     _pad7   DWORD   ?
 VCPU_STATE ENDS
 
+CPUID_ARGS STRUCT
+    _eax    DWORD   ?
+    _ecx    DWORD   ?
+    _edx    DWORD   ?
+    _ebx    DWORD   ?
+CPUID_ARGS ENDS
+
 .data
 ;
 
@@ -340,75 +347,6 @@ asm_bts PROC PUBLIC USES EAX x:ptr byte, y:dword
     ret
 asm_bts ENDP
 
-cpu_has_emt64_support PROC public
-    push ebx
-    push ecx
-    push edx
-    xor eax, eax
-    xor ecx, ecx
-    mov eax, 80000001h
-    cpuid
-    mov eax, edx
-    test eax, 20000000h
-    pushf
-    pop ax
-    and eax, 40h
-    xor ecx, ecx
-    mov cl, 6h
-    shr eax, cl
-    xor eax, 1h
-    pop edx
-    pop ecx
-    pop ebx
-    ret
-cpu_has_emt64_support ENDP
-
-cpu_has_vmx_support PROC PUBLIC
-    push ebx
-    push ecx
-    push edx
-    xor eax, eax
-    xor ecx, ecx
-    mov eax, 1h
-    cpuid
-    mov eax, ecx
-    test eax, 20h
-    pushf
-    pop ax
-    and eax, 40h
-    xor ecx, ecx
-    mov cl, 6h
-    shr eax, cl
-    xor eax, 1h
-    pop edx
-    pop ecx
-    pop ebx
-    ret
-cpu_has_vmx_support ENDP
-
-cpu_has_nx_support PROC PUBLIC
-    push ebx
-    push ecx
-    push edx
-    xor eax, eax
-    xor ecx, ecx
-    mov eax, 80000001h
-    cpuid
-    mov eax, edx
-    test eax, 100000h
-    pushf
-    pop ax
-    and eax, 40h
-    xor ecx, ecx
-    mov cl, 6h
-    shr eax, cl
-    xor eax, 1h
-    pop edx
-    pop ecx
-    pop ebx
-    ret
-cpu_has_nx_support ENDP
-
 get_kernel_rflags PROC PUBLIC
     xor eax, eax
     pushf
@@ -429,20 +367,20 @@ __fls PROC PUBLIC USES EBX x:dword
     ret
 __fls ENDP
 
-__handle_cpuid PROC PUBLIC USES EAX EBX EDX ECX ESI x:ptr VCPU_STATE
+__handle_cpuid PROC PUBLIC USES EAX EBX EDX ECX ESI x:ptr CPUID_ARGS
     xor eax, eax
     xor ebx, ebx
     xor edx, edx
     xor ecx, ecx
     xor esi, esi
     mov esi, x
-    mov eax, [esi].VCPU_STATE._eax
-    mov ecx, [esi].VCPU_STATE._ecx
+    mov eax, [esi].CPUID_ARGS._eax
+    mov ecx, [esi].CPUID_ARGS._ecx
     cpuid
-    mov [esi].VCPU_STATE._eax, eax
-    mov [esi].VCPU_STATE._ebx, ebx
-    mov [esi].VCPU_STATE._ecx, ecx
-    mov [esi].VCPU_STATE._edx, edx
+    mov [esi].CPUID_ARGS._eax, eax
+    mov [esi].CPUID_ARGS._ebx, ebx
+    mov [esi].CPUID_ARGS._ecx, ecx
+    mov [esi].CPUID_ARGS._edx, edx
     ret
 __handle_cpuid ENDP
 
