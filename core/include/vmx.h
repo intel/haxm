@@ -459,6 +459,11 @@ union vmcs_t {
 
 typedef union vmcs_t vmcs_t;
 
+struct per_cpu_data;
+extern vmx_error_t vmxroot_enter(struct per_cpu_data *cpu_data);
+extern vmx_error_t vmxroot_leave(struct per_cpu_data *cpu_data);
+extern void restore_host_cr(struct per_cpu_data *cpu_data);
+
 struct vcpu_t;
 extern void load_vmcs_common(struct vcpu_t *vcpu);
 extern uint32 load_vmcs(struct vcpu_t *vcpu, preempt_flag *flags);

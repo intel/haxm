@@ -516,7 +516,15 @@ uint8 is_vmcs_loaded(struct vcpu_t *vcpu)
 
 int debug_vmcs_count = 0;
 
-void restore_host_cr4_vmxe(struct per_cpu_data *cpu_data);
+void check_vmxon_coherency(struct per_cpu_data *cpu_data)
+{
+    if ((cpu_data->host_cr4 & CR4_VMXE) &&
+        (cpu_data->vmm_flag & VMXON_HAX)) {
+        // TODO: Need to understand why this happens
+        // (on both Windows and macOS)
+        hax_debug("HAX: VMM flag (VMON_HAX) is not clear!\n");
+    }
+}
 
 uint32 log_host_cr4_vmxe = 0;
 uint64 log_host_cr4 = 0;
@@ -562,13 +570,107 @@ void hax_panic_log(struct vcpu_t *vcpu)
     hax_error("log_vmoff_err %lx\n", log_vmxoff_err);
 }
 
+vmx_error_t vmxroot_enter(struct per_cpu_data *cpu_data);
+vmx_error_t vmxroot_leave(struct per_cpu_data *cpu_data);
+void restore_host_cr(struct per_cpu_data *cpu_data);
+
+/*
+ * Try to enter VMX-ROOT operations.
+ * Must be smp_call_function() safe.
+ * The success/failure logic is done in the caller.
+ */
+vmx_error_t vmxroot_enter(struct per_cpu_data *cpu_data)
+{
+    uint64 fc_msr;
+    uint64 cr0, cr0_f0, cr0_f1;
+    uint64 cr4, cr4_f0, cr4_f1;
+
+    smp_mb();
+
+    // always save
+    cpu_data->host_cr0 = get_cr0();
+    cpu_data->host_cr4 = get_cr4();
+
+    // set fixed bits in CR0 if needed
+    cr0    = cpu_data->host_cr0;
+    cr0_f0 = cpu_data->vmx_info._cr0_fixed_0;
+    cr0_f1 = cpu_data->vmx_info._cr0_fixed_1;
+
+    cr0 = (cr0 & cr0_f1) | cr0_f0;
+    if (cr0 != cpu_data->host_cr0) {
+        set_cr0(cr0);
+        cpu_data->vmm_flag |= VMXON_RESTORE_CR0;
+    }
+
+    // set fixed bits in CR4 if needed
+    cr4    = cpu_data->host_cr4;
+    cr4_f0 = cpu_data->vmx_info._cr4_fixed_0;
+    cr4_f1 = cpu_data->vmx_info._cr4_fixed_1;
+
+    cr4 = (cr4 & cr4_f1) | cr4_f0;
+    if (cr4 != cpu_data->host_cr4) {
+        set_cr4(cr4);
+        cpu_data->vmm_flag |= VMXON_RESTORE_CR4;
+    }
+
+    /* HP systems & Mac systems workaround
+     * When resuming from S3, some HP/Mac set the IA32_FEATURE_CONTROL MSR to
+     * zero. Setting the lock bit to zero & then doing 'vmxon' would cause a GP.
+     * As a workaround, when we see this condition, we enable the bits so that
+     * we can launch vmxon & thereby hax.
+     * bit 0 - Lock bit
+     * bit 2 - Enable VMX outside SMX operation
+     *
+     * ********* To Do **************************************
+     * This is the workground to fix BSOD when resume from S3
+     * The best way is to add one power management handler, and set
+     * IA32_FEATURE_CONTROL MSR in that PM S3 handler
+     * *****************************************************
+     */
+    fc_msr = ia32_rdmsr(IA32_FEATURE_CONTROL);
+    if (!(fc_msr & FC_LOCKED))
+        ia32_wrmsr(IA32_FEATURE_CONTROL,
+                   fc_msr | FC_LOCKED | FC_VMXON_OUTSMX);
+
+    return __vmxon(hax_page_pa(cpu_data->vmxon_page));
+}
+
+/*
+ * Restore host control registers value before entering vmxroot
+ * operations. Must be smp_func_call() safe.
+ */
+void restore_host_cr(struct per_cpu_data *cpu_data)
+{
+    if (cpu_data->vmm_flag & VMXON_RESTORE_CR0)
+        set_cr0(cpu_data->host_cr0);
+
+    if (cpu_data->vmm_flag & VMXON_RESTORE_CR4)
+        set_cr4(cpu_data->host_cr4);
+}
+
+/*
+ * Try to leave VMX-ROOT operations.
+ * Must be smp_call_function() safe.
+ * The success/failure logic is done in the caller.
+ */
+vmx_error_t vmxroot_leave(struct per_cpu_data *cpu_data)
+{
+    vmx_error_t err;
+
+    smp_mb();
+
+    err = __vmxoff();
+    restore_host_cr(cpu_data);
+    return err;
+}
+
 uint32 load_vmcs(struct vcpu_t *vcpu, preempt_flag *flags)
 {
     struct per_cpu_data *cpu_data;
     paddr_t vmcs_phy;
     paddr_t curr_vmcs = VMCS_NONE;
     vmx_error_t err = 0;
-    uint64 fc_msr;
+    mword host_cr4_vmxe;
 
     hax_disable_preemption(flags);
 
@@ -584,37 +686,18 @@ uint32 load_vmcs(struct vcpu_t *vcpu, preempt_flag *flags)
         return 0;
     }
 
-    cpu_data->host_cr4_vmxe = (get_cr4() & CR4_VMXE);
-    if(cpu_data->host_cr4_vmxe) {
+    err = vmxroot_enter(cpu_data);
+    host_cr4_vmxe = cpu_data->host_cr4 & CR4_VMXE;
+
+    if(host_cr4_vmxe) {
         if (debug_vmcs_count % 100000 == 0) {
-            hax_debug("host VT has enabled!\n");
-            hax_debug("Cr4 value = 0x%lx\n", get_cr4());
+            hax_debug("host has VT enabled!\n");
+            hax_debug("Cr4 value = 0x%llx\n", cpu_data->host_cr4);
             log_host_cr4_vmxe = 1;
-            log_host_cr4 = get_cr4();
+            log_host_cr4 = cpu_data->host_cr4;
         }
         debug_vmcs_count++;
     }
-    set_cr4(get_cr4() | CR4_VMXE);
-    /* HP systems & Mac systems workaround
-      * When resuming from S3, some HP/Mac set the IA32_FEATURE_CONTROL MSR to
-      * zero. Setting the lock bit to zero & then doing 'vmxon' would cause a GP.
-      * As a workaround, when we see this condition, we enable the bits so that
-      * we can launch vmxon & thereby hax.
-      * bit 0 - Lock bit
-      * bit 2 - Enable VMX outside SMX operation
-      *
-      * ********* To Do **************************************
-      * This is the workground to fix BSOD when resume from S3
-      * The best way is to add one power management handler, and set
-      * IA32_FEATURE_CONTROL MSR in that PM S3 handler
-      * *****************************************************
-      */
-    fc_msr = ia32_rdmsr(IA32_FEATURE_CONTROL);
-    if (!(fc_msr & FC_LOCKED))
-        ia32_wrmsr(IA32_FEATURE_CONTROL,
-                   fc_msr | FC_LOCKED | FC_VMXON_OUTSMX);
-
-    err = __vmxon(hax_page_pa(cpu_data->vmxon_page));
 
     log_vmxon_err = err;
     log_vmxon_addr = hax_page_pa(cpu_data->vmxon_page);
@@ -625,7 +708,7 @@ uint32 load_vmcs(struct vcpu_t *vcpu, preempt_flag *flags)
         bool fatal = true;
 
 #ifdef __MACH__
-        if ((err & VMX_FAIL_INVALID) && cpu_data->host_cr4_vmxe) {
+        if ((err & VMX_FAIL_INVALID) && host_cr4_vmxe) {
             // On macOS, if VMXON fails with VMX_FAIL_INVALID and host CR4.VMXE
             // was already set, it is very likely that another VMM (VirtualBox
             // or any VMM based on macOS Hypervisor Framework, e.g. Docker) is
@@ -650,11 +733,12 @@ uint32 load_vmcs(struct vcpu_t *vcpu, preempt_flag *flags)
             }
         }
 #endif
+        check_vmxon_coherency(cpu_data);
+        restore_host_cr(cpu_data);
 
         if (fatal) {
             hax_error("VMXON failed for region 0x%llx (err=0x%x)\n",
                       hax_page_pa(cpu_data->vmxon_page), (uint32) err);
-            restore_host_cr4_vmxe(cpu_data);
             if (err & VMX_FAIL_INVALID) {
                 log_vmxon_err_type1 = 1;
             } else {
@@ -680,8 +764,10 @@ uint32 load_vmcs(struct vcpu_t *vcpu, preempt_flag *flags)
     if (__vmptrld(vmcs_phy) != VMX_SUCCEED) {
         hax_error("HAX: vmptrld failed (%08llx)\n", vmcs_phy);
         cpu_data->vmm_flag = 0;
-        __vmxoff();
-        restore_host_cr4_vmxe(cpu_data);
+        err = vmxroot_leave(cpu_data);
+        if (err & VMX_FAIL_MASK) {
+            hax_error("HAX: vmxoff failed (err=0x%lx)\n", err);
+        }
         log_vmxon_err_type3 = 1;
         hax_enable_preemption(flags);
         return VMPTRLD_FAIL;
@@ -695,20 +781,6 @@ uint32 load_vmcs(struct vcpu_t *vcpu, preempt_flag *flags)
 
     cpu_data->other_vmcs = curr_vmcs;
     return VMXON_SUCCESS;
-}
-
-void restore_host_cr4_vmxe(struct per_cpu_data *cpu_data)
-{
-    if (cpu_data->host_cr4_vmxe) {
-        if (cpu_data->vmm_flag & VMXON_HAX) {
-            // TODO: Need to understand why this happens (on both Windows and
-            // macOS)
-            hax_debug("HAX: VMM flag (VMON_HAX) is not clear!\n");
-        }
-        set_cr4(get_cr4() | CR4_VMXE);
-    } else {
-        set_cr4(get_cr4() & (~CR4_VMXE));
-    }
 }
 
 uint32 put_vmcs(struct vcpu_t *vcpu, preempt_flag *flags)
@@ -736,10 +808,9 @@ uint32 put_vmcs(struct vcpu_t *vcpu, preempt_flag *flags)
     cpu_data->current_vcpu = NULL;
 
     if (cpu_data->vmm_flag & VMXON_HAX) {
-        err = __vmxoff();
-        if (!(err & VMX_FAIL_MASK)) {
-            restore_host_cr4_vmxe(cpu_data);
-        } else {
+        check_vmxon_coherency(cpu_data);
+        err = vmxroot_leave(cpu_data);
+        if (err & VMX_FAIL_MASK) {
             hax_error("VMXOFF Failed..........\n");
             vmxoff_err = err;
             log_vmxoff_err = err;

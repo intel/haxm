@@ -87,7 +87,9 @@ struct hstate_compare {
     uint64 gs_msr, rflags, rsp;
 };
 
-#define VMXON_HAX (1 << 0)
+#define VMXON_HAX         (1 << 0)
+#define VMXON_RESTORE_CR0 (1 << 1)
+#define VMXON_RESTORE_CR4 (1 << 2)
 
 struct per_cpu_data {
     struct hax_page    *vmxon_page;
@@ -97,7 +99,13 @@ struct per_cpu_data {
     cpuid_t            cpu_id;
     uint16             vmm_flag;
     uint16             nested;
-    mword              host_cr4_vmxe;
+
+    /*
+     * These fields are used to record host cr0/cr4 prior entering
+     * vmx-root operations, so that we can restore them when leaving
+     * vmx-root operations.
+     */
+    uint64             host_cr0, host_cr4;
 
     /*
      * These fields are used to record the result of certain VMX instructions
