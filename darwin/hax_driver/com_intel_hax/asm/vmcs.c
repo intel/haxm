@@ -28,37 +28,9 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "../../../../core/include/ia32.h"
 #include "../../../../core/include/vmx.h"
 #include "../../../../core/include/types.h"
-#include "../../../../include/hax.h"
 #include "../../../../core/include/vcpu.h"
-
-void hax_disable_preemption(preempt_flag *eflags)
-{
-    mword flags;
-#ifdef __x86_64__
-    asm volatile (
-        "pushfq         \n\t"
-        "popq %0"
-        : "=r" (flags)
-    );
-#else
-    asm volatile (
-        "pushfd         \n\t"
-        "pop %0"
-        : "=r" (flags)
-    );
-#endif
-    *eflags = flags;
-    hax_disable_irq();
-}
-
-void hax_enable_preemption(preempt_flag *eflags)
-{
-    if (*eflags & EFLAGS_IF)
-        hax_enable_irq();
-}
 
 /* Don't call these two functions as NOT INLINE manner */
 #ifdef __i386__
