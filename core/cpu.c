@@ -567,8 +567,6 @@ uint32 load_vmcs(struct vcpu_t *vcpu, preempt_flag *flags)
     struct per_cpu_data *cpu_data;
     paddr_t vmcs_phy;
     paddr_t curr_vmcs = VMCS_NONE;
-    vmx_error_t err = 0;
-    uint64 fc_msr;
 
     hax_disable_preemption(flags);
 
@@ -584,87 +582,9 @@ uint32 load_vmcs(struct vcpu_t *vcpu, preempt_flag *flags)
         return 0;
     }
 
-    cpu_data->host_cr4_vmxe = (get_cr4() & CR4_VMXE);
-    if(cpu_data->host_cr4_vmxe) {
-        if (debug_vmcs_count % 100000 == 0) {
-            hax_debug("host VT has enabled!\n");
-            hax_debug("Cr4 value = 0x%lx\n", get_cr4());
-            log_host_cr4_vmxe = 1;
-            log_host_cr4 = get_cr4();
-        }
-        debug_vmcs_count++;
-    }
-    set_cr4(get_cr4() | CR4_VMXE);
-    /* HP systems & Mac systems workaround
-      * When resuming from S3, some HP/Mac set the IA32_FEATURE_CONTROL MSR to
-      * zero. Setting the lock bit to zero & then doing 'vmxon' would cause a GP.
-      * As a workaround, when we see this condition, we enable the bits so that
-      * we can launch vmxon & thereby hax.
-      * bit 0 - Lock bit
-      * bit 2 - Enable VMX outside SMX operation
-      *
-      * ********* To Do **************************************
-      * This is the workground to fix BSOD when resume from S3
-      * The best way is to add one power management handler, and set
-      * IA32_FEATURE_CONTROL MSR in that PM S3 handler
-      * *****************************************************
-      */
-    fc_msr = ia32_rdmsr(IA32_FEATURE_CONTROL);
-    if (!(fc_msr & FC_LOCKED))
-        ia32_wrmsr(IA32_FEATURE_CONTROL,
-                   fc_msr | FC_LOCKED | FC_VMXON_OUTSMX);
-
-    err = __vmxon(hax_page_pa(cpu_data->vmxon_page));
-
-    log_vmxon_err = err;
-    log_vmxon_addr = hax_page_pa(cpu_data->vmxon_page);
-
-    if (!(err & VMX_FAIL_MASK))
-        cpu_data->vmm_flag |= VMXON_HAX;
-    else {
-        bool fatal = true;
-
-#ifdef __MACH__
-        if ((err & VMX_FAIL_INVALID) && cpu_data->host_cr4_vmxe) {
-            // On macOS, if VMXON fails with VMX_FAIL_INVALID and host CR4.VMXE
-            // was already set, it is very likely that another VMM (VirtualBox
-            // or any VMM based on macOS Hypervisor Framework, e.g. Docker) is
-            // running and did not call VMXOFF. In that case, the current host
-            // logical processor is already in VMX operation, and we can use an
-            // innocuous VMX instruction (VMPTRST) to confirm that.
-            // However, if the above assumption is wrong and the host processor
-            // is not actually in VMX operation, VMPTRST will probably cause a
-            // host reboot. But we don't have a better choice, and it is worth
-            // taking the risk.
-            curr_vmcs = __vmptrst();
-            if (curr_vmcs == VMCS_NONE) {
-                hax_debug("Already in VMX operation, courtesy of another"
-                          " VMM (VirtualBox or macOS Hypervisor Framework)\n");
-                fatal = false;
-                // Indicate that it is not necessary to call VMXOFF later
-                cpu_data->vmm_flag &= ~VMXON_HAX;
-            } else {
-                // Should never happen
-                hax_error("VMXON failed with VMX_FAIL_INVALID, but there is a"
-                          " current VMCS at 0x%llx\n", curr_vmcs);
-            }
-        }
-#endif
-
-        if (fatal) {
-            hax_error("VMXON failed for region 0x%llx (err=0x%x)\n",
-                      hax_page_pa(cpu_data->vmxon_page), (uint32) err);
-            restore_host_cr4_vmxe(cpu_data);
-            if (err & VMX_FAIL_INVALID) {
-                log_vmxon_err_type1 = 1;
-            } else {
-                // TODO: Should VMX_FAIL_VALID be ignored? The current VMCS can
-                // be cleared (deactivated and saved to memory) using VMCLEAR
-                log_vmxon_err_type2 = 1;
-            }
-            hax_enable_preemption(flags);
-            return VMXON_FAIL;
-        }
+    if (cpu_vmxroot_enter() != VMX_SUCCEED) {
+        hax_enable_preemption(flags);
+        return VMXON_FAIL;
     }
 
     if (vcpu)
@@ -679,9 +599,7 @@ uint32 load_vmcs(struct vcpu_t *vcpu, preempt_flag *flags)
 
     if (__vmptrld(vmcs_phy) != VMX_SUCCEED) {
         hax_error("HAX: vmptrld failed (%08llx)\n", vmcs_phy);
-        cpu_data->vmm_flag = 0;
-        __vmxoff();
-        restore_host_cr4_vmxe(cpu_data);
+        cpu_vmxroot_leave();
         log_vmxon_err_type3 = 1;
         hax_enable_preemption(flags);
         return VMPTRLD_FAIL;
@@ -716,7 +634,6 @@ uint32 put_vmcs(struct vcpu_t *vcpu, preempt_flag *flags)
     int cpu_id = hax_cpuid();
     struct per_cpu_data *cpu_data = hax_cpu_data[cpu_id];
     paddr_t vmcs_phy;
-    vmx_error_t err = 0;
     vmx_error_t vmxoff_err = 0;
     if (vcpu && cpu_data->nested > 0) {
         cpu_data->nested--;
@@ -735,27 +652,8 @@ uint32 put_vmcs(struct vcpu_t *vcpu, preempt_flag *flags)
 
     cpu_data->current_vcpu = NULL;
 
-    if (cpu_data->vmm_flag & VMXON_HAX) {
-        err = __vmxoff();
-        if (!(err & VMX_FAIL_MASK)) {
-            restore_host_cr4_vmxe(cpu_data);
-        } else {
-            hax_error("VMXOFF Failed..........\n");
-            vmxoff_err = err;
-            log_vmxoff_err = err;
-        }
-    } else {
-        log_vmxoff_no = 1;
-#ifdef __MACH__
-        hax_debug("Skipping VMXOFF because another VMM (VirtualBox or macOS"
-                  " Hypervisor Framework) is running\n");
-#else
-        vmxoff_err = 0x1;
-        hax_error("NO VMXOFF.......\n");
-#endif
-    }
+    vmxoff_err = cpu_vmxroot_leave();
     cpu_data->other_vmcs = VMCS_NONE;
-    cpu_data->vmm_flag = 0;
     if (vcpu && vcpu->is_vmcs_loaded)
         vcpu->is_vmcs_loaded = 0;
 out:
@@ -815,5 +713,121 @@ static vmx_error_t cpu_vmentry_failed(struct vcpu_t *vcpu, vmx_error_t err)
 
     hax_log("HAX: VM entry failed\n");
     hax_log("end of cpu_vmentry_failed\n");
+    return err;
+}
+
+vmx_error_t cpu_vmxroot_leave(void)
+{
+    struct per_cpu_data *cpu_data = current_cpu_data();
+    vmx_error_t err = VMX_SUCCEED;
+
+    if (cpu_data->vmm_flag & VMXON_HAX) {
+        err = __vmxoff();
+        if (!(err & VMX_FAIL_MASK)) {
+            cpu_data->vmm_flag &= ~VMXON_HAX;
+            restore_host_cr4_vmxe(cpu_data);
+        } else {
+            hax_error("VMXOFF Failed..........\n");
+        }
+    } else {
+        log_vmxoff_no = 1;
+#ifdef __MACH__
+        hax_debug("Skipping VMXOFF because another VMM (VirtualBox or macOS"
+                  " Hypervisor Framework) is running\n");
+#else
+        // It should not go here in Win64/win32
+        err = VMX_FAIL_VALID;
+        hax_error("NO VMXOFF.......\n");
+#endif
+    }
+    cpu_data->vmxoff_err = err;
+
+    return err;
+}
+
+vmx_error_t cpu_vmxroot_enter(void)
+{
+    struct per_cpu_data *cpu_data = current_cpu_data();
+    uint64 fc_msr;
+    vmx_error_t err = VMX_SUCCEED;
+
+    cpu_data->host_cr4_vmxe = (get_cr4() & CR4_VMXE);
+    if (cpu_data->host_cr4_vmxe) {
+        if (debug_vmcs_count % 100000 == 0) {
+            hax_debug("host VT has enabled!\n");
+            hax_debug("Cr4 value = 0x%lx\n", get_cr4());
+            log_host_cr4_vmxe = 1;
+            log_host_cr4 = get_cr4();
+        }
+        debug_vmcs_count++;
+    }
+
+    set_cr4(get_cr4() | CR4_VMXE);
+    /* HP systems & Mac systems workaround
+     * When resuming from S3, some HP/Mac set the IA32_FEATURE_CONTROL MSR to
+     * zero. Setting the lock bit to zero & then doing 'vmxon' would cause a GP.
+     * As a workaround, when we see this condition, we enable the bits so that
+     * we can launch vmxon & thereby hax.
+     * bit 0 - Lock bit
+     * bit 2 - Enable VMX outside SMX operation
+     *
+     * ********* To Do **************************************
+     * This is the workground to fix BSOD when resume from S3
+     * The best way is to add one power management handler, and set
+     * IA32_FEATURE_CONTROL MSR in that PM S3 handler
+     * *****************************************************
+     */
+    fc_msr = ia32_rdmsr(IA32_FEATURE_CONTROL);
+    if (!(fc_msr & FC_LOCKED))
+        ia32_wrmsr(IA32_FEATURE_CONTROL,
+                   fc_msr | FC_LOCKED | FC_VMXON_OUTSMX);
+
+    err = __vmxon(hax_page_pa(cpu_data->vmxon_page));
+
+    log_vmxon_err = err;
+    log_vmxon_addr = hax_page_pa(cpu_data->vmxon_page);
+
+    if (!(err & VMX_FAIL_MASK)) {
+        cpu_data->vmm_flag |= VMXON_HAX;
+    } else {
+        bool fatal = true;
+
+#ifdef __MACH__
+        if ((err & VMX_FAIL_INVALID) && cpu_data->host_cr4_vmxe) {
+            // On macOS, if VMXON fails with VMX_FAIL_INVALID and host CR4.VMXE
+            // was already set, it is very likely that another VMM (VirtualBox
+            // or any VMM based on macOS Hypervisor Framework, e.g. Docker) is
+            // running and did not call VMXOFF. In that case, the current host
+            // logical processor is already in VMX operation, and we can use an
+            // innocuous VMX instruction (VMPTRST) to confirm that.
+            // However, if the above assumption is wrong and the host processor
+            // is not actually in VMX operation, VMPTRST will probably cause a
+            // host reboot. But we don't have a better choice, and it is worth
+            // taking the risk.
+            __vmptrst();
+
+            // It is still alive - Just assumption is right.
+            fatal = false;
+            err = VMX_SUCCEED;
+            // Indicate that it is not necessary to call VMXOFF later
+            cpu_data->vmm_flag &= ~VMXON_HAX;
+        }
+#endif
+
+        if (fatal) {
+            hax_error("VMXON failed for region 0x%llx (err=0x%x, vmxe=%x)\n",
+                      hax_page_pa(cpu_data->vmxon_page), (uint32)err,
+                      (uint32)cpu_data->host_cr4_vmxe);
+            restore_host_cr4_vmxe(cpu_data);
+            if (err & VMX_FAIL_INVALID) {
+                log_vmxon_err_type1 = 1;
+            } else {
+                // TODO: Should VMX_FAIL_VALID be ignored? The current VMCS can
+                // be cleared (deactivated and saved to memory) using VMCLEAR
+                log_vmxon_err_type2 = 1;
+            }
+        }
+    }
+    cpu_data->vmxon_err = err;
     return err;
 }

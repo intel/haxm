@@ -165,7 +165,6 @@ static vmcs_t * current_cpu_vmcs(void)
 
 void cpu_init_vmx(void *arg);
 void cpu_exit_vmx(void *arg);
-void cpu_enter_vmx(void *arg);
 
 void cpu_pmu_init(void *arg);
 
@@ -181,6 +180,9 @@ int cpu_vmx_execute(struct vcpu_t *vcpu, struct hax_tunnel *htun);
 vmx_error_t vmptrld(paddr_t vmcs, struct vcpu_t *vcpu);
 vmx_error_t resume(paddr_t vmcs, struct vcpu_t *vcpu);
 vmx_error_t launch(paddr_t vmcs, struct vcpu_t *vcpu);
+
+vmx_error_t cpu_vmxroot_leave(void);
+vmx_error_t cpu_vmxroot_enter(void);
 
 extern struct hax_page *io_bitmap_page_a;
 extern struct hax_page *io_bitmap_page_b;
