@@ -37,6 +37,7 @@
 #include <stdarg.h>
 #include <sys/proc.h>
 #include "../../../include/hax.h"
+#include "../../../core/include/ia32.h"
 
 extern "C" int vcpu_event_pending(struct vcpu_t *vcpu);
 
@@ -112,6 +113,32 @@ extern "C" void hax_enable_irq(void)
 extern "C" void hax_disable_irq(void)
 {
     ml_set_interrupts_enabled(false);
+}
+
+extern "C" void hax_disable_preemption(preempt_flag *eflags)
+{
+    mword flags;
+#ifdef __x86_64__
+    asm volatile (
+        "pushfq         \n\t"
+        "popq %0"
+        : "=r" (flags)
+    );
+#else
+    asm volatile (
+        "pushfd         \n\t"
+        "pop %0"
+        : "=r" (flags)
+    );
+#endif
+    *eflags = flags;
+    hax_disable_irq();
+}
+
+extern "C" void hax_enable_preemption(preempt_flag *eflags)
+{
+    if (*eflags & EFLAGS_IF)
+        hax_enable_irq();
 }
 
 #define QEMU_SIGNAL_SIGMASK  (sigmask(SIGINT) | sigmask(SIGTERM) |  \
