@@ -34,9 +34,7 @@ folder.
 ### Build steps
 **Option A (Visual Studio)**
 1. Open `HaxmDriver.sln` in Visual Studio 2017.
-1. Select either `Win7 Debug` or `Win7 Release` configuration.
-   * The `Win7` configuration ensures the driver is compatible with Windows 7
-and later.
+1. Select either `Debug` or `Release` configuration.
    * The `Debug` configuration also signs the driver with a test certificate.
 The `Release` configuration does not do that.
 1. Select either `x64` or `Win32` platform.
@@ -47,8 +45,8 @@ The `Release` configuration does not do that.
 1. `LaunchBuildEnv.cmd`
 1. `cd X:\path\to\haxm\`
 1. `X:\path\to\nuget.exe restore`
-1. `msbuild HaxmDriver.sln /p:Configuration="Win7 Debug" /p:Platform="x64"`
-   * Use `Win7 Release` instead of `Win7 Debug` to build a faster driver without
+1. `msbuild HaxmDriver.sln /p:Configuration="Debug" /p:Platform="x64"`
+   * Use `Release` instead of `Debug` to build a faster driver without
 a digital signature.
    * Use `Win32` instead of `x64` to build a 32-bit driver that works on 32-bit
 Windows.
@@ -56,7 +54,7 @@ Windows.
 
 If successful, the driver binary (`IntelHaxm.sys`) will be generated in
 `X:\path\to\haxm\obj\out\win7\x64\` (or `X:\path\to\haxm\obj\out\win7\x86\` if
-`Platform="Win32"`).
+`Platform="Win32"`), and will be able to run on Windows 7 and later.
 
 ## Building for macOS
 ### Prerequisites
