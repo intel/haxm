@@ -1315,7 +1315,7 @@ void vcpu_load_host_state(struct vcpu_t *vcpu)
 
     // Should be called when lock is got
     vcpu->state->_cr2 = get_cr2();
-    load_kernel_ldt(hstate->ldt_selector);
+    set_kernel_ldt(hstate->ldt_selector);
     if (hstate->seg_valid & HOST_SEG_VALID_ES) {
         set_kernel_es(hstate->es);
     }
@@ -2298,7 +2298,7 @@ static void handle_cpuid(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 
     args.eax = state->_eax;
     args.ecx = state->_ecx;
-    __handle_cpuid(&args);
+    asm_cpuid(&args);
     state->_eax = args.eax;
     state->_ecx = args.ecx;
     state->_edx = args.edx;

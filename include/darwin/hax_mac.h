@@ -197,7 +197,7 @@ extern int default_hax_log_level;
 
 #define hax_panic_vcpu(v, x...) {     \
             printf("haxm_panic: " x); \
-            v->paniced = 1;           \
+            v->panicked = 1;          \
         }
 
 #define ASSERT(condition) assert(condition)

@@ -35,9 +35,6 @@
 		43C9A9E7138DDA93000A1071 /* hax_host.h in Headers */ = {isa = PBXBuildFile; fileRef = 43C9A9E6138DDA93000A1071 /* hax_host.h */; };
 		43F857E013931E75008A93D6 /* com_intel_hax_mem.h in Headers */ = {isa = PBXBuildFile; fileRef = 43F857DE13931E75008A93D6 /* com_intel_hax_mem.h */; };
 		43F857E113931E75008A93D6 /* com_intel_hax_mem.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 43F857DF13931E75008A93D6 /* com_intel_hax_mem.cpp */; };
-		4BCC4E0513FB6729005E4BE4 /* ia32.c in Sources */ = {isa = PBXBuildFile; fileRef = 4BCC4E0213FB6729005E4BE4 /* ia32.c */; };
-		4BCC4E0613FB6729005E4BE4 /* segments.c in Sources */ = {isa = PBXBuildFile; fileRef = 4BCC4E0313FB6729005E4BE4 /* segments.c */; };
-		4BCC4E0713FB6729005E4BE4 /* vmcs.c in Sources */ = {isa = PBXBuildFile; fileRef = 4BCC4E0413FB6729005E4BE4 /* vmcs.c */; };
 		642FD41B20D9F74D00C197FF /* cpuid.h in Headers */ = {isa = PBXBuildFile; fileRef = 642FD41A20D9F74D00C197FF /* cpuid.h */; };
 		642FD41E20D9F79100C197FF /* emulate_ops.h in Headers */ = {isa = PBXBuildFile; fileRef = 642FD41C20D9F79100C197FF /* emulate_ops.h */; };
 		642FD41F20D9F79100C197FF /* emulate.h in Headers */ = {isa = PBXBuildFile; fileRef = 642FD41D20D9F79100C197FF /* emulate.h */; };
@@ -47,8 +44,11 @@
 		6496936F20D8AE0000C9BBAF /* cpuid.c in Sources */ = {isa = PBXBuildFile; fileRef = 6496936E20D8AE0000C9BBAF /* cpuid.c */; };
 		64B72B851EDFFF7E00A8C202 /* hax_host_mem.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 64B72B841EDFFF7E00A8C202 /* hax_host_mem.cpp */; };
 		64B85BE91EF4D34D00223ABD /* ept2.c in Sources */ = {isa = PBXBuildFile; fileRef = 64B85BE81EF4D34D00223ABD /* ept2.c */; };
+		64BB0CD220F36C470064593A /* vmx_ops.asm in Sources */ = {isa = PBXBuildFile; fileRef = 64BB0CD020F36C470064593A /* vmx_ops.asm */; };
+		64BB0CD320F36C470064593A /* ia32_ops.asm in Sources */ = {isa = PBXBuildFile; fileRef = 64BB0CD120F36C470064593A /* ia32_ops.asm */; };
 		6E2DBBCC18EB6125003B66C9 /* page_walker.c in Sources */ = {isa = PBXBuildFile; fileRef = 6E2DBBCB18EB6125003B66C9 /* page_walker.c */; };
 		6E2DBBCE18EB6155003B66C9 /* page_walker.h in Headers */ = {isa = PBXBuildFile; fileRef = 6E2DBBCD18EB6155003B66C9 /* page_walker.h */; };
+		A669096B20F9985300739075 /* ia32.c in Sources */ = {isa = PBXBuildFile; fileRef = A669096A20F9985300739075 /* ia32.c */; };
 		B98ECFB613A059BB00485DDB /* cpu.c in Sources */ = {isa = PBXBuildFile; fileRef = B98ECF9C13A059BB00485DDB /* cpu.c */; };
 		B98ECFB713A059BB00485DDB /* dump_vmcs.c in Sources */ = {isa = PBXBuildFile; fileRef = B98ECF9D13A059BB00485DDB /* dump_vmcs.c */; };
 		B98ECFB813A059BB00485DDB /* hax.c in Sources */ = {isa = PBXBuildFile; fileRef = B98ECF9E13A059BB00485DDB /* hax.c */; };
@@ -124,9 +124,6 @@
 		43C9A9E6138DDA93000A1071 /* hax_host.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = hax_host.h; sourceTree = "<group>"; };
 		43F857DE13931E75008A93D6 /* com_intel_hax_mem.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = com_intel_hax_mem.h; sourceTree = "<group>"; };
 		43F857DF13931E75008A93D6 /* com_intel_hax_mem.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = com_intel_hax_mem.cpp; sourceTree = "<group>"; };
-		4BCC4E0213FB6729005E4BE4 /* ia32.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ia32.c; sourceTree = "<group>"; };
-		4BCC4E0313FB6729005E4BE4 /* segments.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = segments.c; sourceTree = "<group>"; };
-		4BCC4E0413FB6729005E4BE4 /* vmcs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = vmcs.c; sourceTree = "<group>"; };
 		642FD41A20D9F74D00C197FF /* cpuid.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cpuid.h; sourceTree = "<group>"; };
 		642FD41C20D9F79100C197FF /* emulate_ops.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = emulate_ops.h; sourceTree = "<group>"; };
 		642FD41D20D9F79100C197FF /* emulate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = emulate.h; sourceTree = "<group>"; };
@@ -136,8 +133,11 @@
 		6496936E20D8AE0000C9BBAF /* cpuid.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = cpuid.c; path = ../../../core/cpuid.c; sourceTree = "<group>"; };
 		64B72B841EDFFF7E00A8C202 /* hax_host_mem.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = hax_host_mem.cpp; sourceTree = "<group>"; };
 		64B85BE81EF4D34D00223ABD /* ept2.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ept2.c; path = ../../../core/ept2.c; sourceTree = "<group>"; };
+		64BB0CD020F36C470064593A /* vmx_ops.asm */ = {isa = PBXFileReference; explicitFileType = sourcecode.nasm; name = vmx_ops.asm; path = ../../../core/vmx_ops.asm; sourceTree = "<group>"; };
+		64BB0CD120F36C470064593A /* ia32_ops.asm */ = {isa = PBXFileReference; explicitFileType = sourcecode.nasm; name = ia32_ops.asm; path = ../../../core/ia32_ops.asm; sourceTree = "<group>"; };
 		6E2DBBCB18EB6125003B66C9 /* page_walker.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = page_walker.c; path = ../../../core/page_walker.c; sourceTree = "<group>"; };
 		6E2DBBCD18EB6155003B66C9 /* page_walker.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = page_walker.h; sourceTree = "<group>"; };
+		A669096A20F9985300739075 /* ia32.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ia32.c; path = ../../../core/ia32.c; sourceTree = "<group>"; };
 		B98ECF9C13A059BB00485DDB /* cpu.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = cpu.c; path = ../../../core/cpu.c; sourceTree = SOURCE_ROOT; };
 		B98ECF9D13A059BB00485DDB /* dump_vmcs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = dump_vmcs.c; path = ../../../core/dump_vmcs.c; sourceTree = SOURCE_ROOT; };
 		B98ECF9E13A059BB00485DDB /* hax.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = hax.c; path = ../../../core/hax.c; sourceTree = SOURCE_ROOT; };
@@ -213,10 +213,12 @@
 		247142CAFF3F8F9811CA285C /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				64BB0CD120F36C470064593A /* ia32_ops.asm */,
+				64BB0CD020F36C470064593A /* vmx_ops.asm */,
+				A669096A20F9985300739075 /* ia32.c */,
 				6496936E20D8AE0000C9BBAF /* cpuid.c */,
 				6E2DBBCB18EB6125003B66C9 /* page_walker.c */,
 				43038AD9145F94190014BEE6 /* memory.c */,
-				4BCC4E0113FB6729005E4BE4 /* asm */,
 				22BFCFD513A59A8200AD9F0F /* vtlb.c */,
 				CFD697461ED2DC9700F10631 /* gpa_space.c */,
 				CF0539AC1EE536CB00FAD569 /* chunk.c */,
@@ -270,16 +272,6 @@
 			name = include;
 			path = ../../../include;
 			sourceTree = SOURCE_ROOT;
-		};
-		4BCC4E0113FB6729005E4BE4 /* asm */ = {
-			isa = PBXGroup;
-			children = (
-				4BCC4E0213FB6729005E4BE4 /* ia32.c */,
-				4BCC4E0313FB6729005E4BE4 /* segments.c */,
-				4BCC4E0413FB6729005E4BE4 /* vmcs.c */,
-			);
-			path = asm;
-			sourceTree = "<group>";
 		};
 		B98ECF9F13A059BB00485DDB /* include */ = {
 			isa = PBXGroup;
@@ -443,6 +435,7 @@
 				43C9A9E4138DD459000A1071 /* com_intel_hax_component.c in Sources */,
 				43F857E113931E75008A93D6 /* com_intel_hax_mem.cpp in Sources */,
 				B98ECFB613A059BB00485DDB /* cpu.c in Sources */,
+				64BB0CD220F36C470064593A /* vmx_ops.asm in Sources */,
 				CF0539AD1EE536CB00FAD569 /* chunk.c in Sources */,
 				64B85BE91EF4D34D00223ABD /* ept2.c in Sources */,
 				B98ECFB713A059BB00485DDB /* dump_vmcs.c in Sources */,
@@ -462,12 +455,11 @@
 				22BFCFCE13A59A4300AD9F0F /* ept.c in Sources */,
 				22BFCFD213A59A6500AD9F0F /* intr_exc.c in Sources */,
 				22BFCFD613A59A8200AD9F0F /* vtlb.c in Sources */,
-				4BCC4E0513FB6729005E4BE4 /* ia32.c in Sources */,
-				4BCC4E0613FB6729005E4BE4 /* segments.c in Sources */,
 				64B72B851EDFFF7E00A8C202 /* hax_host_mem.cpp in Sources */,
-				4BCC4E0713FB6729005E4BE4 /* vmcs.c in Sources */,
+				A669096B20F9985300739075 /* ia32.c in Sources */,
 				43038ADA145F94190014BEE6 /* memory.c in Sources */,
 				645626211EEFF720005280EF /* ept_tree.c in Sources */,
+				64BB0CD320F36C470064593A /* ia32_ops.asm in Sources */,
 				6496936F20D8AE0000C9BBAF /* cpuid.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

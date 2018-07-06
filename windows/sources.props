@@ -49,18 +49,6 @@
       hax_wrapper.c
       version.rc
     </SOURCES>
-    <I386_SOURCES Condition="'$(OVERRIDE_I386_SOURCES)'!='true'">
-      i386\ia32.asm
-      i386\segments.asm
-      i386\vmcs.asm
-      i386\wrapper.c
-    </I386_SOURCES>
-    <AMD64_SOURCES Condition="'$(OVERRIDE_AMD64_SOURCES)'!='true'">
-      amd64\ia32.asm
-      amd64\segments.asm
-      amd64\vmcs.asm
-      amd64\wrapper.c
-    </AMD64_SOURCES>
     <NTTARGETFILE0 Condition="'$(OVERRIDE_NTTARGETFILE0)'!='true'">
       hax_event_win.h
     </NTTARGETFILE0>

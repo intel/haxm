@@ -239,7 +239,7 @@ enum {
     VECTOR_MF   = 16,  // Floating-Point Error (Math Error)
     VECTOR_AC   = 17,  // Alignment Check
     VECTOR_MC   = 18,  // Machine Check
-    VECTOR_XM   = 19,  // SIMG Floating-Point Numeric Error
+    VECTOR_XM   = 19,  // SIMD Floating-Point Numeric Error
     VECTOR_VE   = 20   // Virtualization Exception
 };
 
