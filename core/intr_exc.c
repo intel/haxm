@@ -183,7 +183,7 @@ static int is_double_fault(uint8 first_vec, uint8 second_vec)
     if (is_extern_interrupt(first_vec))
         return 0;
 
-    if ((first_vec == EXC_PAGEFAULT && (exc_bitmap1 & (1u << second_vec))) ||
+    if ((first_vec == VECTOR_PF && (exc_bitmap1 & (1u << second_vec))) ||
         ((exc_bitmap2 & (1u << first_vec)) && (exc_bitmap2 &
         (1u << second_vec))))
         return 1;
@@ -207,7 +207,7 @@ void hax_inject_exception(struct vcpu_t *vcpu, uint8 vector, uint32 error_code)
         first_vec = (uint8) (vect_info & INTR_INFO_VECTOR_MASK);
         if (is_double_fault(first_vec, vector)) {
             intr_info = (1 << 31) | (1 << 11) | (EXCEPTION << 8)
-                        | EXC_DOUBLEFAULT;
+                        | VECTOR_DF;
             error_code = 0;
         } else {
             intr_info = (1 << 31) | (EXCEPTION << 8) | vector;
@@ -216,7 +216,7 @@ void hax_inject_exception(struct vcpu_t *vcpu, uint8 vector, uint32 error_code)
         intr_info = (1 << 31) | (EXCEPTION << 8) | vector;
         if (error_code != NO_ERROR_CODE) {
             intr_info |= 1 << 11;
-            if (vector == EXC_PAGEFAULT) {
+            if (vector == VECTOR_PF) {
                 vcpu->vmcs_pending_entry_error_code = 1;
                 vmx(vcpu, entry_exception_error_code) = error_code;
             } else {
@@ -225,7 +225,7 @@ void hax_inject_exception(struct vcpu_t *vcpu, uint8 vector, uint32 error_code)
         }
     }
 
-    if (vector == EXC_PAGEFAULT) {
+    if (vector == VECTOR_PF) {
         vcpu->vmcs_pending_entry_instr_length = 1;
         vmx(vcpu, entry_instr_length) = exit_instr_length;
         vcpu->vmcs_pending_entry_intr_info = 1;
@@ -242,5 +242,5 @@ void hax_inject_exception(struct vcpu_t *vcpu, uint8 vector, uint32 error_code)
 
 void hax_inject_page_fault(struct vcpu_t *vcpu, mword error_code)
 {
-    hax_inject_exception(vcpu, EXC_PAGEFAULT, error_code);
+    hax_inject_exception(vcpu, VECTOR_PF, error_code);
 }

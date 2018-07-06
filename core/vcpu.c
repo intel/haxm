@@ -1184,7 +1184,7 @@ static void fill_common_vmcs(struct vcpu_t *vcpu)
         }
     }
 
-    exc_bitmap = (1u << EXC_MACHINE_CHECK) | (1u << EXC_NOMATH);
+    exc_bitmap = (1u << VECTOR_MC) | (1u << VECTOR_NM);
 
 #ifdef __x86_64__
     exit_ctls = EXIT_CONTROL_HOST_ADDR_SPACE_SIZE | EXIT_CONTROL_LOAD_EFER |
@@ -1785,7 +1785,7 @@ static void vmwrite_cr(struct vcpu_t *vcpu)
     if (vtlb_active(vcpu)) {
         hax_debug("vTLB mode, cr0 %llx\n", vcpu->state->_cr0);
         vcpu->mmu->mmu_mode = MMU_MODE_VTLB;
-        exc_bitmap |= 1u << EXC_PAGEFAULT;
+        exc_bitmap |= 1u << VECTOR_PF;
         cr0 |= CR0_WP;
         cr0_mask |= CR0_WP;
         cr4 |= CR4_PGE | CR4_PAE;
@@ -2162,11 +2162,11 @@ static int exit_exc_nmi(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     hax_debug("exception vmexit vector:%x\n", exit_intr_info.vector);
 
     switch (exit_intr_info.vector) {
-        case EXC_NMI: {
+        case VECTOR_NMI: {
             __nmi();
             return HAX_RESUME;
         }
-        case EXC_PAGEFAULT: {
+        case VECTOR_PF: {
             if (vtlb_active(vcpu)) {
                 if (handle_vtlb(vcpu))
                     return HAX_RESUME;
@@ -2179,33 +2179,33 @@ static int exit_exc_nmi(struct vcpu_t *vcpu, struct hax_tunnel *htun)
             }
             break;
         }
-        case EXC_NOMATH: {
+        case VECTOR_NM: {
             cr0 = vcpu_read_cr(state, 0);
             if (cr0 & CR0_TS) {
                 uint32 exc_bitmap = vmx(vcpu, exc_bitmap);
                 if (!vcpu->is_fpu_used) {
                     vcpu->is_fpu_used = 1;
                 }
-                exc_bitmap &= ~(1u << EXC_NOMATH);
+                exc_bitmap &= ~(1u << VECTOR_NM);
                 vmwrite(vcpu, VMX_EXCEPTION_BITMAP,
                         vmx(vcpu, exc_bitmap) = exc_bitmap);
             }
             return HAX_RESUME;
         }
-        case EXC_MACHINE_CHECK: {
+        case VECTOR_MC: {
             hax_panic_vcpu(vcpu, "Machine check happens!\n");
             dump_vmcs(vcpu);
             handle_machine_check(vcpu);
             break;
         }
-        case EXC_DOUBLEFAULT: {
+        case VECTOR_DF: {
             hax_panic_vcpu(vcpu, "Double fault!\n");
             dump_vmcs(vcpu);
             break;
         }
     }
 
-    if (exit_intr_info.vector == EXC_PAGEFAULT) {
+    if (exit_intr_info.vector == VECTOR_PF) {
         state->_cr2 = vmx(vcpu, exit_qualification.address);
     }
 
@@ -2282,7 +2282,7 @@ static int exit_triple_fault(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 static int exit_interrupt_window(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
     vmx(vcpu, pcpu_ctls) &=
-            vmx(vcpu, exit_reason).basic_reason == PENDING_INTERRUPT
+            vmx(vcpu, exit_reason).basic_reason == VMX_EXIT_PENDING_INTERRUPT
             ? ~INTERRUPT_WINDOW_EXITING : ~NMI_WINDOW_EXITING;
 
     vmwrite(vcpu, VMX_PRIMARY_PROCESSOR_CONTROLS, vmx(vcpu, pcpu_ctls));
@@ -2638,13 +2638,13 @@ static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
                          " _cr4=0x%llx, _efer=0x%x\n", vcpu->vcpu_id,
                          state->_cr0, val, state->_cr4, state->_efer);
                 if ((val & CR0_PG) && !(val & CR0_PE)) {
-                    hax_inject_exception(vcpu, EXC_GENERAL_PROTECTION, 0);
+                    hax_inject_exception(vcpu, VECTOR_GP, 0);
                     return HAX_RESUME;
                 }
                 if (!(state->_cr0 & CR0_PG) && (val & CR0_PG) &&
                     (state->_efer & IA32_EFER_LME)) {
                     if (!(state->_cr4 & CR4_PAE)) {
-                        hax_inject_exception(vcpu, EXC_GENERAL_PROTECTION, 0);
+                        hax_inject_exception(vcpu, VECTOR_GP, 0);
                         return HAX_RESUME;
                     }
                 }
@@ -2673,7 +2673,7 @@ static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
                          "_cr0=0x%llx, _efer=0x%x\n", vcpu->vcpu_id,
                          state->_cr4, val, state->_cr0, state->_efer);
                 if ((state->_efer & IA32_EFER_LMA) && !(val & CR4_PAE)) {
-                    hax_inject_exception(vcpu, EXC_GENERAL_PROTECTION, 0);
+                    hax_inject_exception(vcpu, VECTOR_GP, 0);
                     return HAX_RESUME;
                 }
 
@@ -2801,7 +2801,7 @@ static int exit_dr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
         state->_dr6 |= DR6_BD;
         vmwrite(vcpu, GUEST_DR7, state->_dr7);
         // Priority 4 fault
-        hax_inject_exception(vcpu, EXC_DEBUG, NO_ERROR_CODE);
+        hax_inject_exception(vcpu, VECTOR_DB, NO_ERROR_CODE);
         return HAX_RESUME;
     }
 
@@ -2824,7 +2824,7 @@ static int exit_dr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
         }
         case 4: {
             if (state->_cr4 & CR4_DE) {
-                hax_inject_exception(vcpu, EXC_UNDEFINED_OPCODE, NO_ERROR_CODE);
+                hax_inject_exception(vcpu, VECTOR_UD, NO_ERROR_CODE);
                 return HAX_RESUME;
             }
             // Fall through
@@ -2835,7 +2835,7 @@ static int exit_dr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
         }
         case 5: {
             if (state->_cr4 & CR4_DE) {
-                hax_inject_exception(vcpu, EXC_UNDEFINED_OPCODE, NO_ERROR_CODE);
+                hax_inject_exception(vcpu, VECTOR_UD, NO_ERROR_CODE);
                 return HAX_RESUME;
             }
             // Fall through
@@ -3000,7 +3000,7 @@ static int exit_msr_read(struct vcpu_t *vcpu, struct hax_tunnel *htun)
         state->_rax = val & 0xffffffff;
         state->_rdx = (val >> 32) & 0xffffffff;
     } else {
-        hax_inject_exception(vcpu, EXC_GENERAL_PROTECTION, 0);
+        hax_inject_exception(vcpu, VECTOR_GP, 0);
         return HAX_RESUME;
     }
 
@@ -3017,7 +3017,7 @@ static int exit_msr_write(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     htun->_exit_reason = vmx(vcpu, exit_reason).basic_reason;
 
     if (handle_msr_write(vcpu, msr, val)) {
-        hax_inject_exception(vcpu, EXC_GENERAL_PROTECTION, 0);
+        hax_inject_exception(vcpu, VECTOR_GP, 0);
         return HAX_RESUME;
     }
 
@@ -3943,7 +3943,7 @@ int vcpu_event_pending(struct vcpu_t *vcpu)
 
 void vcpu_set_panic(struct vcpu_t *vcpu)
 {
-    vcpu->paniced = 1;
+    vcpu->panicked = 1;
 }
 
 static int vcpu_set_apic_base(struct vcpu_t *vcpu, uint64 val)

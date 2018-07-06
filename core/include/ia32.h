@@ -220,26 +220,27 @@ enum {
     EFLAGS_SETBITS = (1u <<  1)
 };
 
+// Intel SDM Vol. 2A: Table 3-4. Intel 64 and IA-32 General Exceptions
 enum {
-    EXC_DIVIDE_ERROR         = 0,
-    EXC_DEBUG                = 1,
-    EXC_NMI                  = 2,
-    EXC_BREAK_POINT          = 3,
-    EXC_OVERFLOW             = 4,
-    EXC_BOUND_RANGE_EXCEEDED = 5,
-    EXC_UNDEFINED_OPCODE     = 6,
-    EXC_NOMATH               = 7,
-    EXC_DOUBLEFAULT          = 8,
-    EXC_COPROC_SEG_OVERRUN   = 9,
-    EXC_INVALID_TSS          = 10,
-    EXC_SEG_NOT_PRESENT      = 11,
-    EXC_STACK_SEG_FAULT      = 12,
-    EXC_GENERAL_PROTECTION   = 13,
-    EXC_PAGEFAULT            = 14,
-    EXC_MATHFAULT            = 16,
-    EXC_ALIGNMENT_CHECK      = 17,
-    EXC_MACHINE_CHECK        = 18,
-    EXC_SIMD                 = 19
+    VECTOR_DE   =  0,  // Divide Error
+    VECTOR_DB   =  1,  // Debug
+    VECTOR_NMI  =  2,  // NMI Interrupt
+    VECTOR_BP   =  3,  // Breakpoint
+    VECTOR_OF   =  4,  // Overflow
+    VECTOR_BR   =  5,  // BOUND Range Exceeded
+    VECTOR_UD   =  6,  // Undefined Opcode
+    VECTOR_NM   =  7,  // Device Not Available (No Math Coprocessor)
+    VECTOR_DF   =  8,  // Double Fault
+    VECTOR_TS   = 10,  // Invalid TSS
+    VECTOR_NP   = 11,  // Segment Not Present
+    VECTOR_SS   = 12,  // Stack Segment Fault
+    VECTOR_GP   = 13,  // General Protection
+    VECTOR_PF   = 14,  // Page Fault
+    VECTOR_MF   = 16,  // Floating-Point Error (Math Error)
+    VECTOR_AC   = 17,  // Alignment Check
+    VECTOR_MC   = 18,  // Machine Check
+    VECTOR_XM   = 19,  // SIMG Floating-Point Numeric Error
+    VECTOR_VE   = 20   // Virtualization Exception
 };
 
 // For IA32_APIC_BASE MSR (see IASDM Vol. 3A 10.4.4)

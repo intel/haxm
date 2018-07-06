@@ -237,8 +237,8 @@ vmx_error_t cpu_vmx_vmptrld(struct per_cpu_data *cpu_data, paddr_t vmcs,
 bool vcpu_is_panic(struct vcpu_t *vcpu)
 {
     struct hax_tunnel *htun = vcpu->tunnel;
-    if (vcpu->paniced) {
-        hax_error("vcpu is paniced, id:%d\n", vcpu->vcpu_id);
+    if (vcpu->panicked) {
+        hax_error("vcpu has panicked, id:%d\n", vcpu->vcpu_id);
         hax_panic_log(vcpu);
         htun->_exit_status = HAX_EXIT_STATECHANGE;
         return 1;

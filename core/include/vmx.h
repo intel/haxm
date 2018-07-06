@@ -38,72 +38,68 @@
 // Size of VMCS structure
 #define IA32_VMX_VMCS_SIZE 4096
 
+// Intel SDM Vol. 3D: Table C-1. Basic Exit Reasons
 enum {
-    INT_EXCEPTION_NMI       = 0, // An SW interrupt, exception or NMI has occurred
-    EXT_INTERRUPT           = 1, // An external interrupt has occurred
-    TRIPLE_FAULT            = 2, // Triple fault occurred
-    INIT_EVENT              = 3,
-    SIPI_EVENT              = 4,
-
-    SMI_IO_EVENT            = 5,
-    SMI_OTHER_EVENT         = 6,
-    PENDING_INTERRUPT       = 7,
-    PENDING_NMI             = 8,
-    TASK_SWITCH             = 9,
-
-    CPUID_INSTRUCTION       = 10, // Guest executed CPUID instruction
-    GETSEC_INSTRUCTION      = 11,
-    HLT_INSTRUCTION         = 12, // Guest executed HLT instruction
-    INVD_INSTRUCTION        = 13, // Guest executed INVD instruction
-    INVLPG_INSTRUCTION      = 14, // Guest executed INVLPG instruction
-    RDPMC_INSTRUCTION       = 15, // Guest executed RDPMC instruction
-    RDTSC_INSTRUCTION       = 16, // Guest executed RDTSC instruction
-    RSM_INSTRUCTION         = 17,
-
-    // Guest executed VMX instruction
-    VMCALL_INSTRUCTION      = 18,
-    VMCLEAR_INSTRUCTION     = 19,
-    VMLAUNCH_INSTRUCTION    = 20,
-    VMPTRLD_INSTRUCTION     = 21,
-    VMPTRST_INSTRUCTION     = 22,
-    VMREAD_INSTRUCTION      = 23,
-    VMRESUME_INSTRUCTION    = 24,
-    VMWRITE_INSTRUCTION     = 25,
-    VMXOFF_INSTRUCTION      = 26,
-    VMXON_INSTRUCTION       = 27,
-
-    CR_ACCESS               = 28, // Guest accessed a control register
-    DR_ACCESS               = 29, // Guest attempted access to debug register
-    IO_INSTRUCTION          = 30, // Guest attempted io
-    MSR_READ                = 31, // Guest attempted to read an MSR
-    MSR_WRITE               = 32, // Guest attempted to write an MSR
-
-    FAILED_VMENTER_GS       = 33, // VMENTER failed due to guest state
-    FAILED_VMENTER_MSR      = 34, // VMENTER failed due to msr loading
-
-    MWAIT_INSTRUCTION       = 36,
-    MTF_EXIT                = 37,
-
-    MONITOR_INSTRUCTION     = 39,
-    PAUSE_INSTRUCTION       = 40,
-    MACHINE_CHECK           = 41,
-    TPR_BELOW_THRESHOLD     = 43,
-
-    APIC_ACCESS             = 44,
-
-    GDT_IDT_ACCESS          = 46,
-    LDT_TR_ACCESS           = 47,
-
-    EPT_VIOLATION           = 48,
-    EPT_MISCONFIG           = 49,
-    INVEPT_INSTRUCTION      = 50,
-    RDTSCP_INSTRUCTION      = 51,
-    VMX_TIMER_EXIT          = 52,
-    INVVPID_INSTRUCTION     = 53,
-
-    WBINVD_INSTRUCTION      = 54,
-    XSETBV_INSTRUCTION      = 55,
-    APIC_WRITE              = 56
+    VMX_EXIT_INT_EXCEPTION_NMI       =  0, // An SW interrupt, exception or NMI has occurred
+    VMX_EXIT_EXT_INTERRUPT           =  1, // An external interrupt has occurred
+    VMX_EXIT_TRIPLE_FAULT            =  2, // Triple fault occurred
+    VMX_EXIT_INIT_EVENT              =  3, // INIT signal arrived
+    VMX_EXIT_SIPI_EVENT              =  4, // SIPI signal arrived
+    VMX_EXIT_SMI_IO_EVENT            =  5,
+    VMX_EXIT_SMI_OTHER_EVENT         =  6,
+    VMX_EXIT_PENDING_INTERRUPT       =  7,
+    VMX_EXIT_PENDING_NMI             =  8,
+    VMX_EXIT_TASK_SWITCH             =  9, // Guest attempted a task switch
+    VMX_EXIT_CPUID                   = 10, // Guest executed CPUID instruction
+    VMX_EXIT_GETSEC                  = 11, // Guest executed GETSEC instruction
+    VMX_EXIT_HLT                     = 12, // Guest executed HLT instruction
+    VMX_EXIT_INVD                    = 13, // Guest executed INVD instruction
+    VMX_EXIT_INVLPG                  = 14, // Guest executed INVLPG instruction
+    VMX_EXIT_RDPMC                   = 15, // Guest executed RDPMC instruction
+    VMX_EXIT_RDTSC                   = 16, // Guest executed RDTSC instruction
+    VMX_EXIT_RSM                     = 17, // Guest executed RSM instruction in SMM
+    VMX_EXIT_VMCALL                  = 18,
+    VMX_EXIT_VMCLEAR                 = 19,
+    VMX_EXIT_VMLAUNCH                = 20,
+    VMX_EXIT_VMPTRLD                 = 21,
+    VMX_EXIT_VMPTRST                 = 22,
+    VMX_EXIT_VMREAD                  = 23,
+    VMX_EXIT_VMRESUME                = 24,
+    VMX_EXIT_VMWRITE                 = 25,
+    VMX_EXIT_VMXOFF                  = 26,
+    VMX_EXIT_VMXON                   = 27,
+    VMX_EXIT_CR_ACCESS               = 28, // Guest accessed a control register
+    VMX_EXIT_DR_ACCESS               = 29, // Guest attempted access to debug register
+    VMX_EXIT_IO                      = 30, // Guest attempted I/O
+    VMX_EXIT_MSR_READ                = 31, // Guest attempted to read an MSR
+    VMX_EXIT_MSR_WRITE               = 32, // Guest attempted to write an MSR
+    VMX_EXIT_FAILED_VMENTER_GS       = 33, // VMENTER failed due to guest state
+    VMX_EXIT_FAILED_VMENTER_MSR      = 34, // VMENTER failed due to MSR loading
+    VMX_EXIT_MWAIT                   = 36,
+    VMX_EXIT_MTF_EXIT                = 37,
+    VMX_EXIT_MONITOR                 = 39,
+    VMX_EXIT_PAUSE                   = 40,
+    VMX_EXIT_MACHINE_CHECK           = 41,
+    VMX_EXIT_TPR_BELOW_THRESHOLD     = 43,
+    VMX_EXIT_APIC_ACCESS             = 44,
+    VMX_EXIT_GDT_IDT_ACCESS          = 46,
+    VMX_EXIT_LDT_TR_ACCESS           = 47,
+    VMX_EXIT_EPT_VIOLATION           = 48,
+    VMX_EXIT_EPT_MISCONFIG           = 49,
+    VMX_EXIT_INVEPT                  = 50,
+    VMX_EXIT_RDTSCP                  = 51,
+    VMX_EXIT_VMX_TIMER_EXIT          = 52,
+    VMX_EXIT_INVVPID                 = 53,
+    VMX_EXIT_WBINVD                  = 54,
+    VMX_EXIT_XSETBV                  = 55,
+    VMX_EXIT_APIC_WRITE              = 56,
+    VMX_EXIT_RDRAND                  = 57,
+    VMX_EXIT_INVPCID                 = 58,
+    VMX_EXIT_VMFUNC                  = 59,
+    VMX_EXIT_ENCLS                   = 60,
+    VMX_EXIT_RDSEED                  = 61,
+    VMX_EXIT_XSAVES                  = 63,
+    VMX_EXIT_XRSTORS                 = 64
 };
 
 // PIN-BASED CONTROLS
