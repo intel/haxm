@@ -367,31 +367,23 @@ static int vcpu_vpid_free(struct vcpu_t *vcpu)
 }
 
 static int (*handler_funcs[])(struct vcpu_t *vcpu, struct hax_tunnel *htun) = {
-    exit_exc_nmi,
-    exit_interrupt,
-    exit_triple_fault,
-    0, 0, 0, 0,
-    exit_interrupt_window,                      // Interrupt window
-    exit_interrupt_window,                      // NMI window
-    0,
-    exit_cpuid,
-    0,
-    exit_hlt,
-    0,
-    exit_invlpg,
-    0,
-    exit_rdtsc,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,            // 17 ... 27
-    exit_cr_access,
-    exit_dr_access,
-    exit_io_access,
-    exit_msr_read,
-    exit_msr_write,
-    exit_invalid_guest_state,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,   // 34 ... 47
-    exit_ept_violation,
-    exit_ept_misconfiguration,
-    0, 0, 0, 0, 0, 0                            // 50 ... 55
+    [VMX_EXIT_INT_EXCEPTION_NMI]  = exit_exc_nmi,
+    [VMX_EXIT_EXT_INTERRUPT]      = exit_interrupt,
+    [VMX_EXIT_TRIPLE_FAULT]       = exit_triple_fault,
+    [VMX_EXIT_PENDING_INTERRUPT]  = exit_interrupt_window,
+    [VMX_EXIT_PENDING_NMI]        = exit_interrupt_window,
+    [VMX_EXIT_CPUID]              = exit_cpuid,
+    [VMX_EXIT_HLT]                = exit_hlt,
+    [VMX_EXIT_INVLPG]             = exit_invlpg,
+    [VMX_EXIT_RDTSC]              = exit_rdtsc,
+    [VMX_EXIT_CR_ACCESS]          = exit_cr_access,
+    [VMX_EXIT_DR_ACCESS]          = exit_dr_access,
+    [VMX_EXIT_IO]                 = exit_io_access,
+    [VMX_EXIT_MSR_READ]           = exit_msr_read,
+    [VMX_EXIT_MSR_WRITE]          = exit_msr_write,
+    [VMX_EXIT_FAILED_VMENTER_GS]  = exit_invalid_guest_state,
+    [VMX_EXIT_EPT_VIOLATION]      = exit_ept_violation,
+    [VMX_EXIT_EPT_MISCONFIG]      = exit_ept_misconfiguration,
 };
 
 static int nr_handlers = ARRAY_ELEMENTS(handler_funcs);
