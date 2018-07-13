@@ -406,7 +406,7 @@ static inline void set_bits_in_byte(uint8 *byte, int start, int nbits, bool set)
 
     assert(byte != NULL);
     assert(start >= 0 && start < 8);
-    assert(nbits >= 0 && start + nbits < 8);
+    assert(nbits >= 0 && start + nbits <= 8);
 
     mask = ((1 << nbits) - 1) << start;
     if (set) {
