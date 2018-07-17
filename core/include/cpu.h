@@ -109,9 +109,9 @@ struct per_cpu_data {
      * HAXM to implement smp_call_function()) is known to be prone to deadlocks:
      * https://lists.apple.com/archives/darwin-kernel/2006/Dec/msg00006.html
      */
-    vmx_error_t    vmxon_err;
-    vmx_error_t    vmxoff_err;
-    vmx_error_t    invept_err;
+    vmx_result_t    vmxon_res;
+    vmx_result_t    vmxoff_res;
+    vmx_result_t    invept_res;
 
     /*
      * bit 0: valid
@@ -174,15 +174,15 @@ bool cpu_has_feature(uint32_t feature);
 void hax_panic_log(struct vcpu_t *vcpu);
 void hax_clear_panic_log(struct vcpu_t *vcpu);
 
-vmx_error_t cpu_vmx_run(struct vcpu_t *vcpu, struct hax_tunnel *htun);
+vmx_result_t cpu_vmx_run(struct vcpu_t *vcpu, struct hax_tunnel *htun);
 int cpu_vmx_execute(struct vcpu_t *vcpu, struct hax_tunnel *htun);
 
-vmx_error_t vmptrld(paddr_t vmcs, struct vcpu_t *vcpu);
-vmx_error_t resume(paddr_t vmcs, struct vcpu_t *vcpu);
-vmx_error_t launch(paddr_t vmcs, struct vcpu_t *vcpu);
+vmx_result_t vmptrld(paddr_t vmcs, struct vcpu_t *vcpu);
+vmx_result_t resume(paddr_t vmcs, struct vcpu_t *vcpu);
+vmx_result_t launch(paddr_t vmcs, struct vcpu_t *vcpu);
 
-vmx_error_t cpu_vmxroot_leave(void);
-vmx_error_t cpu_vmxroot_enter(void);
+vmx_result_t cpu_vmxroot_leave(void);
+vmx_result_t cpu_vmxroot_enter(void);
 
 extern struct hax_page *io_bitmap_page_a;
 extern struct hax_page *io_bitmap_page_b;

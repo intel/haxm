@@ -71,12 +71,6 @@ struct PACKED system_desc_t {
 
 typedef struct system_desc_t system_desc_t;
 
-extern void set_kernel_gdt(system_desc_t *sys_desc);
-extern void set_kernel_idt(system_desc_t *sys_desc);
-extern void get_kernel_gdt(system_desc_t *sys_desc);
-extern void get_kernel_idt(system_desc_t *sys_desc);
-extern void load_kernel_ldt(uint16 sel);
-
 /*
  * This is to pass to VMCS, it should return uint64 on long or compatible mode
  * and return uint32 on pure 32-bit mode.
@@ -170,14 +164,10 @@ static inline uint32 get_kernel_fs_gs_base(uint16 selector)
     return desc_base;
 }
 
-extern uint16 get_kernel_tr_selector(void);
-
 static inline uint64 get_kernel_tr_base(void)
 {
     uint16 selector = get_kernel_tr_selector();
     return get_tr_desc_base(selector);
 }
-
-extern uint16 get_kernel_ldt(void);
 
 #endif  // HAX_CORE_SEGMENTS_H_

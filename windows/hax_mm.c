@@ -195,7 +195,7 @@ uint64_t get_hpfn_from_pmem(struct hax_vcpu_mem *pmem, uint64_t va)
             else
                 return kphys.QuadPart >> page_shift;
         } else {
-            unsigned long long index =0;
+            unsigned long long index = 0;
             PMDL pmdl = NULL;
             PPFN_NUMBER ppfnnum;
 

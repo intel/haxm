@@ -330,12 +330,12 @@ static void invept_smpfunc(struct invept_bundle *bundle)
 
     smp_mb();
     cpu_data = current_cpu_data();
-    cpu_data->invept_err = VMX_SUCCEED;
+    cpu_data->invept_res = VMX_SUCCEED;
 
     cpu_vmxroot_enter();
 
-    if (!(cpu_data->vmxon_err & VMX_FAIL_MASK)) {
-        cpu_data->invept_err = __invept(bundle->type, bundle->desc);
+    if (cpu_data->vmxon_res == VMX_SUCCEED) {
+        cpu_data->invept_res = asm_invept(bundle->type, bundle->desc);
         cpu_vmxroot_leave();
     }
 }
@@ -346,7 +346,7 @@ void invept(hax_vm_t *hax_vm, uint type)
     struct invept_desc desc = { eptp_value, 0 };
     struct invept_bundle bundle;
     int cpu_id;
-    uint32 err;
+    uint32 res;
 
     if (!ept_has_cap(ept_cap_invept)) {
         hax_warning("INVEPT was not called due to missing host support"
@@ -394,20 +394,20 @@ void invept(hax_vm_t *hax_vm, uint type)
             continue;
         }
 
-        err = (uint32)cpu_data->vmxon_err;
-        if (err & VMX_FAIL_MASK) {
+        res = (uint32)cpu_data->vmxon_res;
+        if (res != VMX_SUCCEED) {
             hax_error("[Processor #%d] INVEPT was not called, because VMXON"
-                      " failed (err=0x%x)\n", cpu_id, err);
+                      " failed (err=0x%x)\n", cpu_id, res);
         } else {
-            err = (uint32)cpu_data->invept_err;
-            if (err & VMX_FAIL_MASK) {
+            res = (uint32)cpu_data->invept_res;
+            if (res != VMX_SUCCEED) {
                 hax_error("[Processor #%d] INVEPT failed (err=0x%x)\n", cpu_id,
-                          err);
+                          res);
             }
-            err = (uint32)cpu_data->vmxoff_err;
-            if (err & VMX_FAIL_MASK) {
+            res = (uint32)cpu_data->vmxoff_res;
+            if (res != VMX_SUCCEED) {
                 hax_error("[Processor #%d] INVEPT was called, but VMXOFF failed"
-                          " (err=0x%x)\n", cpu_id, err);
+                          " (err=0x%x)\n", cpu_id, res);
             }
         }
     }

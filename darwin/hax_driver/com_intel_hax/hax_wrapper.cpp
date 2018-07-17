@@ -105,16 +105,6 @@ extern "C" uint32_t hax_cpuid()
     return cpu_number();
 }
 
-extern "C" void hax_enable_irq(void)
-{
-    ml_set_interrupts_enabled(true);
-}
-
-extern "C" void hax_disable_irq(void)
-{
-    ml_set_interrupts_enabled(false);
-}
-
 extern "C" void hax_disable_preemption(preempt_flag *eflags)
 {
     mword flags;
@@ -133,6 +123,16 @@ extern "C" void hax_disable_preemption(preempt_flag *eflags)
 #endif
     *eflags = flags;
     hax_disable_irq();
+}
+
+extern "C" void hax_enable_irq(void)
+{
+    ml_set_interrupts_enabled(true);
+}
+
+extern "C" void hax_disable_irq(void)
+{
+    ml_set_interrupts_enabled(false);
 }
 
 extern "C" void hax_enable_preemption(preempt_flag *eflags)

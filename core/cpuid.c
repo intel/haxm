@@ -48,14 +48,14 @@ typedef union cpuid_feature_t {
 void cpuid_query_leaf(cpuid_args_t *args, uint32_t leaf)
 {
     args->eax = leaf;
-    __handle_cpuid(args);
+    asm_cpuid(args);
 }
 
 void cpuid_query_subleaf(cpuid_args_t *args, uint32_t leaf, uint32_t subleaf)
 {
     args->eax = leaf;
     args->ecx = subleaf;
-    __handle_cpuid(args);
+    asm_cpuid(args);
 }
 
 void cpuid_host_init(cpuid_cache_t *cache)

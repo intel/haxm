@@ -38,72 +38,68 @@
 // Size of VMCS structure
 #define IA32_VMX_VMCS_SIZE 4096
 
+// Intel SDM Vol. 3D: Table C-1. Basic Exit Reasons
 enum {
-    INT_EXCEPTION_NMI       = 0, // An SW interrupt, exception or NMI has occurred
-    EXT_INTERRUPT           = 1, // An external interrupt has occurred
-    TRIPLE_FAULT            = 2, // Triple fault occurred
-    INIT_EVENT              = 3,
-    SIPI_EVENT              = 4,
-
-    SMI_IO_EVENT            = 5,
-    SMI_OTHER_EVENT         = 6,
-    PENDING_INTERRUPT       = 7,
-    PENDING_NMI             = 8,
-    TASK_SWITCH             = 9,
-
-    CPUID_INSTRUCTION       = 10, // Guest executed CPUID instruction
-    GETSEC_INSTRUCTION      = 11,
-    HLT_INSTRUCTION         = 12, // Guest executed HLT instruction
-    INVD_INSTRUCTION        = 13, // Guest executed INVD instruction
-    INVLPG_INSTRUCTION      = 14, // Guest executed INVLPG instruction
-    RDPMC_INSTRUCTION       = 15, // Guest executed RDPMC instruction
-    RDTSC_INSTRUCTION       = 16, // Guest executed RDTSC instruction
-    RSM_INSTRUCTION         = 17,
-
-    // Guest executed VMX instruction
-    VMCALL_INSTRUCTION      = 18,
-    VMCLEAR_INSTRUCTION     = 19,
-    VMLAUNCH_INSTRUCTION    = 20,
-    VMPTRLD_INSTRUCTION     = 21,
-    VMPTRST_INSTRUCTION     = 22,
-    VMREAD_INSTRUCTION      = 23,
-    VMRESUME_INSTRUCTION    = 24,
-    VMWRITE_INSTRUCTION     = 25,
-    VMXOFF_INSTRUCTION      = 26,
-    VMXON_INSTRUCTION       = 27,
-
-    CR_ACCESS               = 28, // Guest accessed a control register
-    DR_ACCESS               = 29, // Guest attempted access to debug register
-    IO_INSTRUCTION          = 30, // Guest attempted io
-    MSR_READ                = 31, // Guest attempted to read an MSR
-    MSR_WRITE               = 32, // Guest attempted to write an MSR
-
-    FAILED_VMENTER_GS       = 33, // VMENTER failed due to guest state
-    FAILED_VMENTER_MSR      = 34, // VMENTER failed due to msr loading
-
-    MWAIT_INSTRUCTION       = 36,
-    MTF_EXIT                = 37,
-
-    MONITOR_INSTRUCTION     = 39,
-    PAUSE_INSTRUCTION       = 40,
-    MACHINE_CHECK           = 41,
-    TPR_BELOW_THRESHOLD     = 43,
-
-    APIC_ACCESS             = 44,
-
-    GDT_IDT_ACCESS          = 46,
-    LDT_TR_ACCESS           = 47,
-
-    EPT_VIOLATION           = 48,
-    EPT_MISCONFIG           = 49,
-    INVEPT_INSTRUCTION      = 50,
-    RDTSCP_INSTRUCTION      = 51,
-    VMX_TIMER_EXIT          = 52,
-    INVVPID_INSTRUCTION     = 53,
-
-    WBINVD_INSTRUCTION      = 54,
-    XSETBV_INSTRUCTION      = 55,
-    APIC_WRITE              = 56
+    VMX_EXIT_INT_EXCEPTION_NMI       =  0, // An SW interrupt, exception or NMI has occurred
+    VMX_EXIT_EXT_INTERRUPT           =  1, // An external interrupt has occurred
+    VMX_EXIT_TRIPLE_FAULT            =  2, // Triple fault occurred
+    VMX_EXIT_INIT_EVENT              =  3, // INIT signal arrived
+    VMX_EXIT_SIPI_EVENT              =  4, // SIPI signal arrived
+    VMX_EXIT_SMI_IO_EVENT            =  5,
+    VMX_EXIT_SMI_OTHER_EVENT         =  6,
+    VMX_EXIT_PENDING_INTERRUPT       =  7,
+    VMX_EXIT_PENDING_NMI             =  8,
+    VMX_EXIT_TASK_SWITCH             =  9, // Guest attempted a task switch
+    VMX_EXIT_CPUID                   = 10, // Guest executed CPUID instruction
+    VMX_EXIT_GETSEC                  = 11, // Guest executed GETSEC instruction
+    VMX_EXIT_HLT                     = 12, // Guest executed HLT instruction
+    VMX_EXIT_INVD                    = 13, // Guest executed INVD instruction
+    VMX_EXIT_INVLPG                  = 14, // Guest executed INVLPG instruction
+    VMX_EXIT_RDPMC                   = 15, // Guest executed RDPMC instruction
+    VMX_EXIT_RDTSC                   = 16, // Guest executed RDTSC instruction
+    VMX_EXIT_RSM                     = 17, // Guest executed RSM instruction in SMM
+    VMX_EXIT_VMCALL                  = 18,
+    VMX_EXIT_VMCLEAR                 = 19,
+    VMX_EXIT_VMLAUNCH                = 20,
+    VMX_EXIT_VMPTRLD                 = 21,
+    VMX_EXIT_VMPTRST                 = 22,
+    VMX_EXIT_VMREAD                  = 23,
+    VMX_EXIT_VMRESUME                = 24,
+    VMX_EXIT_VMWRITE                 = 25,
+    VMX_EXIT_VMXOFF                  = 26,
+    VMX_EXIT_VMXON                   = 27,
+    VMX_EXIT_CR_ACCESS               = 28, // Guest accessed a control register
+    VMX_EXIT_DR_ACCESS               = 29, // Guest attempted access to debug register
+    VMX_EXIT_IO                      = 30, // Guest attempted I/O
+    VMX_EXIT_MSR_READ                = 31, // Guest attempted to read an MSR
+    VMX_EXIT_MSR_WRITE               = 32, // Guest attempted to write an MSR
+    VMX_EXIT_FAILED_VMENTER_GS       = 33, // VMENTER failed due to guest state
+    VMX_EXIT_FAILED_VMENTER_MSR      = 34, // VMENTER failed due to MSR loading
+    VMX_EXIT_MWAIT                   = 36,
+    VMX_EXIT_MTF_EXIT                = 37,
+    VMX_EXIT_MONITOR                 = 39,
+    VMX_EXIT_PAUSE                   = 40,
+    VMX_EXIT_MACHINE_CHECK           = 41,
+    VMX_EXIT_TPR_BELOW_THRESHOLD     = 43,
+    VMX_EXIT_APIC_ACCESS             = 44,
+    VMX_EXIT_GDT_IDT_ACCESS          = 46,
+    VMX_EXIT_LDT_TR_ACCESS           = 47,
+    VMX_EXIT_EPT_VIOLATION           = 48,
+    VMX_EXIT_EPT_MISCONFIG           = 49,
+    VMX_EXIT_INVEPT                  = 50,
+    VMX_EXIT_RDTSCP                  = 51,
+    VMX_EXIT_VMX_TIMER_EXIT          = 52,
+    VMX_EXIT_INVVPID                 = 53,
+    VMX_EXIT_WBINVD                  = 54,
+    VMX_EXIT_XSETBV                  = 55,
+    VMX_EXIT_APIC_WRITE              = 56,
+    VMX_EXIT_RDRAND                  = 57,
+    VMX_EXIT_INVPCID                 = 58,
+    VMX_EXIT_VMFUNC                  = 59,
+    VMX_EXIT_ENCLS                   = 60,
+    VMX_EXIT_RDSEED                  = 61,
+    VMX_EXIT_XSAVES                  = 63,
+    VMX_EXIT_XRSTORS                 = 64
 };
 
 // PIN-BASED CONTROLS
@@ -171,42 +167,49 @@ enum {
 #define ENTRY_CONTROL_LOAD_EFER                0x00008000
 #define ENTRY_CONTROLS_DEFINED                 0x0000ee04
 
-enum {
-    VMX_SUCCEED      = 0,
-    VMX_FAIL_VALID   = EFLAGS_ZF,
-    VMX_FAIL_INVALID = EFLAGS_CF,
-    VMX_FAIL_MASK    = (VMX_FAIL_VALID | VMX_FAIL_INVALID)
-};
+// Intel SDM Vol. 3C: 30.2 Conventions
+typedef enum vmx_result_t {
+    /* VMsucceed
+     * Operation succeeded (OSZPAC flags are 0) */
+    VMX_SUCCEED = 0,
 
-// VMX error reasons (see Table J-1)
-enum error_id_t {
-    VMCALL_IN_VMX_ROOT         = 1,
-    VMCLEAR_INVLD_ADDR         = 2,
-    VMCLEAR_VMXON_PTR          = 3,
-    VMLAUNCH_NON_CLEAR_VMCS    = 4,
-    VMRESUME_NON_LAUNCHED_VMCS = 5,
-    VMRESUME_CORRUPT_VMCS      = 6,
-    VM_ENTRY_INVLD_CTRL        = 7,
-    VM_ENTRY_INVLD_HOST_STATE  = 8,
-    VMPTRLD_INVLD_ADDR         = 9,
-    VMPTRLD_VMXON_PTR          = 10,
-    VMPTRLD_INVLD_VMCS_REV     = 11,
-    VMREAD_VMWRITE_INVLD_FIELD = 12,
-    VMWRITE_READONLY_FIELD     = 13,
-    VMXON_IN_VMX_ROOT          = 15,
-    VM_ENTRY_INVLD_VMCS        = 16,
-    VM_ENTRY_NON_LAUNCHED_VMCS = 17,
-    VM_ENTRY_NON_VMXON_PTR     = 18,
-    VMCALL_NON_CLEAR_VMCS      = 19,
-    VMCALL_INVLD_VM_EXIT_CTRL  = 20,
-    VMCALL_INVLD_MSEG_REV      = 22,
-    VMXOFF_IN_SMM              = 23,
-    VMCALL_INVLD_SMM           = 24,
-    VM_ENTRY_INVLD_CTRL_SMM    = 25,
-    VM_ENTRY_MOV_SS            = 26
-};
+    /* VMfailInvalid
+     * Operation failed and VCMS pointer is invalid (CF=1) */
+    VMX_FAIL_INVALID = 1,
 
-typedef enum error_id_t error_id_t;
+    /* VMfailValid(ErrorNumber)
+     * Operation failed and VCMS pointer is valid (ZF=1) */
+    VMX_FAIL_VALID = 2,
+} vmx_result_t;
+
+// Intel SDM Vol. 3C: 30.4 VM Instruction Error Numbers
+typedef enum vmx_error_t {
+    VMX_ERROR_VMCALL_ROOT                =  1, // VMCALL executed in VMX root operation
+    VMX_ERROR_VMCLEAR_PADDR_INVALID      =  2, // VMCLEAR with invalid physical address
+    VMX_ERROR_VMCLEAR_VMXON_PTR          =  3, // VMCLEAR with VMXON pointer
+    VMX_ERROR_VMLAUNCH_VMCS_UNCLEAR      =  4, // VMLAUNCH with non-clear VMCS
+    VMX_ERROR_VMRESUME_VMCS_UNLAUNCHED   =  5, // VMRESUME with non-launched VMCS
+    VMX_ERROR_VMRESUME_AFTER_VMXOFF      =  6, // VMRESUME after VMXOFF
+    VMX_ERROR_ENTRY_CTRL_FIELDS_INVALID  =  7, // VM entry with invalid control field(s)
+    VMX_ERROR_ENTRY_HOST_FIELDS_INVALID  =  8, // VM entry with invalid host-state field(s)
+    VMX_ERROR_VMPTRLD_PADDR_INVALID      =  9, // VMPTRLD with invalid physical address
+    VMX_ERROR_VMPTRLD_VMXON_PTR          = 10, // VMPTRLD with VMXON pointer
+    VMX_ERROR_VMPTRLD_VMCSREV_INVALID    = 11, // VMPTRLD with incorrect VMCS revision identifier
+    VMX_ERROR_VMREAD_VMWRITE_INVALID     = 12, // VMREAD/VMWRITE from/to unsupported VMCS component
+    VMX_ERROR_VMWRITE_READONLY           = 13, // VMWRITE to read-only VMCS component
+    VMX_ERROR_VMXON_ROOT                 = 15, // VMXON executed in VMX root operation
+    VMX_ERROR_ENTRY_VMCS_INVALID         = 16, // VM entry with invalid executive-VMCS pointer
+    VMX_ERROR_ENTRY_VMCS_UNLAUNCHED      = 17, // VM entry with non-launched executive VMCS
+    VMX_ERROR_ENTRY_VMCS_NOT_VMXON       = 18, // VM entry with executive-VMCS pointer not VMXON pointer
+    VMX_ERROR_VMCALL_VMCS_UNCLEAR        = 19, // VMCALL with non-clear VMCS
+    VMX_ERROR_VMCALL_EXIT_INVALID        = 20, // VMCALL with invalid VM-exit control fields
+    VMX_ERROR_VMCALL_MSEG_INVALID        = 22, // VMCALL with incorrect MSEG revision identifier
+    VMX_ERROR_VMXOFF_SMM_DUALMONITOR     = 23, // VMXOFF under dual-monitor treatment of SMIs and SMM
+    VMX_ERROR_VMCALL_SMM_INVALID         = 24, // VMCALL with invalid SMM-monitor features
+    VMX_ERROR_ENTRY_EXECCTRL_INVALID     = 25, // VM entry with invalid VM-execution control fields in executive VMCS
+    VMX_ERROR_ENTRY_MOV_SS               = 26, // VM entry with events blocked by MOV SS
+    VMX_ERROR_INVEPT_INVALID             = 28, // Invalid operand to INVEPT/INVVPID
+} vmx_error_t;
 
 // Exit qualification 64-bit OK
 union exit_qualification_t {
@@ -484,10 +487,26 @@ typedef enum encode_t encode_t;
 #define ENCODE_MASK    0x3
 #define ENCODE_SHIFT    13
 
-extern uint64 vmx_vmread(struct vcpu_t *vcpu, component_index_t component);
-extern uint64 vmx_vmread_natural(struct vcpu_t *vcpu,
-                                 component_index_t component);
-extern uint64 vmx_vmread_64(struct vcpu_t *vcpu, component_index_t component);
+vmx_result_t ASMCALL asm_invept(uint type, struct invept_desc *desc);
+vmx_result_t ASMCALL asm_vmclear(const paddr_t *addr_in);
+vmx_result_t ASMCALL asm_vmptrld(const paddr_t *addr_in);
+vmx_result_t ASMCALL asm_vmxon(const paddr_t *addr_in);
+vmx_result_t ASMCALL asm_vmxoff(void);
+vmx_result_t ASMCALL asm_vmptrst(paddr_t *addr_out);
+uint64 ASMCALL asm_vmxrun(struct vcpu_state_t *state, uint16 launch);
+
+mword ASMCALL vmx_get_rip(void);
+
+uint64 vmx_vmread(struct vcpu_t *vcpu, component_index_t component);
+uint64 vmx_vmread_natural(struct vcpu_t *vcpu, component_index_t component);
+uint64 vmx_vmread_64(struct vcpu_t *vcpu, component_index_t component);
+
+void _vmx_vmwrite(struct vcpu_t *vcpu, const char *name,
+                  component_index_t component, mword source_val);
+void _vmx_vmwrite_natural(struct vcpu_t *vcpu, const char *name,
+                          component_index_t component, uint64 source_val);
+void _vmx_vmwrite_64(struct vcpu_t *vcpu, const char *name,
+                     component_index_t component, uint64 source_val);
 
 static inline uint64 __vmread_common(struct vcpu_t *vcpu,
                                      component_index_t component)

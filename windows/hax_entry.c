@@ -60,7 +60,7 @@ static int hax_host_init(void)
     /* we get the max_cpus from real_cpus in darwin, so add 1 here */
     max_cpus++;
 
-    ret =smpc_dpc_init();
+    ret = smpc_dpc_init();
     if (ret < 0) {
         return ret;
     }

@@ -202,6 +202,4 @@ typedef uint64 vaddr_t;
 
 extern int32 hax_page_size;
 
-typedef mword vmx_error_t;
-
 #endif  // HAX_TYPES_H_

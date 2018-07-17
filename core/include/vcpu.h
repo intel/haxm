@@ -177,7 +177,7 @@ struct vcpu_t {
     void *vcpu_host;
     struct {
         uint64 paused                          : 1;
-        uint64 paniced                         : 1;
+        uint64 panicked                        : 1;
         uint64 is_running                      : 1;
         uint64 is_fpu_used                     : 1;
         uint64 is_vmcs_loaded                  : 1;

@@ -43,7 +43,7 @@ static cpuid_cache_t cache = {
     .initialized = 0
 };
 
-static vmx_error_t cpu_vmentry_failed(struct vcpu_t *vcpu, vmx_error_t err);
+static void cpu_vmentry_failed(struct vcpu_t *vcpu, vmx_result_t result);
 static int cpu_vmexit_handler(struct vcpu_t *vcpu, exit_reason_t exit_reason,
                               struct hax_tunnel *htun);
 
@@ -227,18 +227,18 @@ static void vmread_cr(struct vcpu_t *vcpu)
     state->_cr4 = (cr4 & ~cr4_mask) | (state->_cr4 & cr4_mask);
 }
 
-vmx_error_t cpu_vmx_vmptrld(struct per_cpu_data *cpu_data, paddr_t vmcs,
-                            struct vcpu_t *vcpu)
+vmx_result_t cpu_vmx_vmptrld(struct per_cpu_data *cpu_data, paddr_t vmcs,
+                             struct vcpu_t *vcpu)
 {
-    vmx_error_t r = __vmptrld(vmcs);
+    vmx_result_t r = asm_vmptrld(&vmcs);
     return r;
 }
 
 bool vcpu_is_panic(struct vcpu_t *vcpu)
 {
     struct hax_tunnel *htun = vcpu->tunnel;
-    if (vcpu->paniced) {
-        hax_error("vcpu is paniced, id:%d\n", vcpu->vcpu_id);
+    if (vcpu->panicked) {
+        hax_error("vcpu has panicked, id:%d\n", vcpu->vcpu_id);
         hax_panic_log(vcpu);
         htun->_exit_status = HAX_EXIT_STATECHANGE;
         return 1;
@@ -324,9 +324,9 @@ static int cpu_vmexit_handler(struct vcpu_t *vcpu, exit_reason_t exit_reason,
 #ifdef CONFIG_DARWIN
 __attribute__ ((__noinline__))
 #endif
-vmx_error_t cpu_vmx_run(struct vcpu_t *vcpu, struct hax_tunnel *htun)
+vmx_result_t cpu_vmx_run(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
-    uint64 rflags = 0;
+    vmx_result_t result = 0;
     mword host_rip;
 
     /* prepare the RIP */
@@ -338,7 +338,7 @@ vmx_error_t cpu_vmx_run(struct vcpu_t *vcpu, struct hax_tunnel *htun)
      * put the vmwrite before is_running, so that the vcpu->cpu_id is set
      * when we check vcpu->is_running in vcpu_pause
      */
-    host_rip = get_rip();
+    host_rip = vmx_get_rip();
     vmwrite(vcpu, HOST_RIP, (mword)host_rip);
     vcpu->is_running = 1;
 #ifdef  DEBUG_HOST_STATE
@@ -349,7 +349,7 @@ vmx_error_t cpu_vmx_run(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 
     load_guest_msr(vcpu);
 
-    rflags = __vmx_run(vcpu->state, vcpu->launched);
+    result = asm_vmxrun(vcpu->state, vcpu->launched);
 
     vcpu->is_running = 0;
     save_guest_msr(vcpu);
@@ -360,13 +360,12 @@ vmx_error_t cpu_vmx_run(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     compare_host_state(vcpu);
 #endif
 
-    hax_debug("\ncpu_vmx_run %llx, FAIL %llx\n", rflags, rflags & VMX_FAIL_MASK);
-    if (rflags & VMX_FAIL_MASK) {
-        cpu_vmentry_failed(vcpu, rflags & VMX_FAIL_MASK);
+    if (result != VMX_SUCCEED) {
+        cpu_vmentry_failed(vcpu, result);
         htun->_exit_reason = 0;
         htun->_exit_status = HAX_EXIT_UNKNOWN;
     }
-    return (rflags & VMX_FAIL_MASK);
+    return result;
 }
 
 void vcpu_handle_vmcs_pending(struct vcpu_t *vcpu)
@@ -402,7 +401,7 @@ void vcpu_handle_vmcs_pending(struct vcpu_t *vcpu)
 /* Return the value same as ioctl value */
 int cpu_vmx_execute(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
-    vmx_error_t err = 0;
+    vmx_result_t res = 0;
     int ret;
     preempt_flag flags;
     struct vcpu_state_t *state = vcpu->state;
@@ -449,9 +448,9 @@ int cpu_vmx_execute(struct vcpu_t *vcpu, struct hax_tunnel *htun)
             vmwrite(vcpu, GUEST_TR_AR, temp);
         }
 
-        err = cpu_vmx_run(vcpu, htun);
-        if (err) {
-            hax_debug("cpu_vmx_run error, code:%lx\n", err);
+        res = cpu_vmx_run(vcpu, htun);
+        if (res) {
+            hax_debug("cpu_vmx_run error, code:%xlx\n", res);
             if ((vmcs_err = put_vmcs(vcpu, &flags))) {
                 hax_panic_vcpu(vcpu, "put_vmcs fail: %x\n", vmcs_err);
                 hax_panic_log(vcpu);
@@ -520,7 +519,7 @@ void restore_host_cr4_vmxe(struct per_cpu_data *cpu_data);
 
 uint32 log_host_cr4_vmxe = 0;
 uint64 log_host_cr4 = 0;
-vmx_error_t log_vmxon_err = 0;
+vmx_result_t log_vmxon_res = 0;
 uint64 log_vmxon_addr = 0;
 uint32 log_vmxon_err_type1 = 0;
 uint32 log_vmxon_err_type2 = 0;
@@ -528,13 +527,13 @@ uint32 log_vmxon_err_type3 = 0;
 uint32 log_vmclear_err = 0;
 uint32 log_vmptrld_err = 0;
 uint32 log_vmxoff_no = 0;
-vmx_error_t log_vmxoff_err = 0;
+vmx_result_t log_vmxoff_res = 0;
 
 void hax_clear_panic_log(struct vcpu_t *vcpu)
 {
     log_host_cr4_vmxe = 0;
     log_host_cr4 = 0;
-    log_vmxon_err = 0;
+    log_vmxon_res = 0;
     log_vmxon_addr = 0;
     log_vmxon_err_type1 = 0;
     log_vmxon_err_type2 = 0;
@@ -542,7 +541,7 @@ void hax_clear_panic_log(struct vcpu_t *vcpu)
     log_vmclear_err = 0;
     log_vmptrld_err = 0;
     log_vmxoff_no = 0;
-    log_vmxoff_err = 0;
+    log_vmxoff_res = 0;
 }
 
 void hax_panic_log(struct vcpu_t *vcpu)
@@ -551,7 +550,7 @@ void hax_panic_log(struct vcpu_t *vcpu)
         return;
     hax_error("log_host_cr4_vmxe: %x\n", log_host_cr4_vmxe);
     hax_error("log_host_cr4 %llx\n", log_host_cr4);
-    hax_error("log_vmxon_err %lx\n", log_vmxon_err);
+    hax_error("log_vmxon_res %x\n", log_vmxon_res);
     hax_error("log_vmxon_addr %llx\n", log_vmxon_addr);
     hax_error("log_vmxon_err_type1 %x\n", log_vmxon_err_type1);
     hax_error("log_vmxon_err_type2 %x\n", log_vmxon_err_type2);
@@ -559,7 +558,7 @@ void hax_panic_log(struct vcpu_t *vcpu)
     hax_error("log_vmclear_err %x\n", log_vmclear_err);
     hax_error("log_vmptrld_err %x\n", log_vmptrld_err);
     hax_error("log_vmoff_no %x\n", log_vmxoff_no);
-    hax_error("log_vmoff_err %lx\n", log_vmxoff_err);
+    hax_error("log_vmxoff_res %x\n", log_vmxoff_res);
 }
 
 uint32 load_vmcs(struct vcpu_t *vcpu, preempt_flag *flags)
@@ -597,7 +596,7 @@ uint32 load_vmcs(struct vcpu_t *vcpu, preempt_flag *flags)
         vmcs_phy = hax_page_pa(cpu_data->vmcs_page);
 
 
-    if (__vmptrld(vmcs_phy) != VMX_SUCCEED) {
+    if (asm_vmptrld(&vmcs_phy) != VMX_SUCCEED) {
         hax_error("HAX: vmptrld failed (%08llx)\n", vmcs_phy);
         cpu_vmxroot_leave();
         log_vmxon_err_type3 = 1;
@@ -631,10 +630,9 @@ void restore_host_cr4_vmxe(struct per_cpu_data *cpu_data)
 
 uint32 put_vmcs(struct vcpu_t *vcpu, preempt_flag *flags)
 {
-    int cpu_id = hax_cpuid();
-    struct per_cpu_data *cpu_data = hax_cpu_data[cpu_id];
+    struct per_cpu_data *cpu_data = current_cpu_data();
     paddr_t vmcs_phy;
-    vmx_error_t vmxoff_err = 0;
+    vmx_result_t vmxoff_res = 0;
     if (vcpu && cpu_data->nested > 0) {
         cpu_data->nested--;
         goto out;
@@ -645,20 +643,20 @@ uint32 put_vmcs(struct vcpu_t *vcpu, preempt_flag *flags)
     else
         vmcs_phy = hax_page_pa(cpu_data->vmcs_page);
 
-    if (__vmclear(vmcs_phy) != VMX_SUCCEED) {
-        hax_error("HAX: vmclear ailed (%llx)\n", vmcs_phy);
+    if (asm_vmclear(&vmcs_phy) != VMX_SUCCEED) {
+        hax_error("HAX: vmclear failed (%llx)\n", vmcs_phy);
         log_vmclear_err = 1;
     }
 
     cpu_data->current_vcpu = NULL;
 
-    vmxoff_err = cpu_vmxroot_leave();
+    vmxoff_res = cpu_vmxroot_leave();
     cpu_data->other_vmcs = VMCS_NONE;
     if (vcpu && vcpu->is_vmcs_loaded)
         vcpu->is_vmcs_loaded = 0;
 out:
     hax_enable_preemption(flags);
-    return vmxoff_err;
+    return vmxoff_res;
 }
 
 void load_vmcs_common(struct vcpu_t *vcpu)
@@ -695,14 +693,14 @@ void load_vmcs_common(struct vcpu_t *vcpu)
 }
 
 
-static vmx_error_t cpu_vmentry_failed(struct vcpu_t *vcpu, vmx_error_t err)
+static void cpu_vmentry_failed(struct vcpu_t *vcpu, vmx_result_t result)
 {
-    hax_debug("HAX: VM entry failed: err=%lx RIP=%08lx\n",
-              err, (mword)vmread(vcpu, GUEST_RIP));
+    hax_debug("HAX: VM entry failed: result=%x RIP=%08lx\n",
+              result, (mword)vmread(vcpu, GUEST_RIP));
 
     //dump_vmcs();
 
-    if (err == VMX_FAIL_VALID) {
+    if (result == VMX_FAIL_VALID) {
         hax_log("HAX: Prev exit: %llx error code: %llx\n",
                 vmread(vcpu, VM_EXIT_INFO_REASON),
                 vmread(vcpu, VMX_INSTRUCTION_ERROR_CODE));
@@ -713,17 +711,16 @@ static vmx_error_t cpu_vmentry_failed(struct vcpu_t *vcpu, vmx_error_t err)
 
     hax_log("HAX: VM entry failed\n");
     hax_log("end of cpu_vmentry_failed\n");
-    return err;
 }
 
-vmx_error_t cpu_vmxroot_leave(void)
+vmx_result_t cpu_vmxroot_leave(void)
 {
     struct per_cpu_data *cpu_data = current_cpu_data();
-    vmx_error_t err = VMX_SUCCEED;
+    vmx_result_t result = VMX_SUCCEED;
 
     if (cpu_data->vmm_flag & VMXON_HAX) {
-        err = __vmxoff();
-        if (!(err & VMX_FAIL_MASK)) {
+        result = asm_vmxoff();
+        if (result == VMX_SUCCEED) {
             cpu_data->vmm_flag &= ~VMXON_HAX;
             restore_host_cr4_vmxe(cpu_data);
         } else {
@@ -736,20 +733,21 @@ vmx_error_t cpu_vmxroot_leave(void)
                   " Hypervisor Framework) is running\n");
 #else
         // It should not go here in Win64/win32
-        err = VMX_FAIL_VALID;
+        result = VMX_FAIL_VALID;
         hax_error("NO VMXOFF.......\n");
 #endif
     }
-    cpu_data->vmxoff_err = err;
+    cpu_data->vmxoff_res = result;
 
-    return err;
+    return result;
 }
 
-vmx_error_t cpu_vmxroot_enter(void)
+vmx_result_t cpu_vmxroot_enter(void)
 {
     struct per_cpu_data *cpu_data = current_cpu_data();
     uint64 fc_msr;
-    vmx_error_t err = VMX_SUCCEED;
+    paddr_t vmxon_addr;
+    vmx_result_t result = VMX_SUCCEED;
 
     cpu_data->host_cr4_vmxe = (get_cr4() & CR4_VMXE);
     if (cpu_data->host_cr4_vmxe) {
@@ -782,18 +780,19 @@ vmx_error_t cpu_vmxroot_enter(void)
         ia32_wrmsr(IA32_FEATURE_CONTROL,
                    fc_msr | FC_LOCKED | FC_VMXON_OUTSMX);
 
-    err = __vmxon(hax_page_pa(cpu_data->vmxon_page));
+    vmxon_addr = hax_page_pa(cpu_data->vmxon_page);
+    result = asm_vmxon(&vmxon_addr);
 
-    log_vmxon_err = err;
-    log_vmxon_addr = hax_page_pa(cpu_data->vmxon_page);
+    log_vmxon_res = result;
+    log_vmxon_addr = vmxon_addr;
 
-    if (!(err & VMX_FAIL_MASK)) {
+    if (result == VMX_SUCCEED) {
         cpu_data->vmm_flag |= VMXON_HAX;
     } else {
         bool fatal = true;
 
 #ifdef __MACH__
-        if ((err & VMX_FAIL_INVALID) && cpu_data->host_cr4_vmxe) {
+        if ((result == VMX_FAIL_INVALID) && cpu_data->host_cr4_vmxe) {
             // On macOS, if VMXON fails with VMX_FAIL_INVALID and host CR4.VMXE
             // was already set, it is very likely that another VMM (VirtualBox
             // or any VMM based on macOS Hypervisor Framework, e.g. Docker) is
@@ -804,22 +803,23 @@ vmx_error_t cpu_vmxroot_enter(void)
             // is not actually in VMX operation, VMPTRST will probably cause a
             // host reboot. But we don't have a better choice, and it is worth
             // taking the risk.
-            __vmptrst();
+            paddr_t vmcs_addr;
+            asm_vmptrst(&vmcs_addr);
 
             // It is still alive - Just assumption is right.
             fatal = false;
-            err = VMX_SUCCEED;
+            result = VMX_SUCCEED;
             // Indicate that it is not necessary to call VMXOFF later
             cpu_data->vmm_flag &= ~VMXON_HAX;
         }
 #endif
 
         if (fatal) {
-            hax_error("VMXON failed for region 0x%llx (err=0x%x, vmxe=%x)\n",
-                      hax_page_pa(cpu_data->vmxon_page), (uint32)err,
+            hax_error("VMXON failed for region 0x%llx (result=0x%x, vmxe=%x)\n",
+                      hax_page_pa(cpu_data->vmxon_page), (uint32)result,
                       (uint32)cpu_data->host_cr4_vmxe);
             restore_host_cr4_vmxe(cpu_data);
-            if (err & VMX_FAIL_INVALID) {
+            if (result == VMX_FAIL_INVALID) {
                 log_vmxon_err_type1 = 1;
             } else {
                 // TODO: Should VMX_FAIL_VALID be ignored? The current VMCS can
@@ -828,6 +828,6 @@ vmx_error_t cpu_vmxroot_enter(void)
             }
         }
     }
-    cpu_data->vmxon_err = err;
-    return err;
+    cpu_data->vmxon_res = result;
+    return result;
 }

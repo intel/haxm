@@ -41,16 +41,16 @@
 
 /* deal with module parameter */
 struct config_t config = {
-    0, /* memory_pass_through */
-    0, /* disable_ept */
-    1, /* ept_small_pages */
-    1, /* disable_vpid */
-    1, /* disable_unrestricted_guest */
-    1, /* no_cpuid_pass_through */
-    0, /* cpuid_pass_through */
-    0, /* cpuid_no_mwait */
-    0
-}; /* no_msr_pass_through */
+    .memory_pass_through         = 0,
+    .disable_ept                 = 0,
+    .ept_small_pages             = 1,
+    .disable_vpid                = 1,
+    .disable_unrestricted_guest  = 1,
+    .no_cpuid_pass_through       = 1,
+    .cpuid_pass_through          = 0,
+    .cpuid_no_mwait              = 0,
+    .no_msr_pass_through         = 0
+};
 
 struct hax_page *io_bitmap_page_a;
 struct hax_page *io_bitmap_page_b;
@@ -147,7 +147,7 @@ int hax_em64t_enabled(void)
  */
 static int hax_vmx_enable_check(void)
 {
-    int vts = 0, nxs =0, vte = 0, nxe = 0, em64s = 0, em64e = 0, finished = 0;
+    int vts = 0, nxs = 0, vte = 0, nxe = 0, em64s = 0, em64e = 0, finished = 0;
     int cpu, tnum = 0, error = 0;
 
     for (cpu = 0; cpu < max_cpus; cpu++) {
