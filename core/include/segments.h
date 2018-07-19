@@ -32,8 +32,6 @@
 #define HAX_CORE_SEGMENTS_H_
 
 #include "types.h"
-#include "compiler.h"
-#include "ia32.h"
 #include "../../include/hax.h"
 
 #ifdef __WINNT__

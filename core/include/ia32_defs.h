@@ -28,12 +28,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef HAX_CORE_IA32_H_
-#define HAX_CORE_IA32_H_
-
-#include "types.h"
-#include "segments.h"
-#include "../../include/hax.h"
+#ifndef HAX_CORE_IA32_DEFS_H_
+#define HAX_CORE_IA32_DEFS_H_
 
 #define IA32_FXSAVE_SIZE 512
 
@@ -255,4 +251,4 @@ enum {
 
 #define IA32_VMX_MISC_UG_AVAILABLE (0x0000000000000020)
 
-#endif  // HAX_CORE_IA32_H_
+#endif  // HAX_CORE_IA32_DEFS_H_

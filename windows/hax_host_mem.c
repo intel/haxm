@@ -29,6 +29,7 @@
  */
 
 #include "../include/hax_host_mem.h"
+#include "../include/hax.h"
 #include "../core/include/paging.h"
 
 int hax_pin_user_pages(uint64 start_uva, uint64 size, hax_memdesc_user *memdesc)

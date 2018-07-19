@@ -31,7 +31,6 @@
 #ifndef HAX_CORE_VMX_H_
 #define HAX_CORE_VMX_H_
 
-#include "ia32.h"
 #include "hax_core_interface.h"
 #define VMCS_NONE 0xFFFFFFFFFFFFFFFF
 

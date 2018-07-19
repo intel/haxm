@@ -29,6 +29,7 @@
  */
 
 #include "../include/hax.h"
+#include "include/ia32_defs.h"
 #include "include/paging.h"
 #include "include/vcpu.h"
 #include "include/vtlb.h"

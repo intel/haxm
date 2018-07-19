@@ -28,7 +28,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "include/ia32.h"
+#include "include/ia32_defs.h"
 #include "include/vmx.h"
 #include <string.h>
 #include "include/cpu.h"

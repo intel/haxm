@@ -29,7 +29,7 @@
  */
 
 #include "../include/hax.h"
-#include "include/ia32.h"
+#include "include/ia32_defs.h"
 #include "include/cpu.h"
 #include "include/cpuid.h"
 #include "include/vcpu.h"
