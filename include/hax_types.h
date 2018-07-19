@@ -185,7 +185,6 @@ enum component_index_t {
 
 typedef enum component_index_t component_index_t;
 
-struct system_desc_t;
 #ifdef __MACH__
 #include "darwin/hax_types_mac.h"
 #endif
@@ -201,5 +200,11 @@ typedef uint64 paddr_t;
 typedef uint64 vaddr_t;
 
 extern int32 hax_page_size;
+
+#ifdef _M_IX86
+#define ASMCALL __cdecl
+#else  // !_M_IX86
+#define ASMCALL
+#endif  // _M_IX86
 
 #endif  // HAX_TYPES_H_

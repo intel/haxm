@@ -33,16 +33,8 @@
 
 #include "hax_types.h"
 
-#ifdef _M_IX86
-#define ASMCALL __cdecl
-#else  // !_M_IX86
-#define ASMCALL
-#endif  // _M_IX86
-
 union cpuid_args_t;
-struct vcpu_t;
-struct vcpu_state_t;
-struct invept_desc;
+struct system_desc_t;
 
 mword ASMCALL get_cr0(void);
 mword ASMCALL get_cr2(void);
