@@ -28,13 +28,71 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "include/ia32_defs.h"
 #include "include/vmx.h"
-#include <string.h>
-#include "include/cpu.h"
-#include "include/vcpu.h"
+
+#include "include/ia32.h"
+#include "include/ia32_defs.h"
 #include "include/ept.h"
-#include "../include/hax.h"
+
+extern mword ASMCALL asm_vmread(uint32 component);
+extern void ASMCALL asm_vmwrite(uint32 component, mword val);
+
+void _vmx_vmwrite(struct vcpu_t *vcpu, const char *name,
+                  component_index_t component,
+                  mword source_val)
+{
+    asm_vmwrite(component, source_val);
+}
+
+void _vmx_vmwrite_64(struct vcpu_t *vcpu, const char *name,
+                     component_index_t component,
+                     uint64 source_val)
+{
+#ifdef _M_IX86
+    asm_vmwrite(component, (uint32)source_val);
+    asm_vmwrite(component + 1, (uint32)(source_val >> 32));
+#else
+    asm_vmwrite(component, source_val);
+#endif
+}
+
+void _vmx_vmwrite_natural(struct vcpu_t *vcpu, const char *name,
+                          component_index_t component,
+                          uint64 source_val)
+{
+#ifdef _M_IX86
+    asm_vmwrite(component, (uint32)source_val);
+#else
+    asm_vmwrite(component, source_val);
+#endif
+}
+
+uint64 vmx_vmread(struct vcpu_t *vcpu, component_index_t component)
+{
+    uint64 val = 0;
+
+    val = asm_vmread(component);
+    return val;
+}
+
+uint64 vmx_vmread_natural(struct vcpu_t *vcpu, component_index_t component)
+{
+    uint64 val = 0;
+
+    val = asm_vmread(component);
+    return val;
+}
+
+uint64 vmx_vmread_64(struct vcpu_t *vcpu, component_index_t component)
+{
+    uint64 val = 0;
+
+    val = asm_vmread(component);
+#ifdef _M_IX86
+    val |= ((uint64)(asm_vmread(component + 1)) << 32);
+#endif
+    return val;
+}
 
 void vmx_read_info(info_t *vmxinfo)
 {
