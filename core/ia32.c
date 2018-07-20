@@ -35,9 +35,6 @@ struct qword_val {
     uint32 high;
 };
 
-extern void ASMCALL asm_enable_irq(void);
-extern void ASMCALL asm_disable_irq(void);
-
 #ifdef _M_IX86
 extern void ASMCALL asm_rdmsr(uint32 reg, struct qword_val *qv);
 extern void ASMCALL asm_wrmsr(uint32 reg, struct qword_val *qv);
@@ -114,15 +111,3 @@ void bts(uint8 *addr, uint bit)
     uint offset = bit % 8;
     asm_bts(base, offset);
 }
-
-#ifndef __MACH__
-void hax_enable_irq(void)
-{
-    asm_enable_irq();
-}
-
-void hax_disable_irq(void)
-{
-    asm_disable_irq();
-}
-#endif

@@ -92,6 +92,9 @@ void fxrstor(mword *addr);
 void btr(uint8 *addr, uint bit);
 void bts(uint8 *addr, uint bit);
 
+void ASMCALL asm_enable_irq(void);
+void ASMCALL asm_disable_irq(void);
+
 uint64 ASMCALL get_kernel_rflags(void);
 uint16 ASMCALL get_kernel_tr_selector(void);
 

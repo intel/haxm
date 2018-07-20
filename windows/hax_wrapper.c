@@ -29,6 +29,7 @@
  */
 
 #include "hax_win.h"
+#include "../core/include/ia32.h"
 
 int default_hax_log_level = 3;
 int max_cpus;
@@ -224,6 +225,16 @@ void hax_enable_preemption(preempt_flag *flags)
     if (*flags >= DISPATCH_LEVEL)
         return;
     KeLowerIrql(*flags);
+}
+
+void hax_enable_irq(void)
+{
+    asm_enable_irq();
+}
+
+void hax_disable_irq(void)
+{
+    asm_disable_irq();
 }
 
 void hax_error(char *fmt, ...)
