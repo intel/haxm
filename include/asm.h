@@ -38,7 +38,7 @@ struct system_desc_t;
 
 mword ASMCALL get_cr0(void);
 mword ASMCALL get_cr2(void);
-uint64 ASMCALL get_cr3(void);
+mword ASMCALL get_cr3(void);
 mword ASMCALL get_cr4(void);
 mword ASMCALL get_dr0(void);
 mword ASMCALL get_dr1(void);
