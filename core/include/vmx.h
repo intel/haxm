@@ -497,7 +497,7 @@ vmx_result_t ASMCALL asm_vmptrld(const paddr_t *addr_in);
 vmx_result_t ASMCALL asm_vmxon(const paddr_t *addr_in);
 vmx_result_t ASMCALL asm_vmxoff(void);
 vmx_result_t ASMCALL asm_vmptrst(paddr_t *addr_out);
-uint64 ASMCALL asm_vmxrun(struct vcpu_state_t *state, uint16 launch);
+vmx_result_t ASMCALL asm_vmxrun(struct vcpu_state_t *state, uint16 launch);
 
 mword ASMCALL vmx_get_rip(void);
 
