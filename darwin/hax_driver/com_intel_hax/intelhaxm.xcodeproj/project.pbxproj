@@ -128,8 +128,8 @@
 		642FD41A20D9F74D00C197FF /* cpuid.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cpuid.h; sourceTree = "<group>"; };
 		642FD41C20D9F79100C197FF /* emulate_ops.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = emulate_ops.h; sourceTree = "<group>"; };
 		642FD41D20D9F79100C197FF /* emulate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = emulate.h; sourceTree = "<group>"; };
-		6448A2201EDFCDAB000B4B32 /* hax_host_mem.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = hax_host_mem.h; path = ../../../include/hax_host_mem.h; sourceTree = "<group>"; };
-		6456261E1EEFF705005280EF /* ept2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ept2.h; path = ../../../core/include/ept2.h; sourceTree = "<group>"; };
+		6448A2201EDFCDAB000B4B32 /* hax_host_mem.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = hax_host_mem.h; sourceTree = "<group>"; };
+		6456261E1EEFF705005280EF /* ept2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ept2.h; sourceTree = "<group>"; };
 		645626201EEFF720005280EF /* ept_tree.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ept_tree.c; path = ../../../core/ept_tree.c; sourceTree = "<group>"; };
 		6496936E20D8AE0000C9BBAF /* cpuid.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = cpuid.c; path = ../../../core/cpuid.c; sourceTree = "<group>"; };
 		64B72B841EDFFF7E00A8C202 /* hax_host_mem.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = hax_host_mem.cpp; sourceTree = "<group>"; };
@@ -163,7 +163,7 @@
 		B98ECFB513A059BB00485DDB /* vmx.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = vmx.c; path = ../../../core/vmx.c; sourceTree = SOURCE_ROOT; };
 		CF0539AC1EE536CB00FAD569 /* chunk.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = chunk.c; path = ../../../core/chunk.c; sourceTree = "<group>"; };
 		CF148D5F1EE6BAEB0097A058 /* memslot.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = memslot.c; path = ../../../core/memslot.c; sourceTree = "<group>"; };
-		CF6A32281EDEB86E00468E62 /* pmu.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = pmu.h; path = ../../../core/include/pmu.h; sourceTree = "<group>"; };
+		CF6A32281EDEB86E00468E62 /* pmu.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pmu.h; sourceTree = "<group>"; };
 		CFB6FDDA1ED43C540048A750 /* ramblock.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ramblock.c; path = ../../../core/ramblock.c; sourceTree = "<group>"; };
 		CFD697461ED2DC9700F10631 /* gpa_space.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = gpa_space.c; path = ../../../core/gpa_space.c; sourceTree = "<group>"; };
 		CFD697481ED2DCB700F10631 /* memory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = memory.h; sourceTree = "<group>"; };
@@ -230,11 +230,9 @@
 				CFB6FDDA1ED43C540048A750 /* ramblock.c */,
 				43440F2F13A3B69A002E1442 /* hax_mem_alloc.cpp */,
 				43440F3013A3B69A002E1442 /* hax_wrapper.cpp */,
-				6448A2201EDFCDAB000B4B32 /* hax_host_mem.h */,
 				64B72B841EDFFF7E00A8C202 /* hax_host_mem.cpp */,
 				64B85BE81EF4D34D00223ABD /* ept2.c */,
 				645626201EEFF720005280EF /* ept_tree.c */,
-				6456261E1EEFF705005280EF /* ept2.h */,
 				B98ECF9C13A059BB00485DDB /* cpu.c */,
 				B98ECF9D13A059BB00485DDB /* dump_vmcs.c */,
 				B98ECF9E13A059BB00485DDB /* hax.c */,
@@ -243,7 +241,6 @@
 				FA8F651D208BAD9A00C8E91F /* emulate.c */,
 				FA8F651F208BC1BA00C8E91F /* emulate_ops.asm */,
 				B98ECFB313A059BB00485DDB /* vm.c */,
-				CF6A32281EDEB86E00468E62 /* pmu.h */,
 				B98ECFB413A059BB00485DDB /* vmcs_names.c */,
 				B98ECFB513A059BB00485DDB /* vmx.c */,
 				43C9A9E6138DDA93000A1071 /* hax_host.h */,
@@ -270,6 +267,7 @@
 				4397BF1A138F4530001A6A33 /* hax.h */,
 				4397BF1C138F4530001A6A33 /* hax_list.h */,
 				4397BF1D138F4530001A6A33 /* hax_types.h */,
+				6448A2201EDFCDAB000B4B32 /* hax_host_mem.h */,
 			);
 			name = include;
 			path = ../../../include;
@@ -286,6 +284,7 @@
 				22BFCFDD13A59AB100AD9F0F /* vtlb.h */,
 				22BFCFDB13A59AA000AD9F0F /* intr.h */,
 				22BFCFD713A59A9100AD9F0F /* ept.h */,
+				6456261E1EEFF705005280EF /* ept2.h */,
 				4324E35513A3781500FA7CFB /* hax_core_interface.h */,
 				B98ECFA013A059BB00485DDB /* compiler.h */,
 				B98ECFA113A059BB00485DDB /* config.h */,
@@ -297,6 +296,7 @@
 				B98ECFA713A059BB00485DDB /* ia32_defs.h */,
 				B98ECFA813A059BB00485DDB /* mtrr.h */,
 				B98ECFA913A059BB00485DDB /* paging.h */,
+				CF6A32281EDEB86E00468E62 /* pmu.h */,
 				B98ECFAA13A059BB00485DDB /* segments.h */,
 				B98ECFAC13A059BB00485DDB /* types.h */,
 				B98ECFAD13A059BB00485DDB /* vcpu.h */,
