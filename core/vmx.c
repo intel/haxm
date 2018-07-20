@@ -30,23 +30,22 @@
 
 #include "include/vmx.h"
 
+#include "include/cpu.h"
+#include "include/ept.h"
+#include "include/hax_core_interface.h"
 #include "include/ia32.h"
 #include "include/ia32_defs.h"
-#include "include/ept.h"
 
-extern mword ASMCALL asm_vmread(uint32 component);
-extern void ASMCALL asm_vmwrite(uint32 component, mword val);
-
-void _vmx_vmwrite(struct vcpu_t *vcpu, const char *name,
-                  component_index_t component,
-                  mword source_val)
+static void _vmx_vmwrite(struct vcpu_t *vcpu, const char *name,
+                         component_index_t component,
+                         mword source_val)
 {
     asm_vmwrite(component, source_val);
 }
 
-void _vmx_vmwrite_64(struct vcpu_t *vcpu, const char *name,
-                     component_index_t component,
-                     uint64 source_val)
+static void _vmx_vmwrite_64(struct vcpu_t *vcpu, const char *name,
+                            component_index_t component,
+                            uint64 source_val)
 {
 #ifdef _M_IX86
     asm_vmwrite(component, (uint32)source_val);
@@ -56,9 +55,9 @@ void _vmx_vmwrite_64(struct vcpu_t *vcpu, const char *name,
 #endif
 }
 
-void _vmx_vmwrite_natural(struct vcpu_t *vcpu, const char *name,
-                          component_index_t component,
-                          uint64 source_val)
+static void _vmx_vmwrite_natural(struct vcpu_t *vcpu, const char *name,
+                                 component_index_t component,
+                                 uint64 source_val)
 {
 #ifdef _M_IX86
     asm_vmwrite(component, (uint32)source_val);
@@ -67,7 +66,63 @@ void _vmx_vmwrite_natural(struct vcpu_t *vcpu, const char *name,
 #endif
 }
 
-uint64 vmx_vmread(struct vcpu_t *vcpu, component_index_t component)
+static void __vmx_vmwrite_common(struct vcpu_t *vcpu, const char *name,
+                                 component_index_t component,
+                                 uint64 source_val)
+{
+    uint8 val = (component & 0x6000) >> 13;
+    switch (val) {
+        case ENCODE_16:
+        case ENCODE_32: {
+            source_val &= 0x00000000FFFFFFFF;
+            _vmx_vmwrite(vcpu, name, component, source_val);
+            break;
+        }
+        case ENCODE_64: {
+            _vmx_vmwrite_64(vcpu, name, component, source_val);
+            break;
+        }
+        case ENCODE_NATURAL: {
+            _vmx_vmwrite_natural(vcpu, name, component, source_val);
+            break;
+        }
+        default: {
+            hax_error("Unsupported component %x, val %x\n", component, val);
+            break;
+        }
+    }
+}
+
+void vmx_vmwrite(struct vcpu_t *vcpu, const char *name,
+                 component_index_t component, uint64 source_val)
+{
+    preempt_flag flags;
+    uint8 loaded = 0;
+
+    if (!vcpu || is_vmcs_loaded(vcpu))
+        loaded = 1;
+
+    if (!loaded) {
+        if (load_vmcs(vcpu, &flags)) {
+            vcpu_set_panic(vcpu);
+            hax_panic_log(vcpu);
+            return;
+        }
+    }
+
+    __vmx_vmwrite_common(vcpu, name, component, source_val);
+
+    if (!loaded) {
+        if (put_vmcs(vcpu, &flags)) {
+            vcpu_set_panic(vcpu);
+            hax_panic_log(vcpu);
+            return;
+        }
+    }
+}
+
+
+static uint64 vmx_vmread(struct vcpu_t *vcpu, component_index_t component)
 {
     uint64 val = 0;
 
@@ -75,7 +130,8 @@ uint64 vmx_vmread(struct vcpu_t *vcpu, component_index_t component)
     return val;
 }
 
-uint64 vmx_vmread_natural(struct vcpu_t *vcpu, component_index_t component)
+static uint64 vmx_vmread_natural(struct vcpu_t *vcpu,
+                                 component_index_t component)
 {
     uint64 val = 0;
 
@@ -83,7 +139,7 @@ uint64 vmx_vmread_natural(struct vcpu_t *vcpu, component_index_t component)
     return val;
 }
 
-uint64 vmx_vmread_64(struct vcpu_t *vcpu, component_index_t component)
+static uint64 vmx_vmread_64(struct vcpu_t *vcpu, component_index_t component)
 {
     uint64 val = 0;
 
@@ -91,6 +147,93 @@ uint64 vmx_vmread_64(struct vcpu_t *vcpu, component_index_t component)
 #ifdef _M_IX86
     val |= ((uint64)(asm_vmread(component + 1)) << 32);
 #endif
+    return val;
+}
+
+static uint64 __vmread_common(struct vcpu_t *vcpu,
+                              component_index_t component)
+{
+    uint64 value = 0;
+    uint8 val = (component >> ENCODE_SHIFT) & ENCODE_MASK;
+
+    switch(val) {
+        case ENCODE_16:
+        case ENCODE_32: {
+            value = vmx_vmread(vcpu, component);
+            break;
+        }
+        case ENCODE_64: {
+            value = vmx_vmread_64(vcpu, component);
+            break;
+        }
+        case ENCODE_NATURAL: {
+            value = vmx_vmread_natural(vcpu, component);
+            break;
+        }
+        default: {
+            hax_error("Unsupported component %x val %x\n", component, val);
+            break;
+        }
+    }
+    return value;
+}
+
+uint64 vmread(struct vcpu_t *vcpu, component_index_t component)
+{
+    preempt_flag flags;
+    uint64 val;
+    uint8 loaded = 0;
+
+    if (!vcpu || is_vmcs_loaded(vcpu))
+        loaded = 1;
+
+    if (!loaded) {
+        if (load_vmcs(vcpu, &flags)) {
+            vcpu_set_panic(vcpu);
+            hax_panic_log(vcpu);
+            return 0;
+        }
+    }
+
+    val = __vmread_common(vcpu, component);
+
+    if (!loaded) {
+        if (put_vmcs(vcpu, &flags)) {
+            vcpu_set_panic(vcpu);
+            hax_panic_log(vcpu);
+            return 0;
+        }
+    }
+
+    return val;
+}
+
+uint64 vmread_dump(struct vcpu_t *vcpu, unsigned enc, char *name)
+{
+    uint64 val;
+
+    switch ((enc >> 13) & 0x3) {
+        case 0:
+        case 2: {
+            val = vmread(vcpu, enc);
+            hax_warning("%04x %s: %llx\n", enc, name, val);
+            break;
+        }
+        case 1: {
+            val = vmread(vcpu, enc);
+            hax_warning("%04x %s: %llx\n", enc, name, val);
+            break;
+        }
+        case 3: {
+            val = vmread(vcpu, enc);
+            hax_warning("%04x %s: %llx\n", enc, name, val);
+            break;
+        }
+        default: {
+            hax_error("unsupported enc %x\n", enc);
+            break;
+        }
+    }
     return val;
 }
 

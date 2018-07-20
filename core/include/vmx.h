@@ -31,7 +31,8 @@
 #ifndef HAX_CORE_VMX_H_
 #define HAX_CORE_VMX_H_
 
-#include "hax_core_interface.h"
+#include "../../include/hax_types.h"
+
 #define VMCS_NONE 0xFFFFFFFFFFFFFFFF
 
 // Size of VMCS structure
@@ -461,19 +462,6 @@ union vmcs_t {
 
 typedef union vmcs_t vmcs_t;
 
-struct vcpu_t;
-extern void load_vmcs_common(struct vcpu_t *vcpu);
-extern uint32 load_vmcs(struct vcpu_t *vcpu, preempt_flag *flags);
-extern uint32 put_vmcs(struct vcpu_t *vcpu, preempt_flag *flags);
-extern uint8 is_vmcs_loaded(struct vcpu_t *vcpu);
-extern void hax_panic_log(struct vcpu_t *vcpu);
-
-void hax_enable_irq(void);
-void hax_disable_irq(void);
-
-extern void hax_disable_preemption(preempt_flag *eflags);
-extern void hax_enable_preemption(preempt_flag *eflags);
-
 enum encode_t {
     ENCODE_16 = 0x0,
     ENCODE_64 = 0x1,
@@ -491,6 +479,9 @@ struct invept_desc {
     uint64 rsvd;
 };
 
+struct vcpu_state_t;
+struct vcpu_t;
+
 vmx_result_t ASMCALL asm_invept(uint type, struct invept_desc *desc);
 vmx_result_t ASMCALL asm_vmclear(const paddr_t *addr_in);
 vmx_result_t ASMCALL asm_vmptrld(const paddr_t *addr_in);
@@ -501,168 +492,13 @@ vmx_result_t ASMCALL asm_vmxrun(struct vcpu_state_t *state, uint16 launch);
 
 mword ASMCALL vmx_get_rip(void);
 
-uint64 vmx_vmread(struct vcpu_t *vcpu, component_index_t component);
-uint64 vmx_vmread_natural(struct vcpu_t *vcpu, component_index_t component);
-uint64 vmx_vmread_64(struct vcpu_t *vcpu, component_index_t component);
+mword ASMCALL asm_vmread(uint32 component);
+void ASMCALL asm_vmwrite(uint32 component, mword val);
 
-void _vmx_vmwrite(struct vcpu_t *vcpu, const char *name,
-                  component_index_t component, mword source_val);
-void _vmx_vmwrite_natural(struct vcpu_t *vcpu, const char *name,
-                          component_index_t component, uint64 source_val);
-void _vmx_vmwrite_64(struct vcpu_t *vcpu, const char *name,
-                     component_index_t component, uint64 source_val);
-
-static inline uint64 __vmread_common(struct vcpu_t *vcpu,
-                                     component_index_t component)
-{
-    uint64 value = 0;
-    uint8 val = (component >> ENCODE_SHIFT) & ENCODE_MASK;
-
-    switch(val) {
-        case ENCODE_16:
-        case ENCODE_32: {
-            value = vmx_vmread(vcpu, component);
-            break;
-        }
-        case ENCODE_64: {
-            value = vmx_vmread_64(vcpu, component);
-            break;
-        }
-        case ENCODE_NATURAL: {
-            value = vmx_vmread_natural(vcpu, component);
-            break;
-        }
-        default: {
-            hax_error("Unsupported component %x val %x\n", component, val);
-            break;
-        }
-    }
-    return value;
-}
-
-static inline uint64 vmread(struct vcpu_t *vcpu, component_index_t component)
-{
-    preempt_flag flags;
-    uint64 val;
-    uint8 loaded = 0;
-
-    if (!vcpu || is_vmcs_loaded(vcpu))
-        loaded = 1;
-
-    if (!loaded) {
-        if (load_vmcs(vcpu, &flags)) {
-            vcpu_set_panic(vcpu);
-            hax_panic_log(vcpu);
-            return 0;
-        }
-    }
-
-    val = __vmread_common(vcpu, component);
-
-    if (!loaded) {
-        if (put_vmcs(vcpu, &flags)) {
-            vcpu_set_panic(vcpu);
-            hax_panic_log(vcpu);
-            return 0;
-        }
-    }
-
-    return val;
-}
-
-static inline uint64 vmread_dump(struct vcpu_t *vcpu, unsigned enc, char *name)
-{
-    uint64 val;
-
-    switch ((enc >> 13) & 0x3) {
-        case 0:
-        case 2: {
-            val = vmread(vcpu, enc);
-            hax_warning("%04x %s: %llx\n", enc, name, val);
-            break;
-        }
-        case 1: {
-            val = vmread(vcpu, enc);
-            hax_warning("%04x %s: %llx\n", enc, name, val);
-            break;
-        }
-        case 3: {
-            val = vmread(vcpu, enc);
-            hax_warning("%04x %s: %llx\n", enc, name, val);
-            break;
-        }
-        default: {
-            hax_error("unsupported enc %x\n", enc);
-            break;
-        }
-    }
-    return val;
-}
-
-extern void _vmx_vmwrite_natural(struct vcpu_t *vcpu, const char *name,
-                                 component_index_t component,
-                                 uint64 source_val);
-
-extern void _vmx_vmwrite_64(struct vcpu_t *vcpu, const char *name,
-                            component_index_t component, uint64 source_val);
-
-extern void _vmx_vmwrite(struct vcpu_t *vcpu, const char *name,
-                         component_index_t component, mword source_val);
-
-static inline void __vmx_vmwrite_common(struct vcpu_t *vcpu, const char *name,
-                                        component_index_t component,
-                                        uint64 source_val)
-{
-    uint8 val = (component & 0x6000) >> 13;
-    switch (val) {
-        case ENCODE_16:
-        case ENCODE_32: {
-            source_val &= 0x00000000FFFFFFFF;
-            _vmx_vmwrite(vcpu, name, component, source_val);
-            break;
-        }
-        case ENCODE_64: {
-            _vmx_vmwrite_64(vcpu, name, component, source_val);
-            break;
-        }
-        case ENCODE_NATURAL: {
-            _vmx_vmwrite_natural(vcpu, name, component, source_val);
-            break;
-        }
-        default: {
-            hax_error("Unsupported component %x, val %x\n", component, val);
-            break;
-        }
-    }
-}
-
-static inline void vmx_vmwrite(struct vcpu_t *vcpu, const char *name,
-                               component_index_t component, uint64 source_val)
-{
-    preempt_flag flags;
-    uint8 loaded = 0;
-
-    if (!vcpu || is_vmcs_loaded(vcpu))
-        loaded = 1;
-
-    if (!loaded) {
-        if (load_vmcs(vcpu, &flags)) {
-            vcpu_set_panic(vcpu);
-            hax_panic_log(vcpu);
-            return;
-        }
-    }
-
-    __vmx_vmwrite_common(vcpu, name, component, source_val);
-
-    if (!loaded) {
-        if (put_vmcs(vcpu, &flags)) {
-            vcpu_set_panic(vcpu);
-            hax_panic_log(vcpu);
-            return;
-        }
-    }
-}
+uint64 vmread(struct vcpu_t *vcpu, component_index_t component);
+uint64 vmread_dump(struct vcpu_t *vcpu, unsigned enc, char *name);
+void vmx_vmwrite(struct vcpu_t *vcpu, const char *name,
+                 component_index_t component, uint64 source_val);
 
 #define vmwrite(vcpu, x, y) vmx_vmwrite(vcpu, #x, x, y)
 
@@ -707,5 +543,6 @@ static inline void vmx_vmwrite(struct vcpu_t *vcpu, const char *name,
         (vmwrite(vcpu, GUEST_##desc##_BASE, (val).base),           \
          vmwrite(vcpu, GUEST_##desc##_LIMIT, (val).limit))
 
-extern void vmx_read_info(info_t *vmxinfo);
+void vmx_read_info(info_t *vmxinfo);
+
 #endif  // HAX_CORE_VMX_H_

@@ -244,6 +244,10 @@ extern int cpu_number(void);
 
 uint32_t hax_cpuid(void);
 int proc_event_pending(struct vcpu_t *vcpu);
+
+void hax_disable_preemption(preempt_flag *eflags);
+void hax_enable_preemption(preempt_flag *eflags);
+
 void hax_enable_irq(void);
 void hax_disable_irq(void);
 
