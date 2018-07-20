@@ -29,7 +29,8 @@
  */
 
 #include "include/cpuid.h"
-#include "../include/asm.h"
+
+#include "include/ia32.h"
 
 typedef union cpuid_feature_t {
     struct {

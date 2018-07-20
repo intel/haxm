@@ -46,6 +46,7 @@
 		64B85BE91EF4D34D00223ABD /* ept2.c in Sources */ = {isa = PBXBuildFile; fileRef = 64B85BE81EF4D34D00223ABD /* ept2.c */; };
 		64BB0CD220F36C470064593A /* vmx_ops.asm in Sources */ = {isa = PBXBuildFile; fileRef = 64BB0CD020F36C470064593A /* vmx_ops.asm */; };
 		64BB0CD320F36C470064593A /* ia32_ops.asm in Sources */ = {isa = PBXBuildFile; fileRef = 64BB0CD120F36C470064593A /* ia32_ops.asm */; };
+		64CD0F582101B51100099B53 /* ia32.h in Headers */ = {isa = PBXBuildFile; fileRef = 64CD0F572101B51100099B53 /* ia32.h */; };
 		6E2DBBCC18EB6125003B66C9 /* page_walker.c in Sources */ = {isa = PBXBuildFile; fileRef = 6E2DBBCB18EB6125003B66C9 /* page_walker.c */; };
 		6E2DBBCE18EB6155003B66C9 /* page_walker.h in Headers */ = {isa = PBXBuildFile; fileRef = 6E2DBBCD18EB6155003B66C9 /* page_walker.h */; };
 		A669096B20F9985300739075 /* ia32.c in Sources */ = {isa = PBXBuildFile; fileRef = A669096A20F9985300739075 /* ia32.c */; };
@@ -135,6 +136,7 @@
 		64B85BE81EF4D34D00223ABD /* ept2.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ept2.c; path = ../../../core/ept2.c; sourceTree = "<group>"; };
 		64BB0CD020F36C470064593A /* vmx_ops.asm */ = {isa = PBXFileReference; explicitFileType = sourcecode.nasm; name = vmx_ops.asm; path = ../../../core/vmx_ops.asm; sourceTree = "<group>"; };
 		64BB0CD120F36C470064593A /* ia32_ops.asm */ = {isa = PBXFileReference; explicitFileType = sourcecode.nasm; name = ia32_ops.asm; path = ../../../core/ia32_ops.asm; sourceTree = "<group>"; };
+		64CD0F572101B51100099B53 /* ia32.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ia32.h; sourceTree = "<group>"; };
 		6E2DBBCB18EB6125003B66C9 /* page_walker.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = page_walker.c; path = ../../../core/page_walker.c; sourceTree = "<group>"; };
 		6E2DBBCD18EB6155003B66C9 /* page_walker.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = page_walker.h; sourceTree = "<group>"; };
 		A669096A20F9985300739075 /* ia32.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ia32.c; path = ../../../core/ia32.c; sourceTree = "<group>"; };
@@ -276,6 +278,7 @@
 		B98ECF9F13A059BB00485DDB /* include */ = {
 			isa = PBXGroup;
 			children = (
+				64CD0F572101B51100099B53 /* ia32.h */,
 				642FD41C20D9F79100C197FF /* emulate_ops.h */,
 				642FD41D20D9F79100C197FF /* emulate.h */,
 				CFD697481ED2DCB700F10631 /* memory.h */,
@@ -337,6 +340,7 @@
 				B98ECFC513A059BB00485DDB /* types.h in Headers */,
 				B98ECFC613A059BB00485DDB /* vcpu.h in Headers */,
 				B98ECFC813A059BB00485DDB /* vm.h in Headers */,
+				64CD0F582101B51100099B53 /* ia32.h in Headers */,
 				B98ECFC913A059BB00485DDB /* vmx.h in Headers */,
 				4324E35613A3781500FA7CFB /* hax_core_interface.h in Headers */,
 				43440D1F13A3834B002E1442 /* hax_interface_mac.h in Headers */,

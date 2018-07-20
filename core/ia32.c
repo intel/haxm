@@ -28,8 +28,7 @@
 * POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "../include/hax.h"
-#include "../include/asm.h"
+#include "include/ia32.h"
 
 struct qword_val {
     uint32 low;
@@ -118,6 +117,8 @@ void bts(uint8 *addr, uint bit)
     uint offset = bit % 8;
     asm_bts(base, offset);
 }
+
+struct vcpu_t;
 
 void _vmx_vmwrite(struct vcpu_t *vcpu, const char *name,
                   component_index_t component,

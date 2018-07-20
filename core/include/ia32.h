@@ -28,10 +28,10 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef HAX_ASM_H_
-#define HAX_ASM_H_
+#ifndef HAX_CORE_IA32_H_
+#define HAX_CORE_IA32_H_
 
-#include "hax_types.h"
+#include "../../include/hax_types.h"
 
 union cpuid_args_t;
 struct system_desc_t;
@@ -102,4 +102,4 @@ void ASMCALL get_kernel_gdt(struct system_desc_t *sys_desc);
 void ASMCALL get_kernel_idt(struct system_desc_t *sys_desc);
 uint16 ASMCALL get_kernel_ldt(void);
 
-#endif  // HAX_ASM_H_
+#endif  // HAX_CORE_IA32_H_

@@ -31,7 +31,7 @@
 #ifndef HAX_CORE_CPUID_H_
 #define HAX_CORE_CPUID_H_
 
-#include "hax_types.h"
+#include "../../include/hax_types.h"
 
 #define CPUID_CACHE_SIZE 6
 

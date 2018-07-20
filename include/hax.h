@@ -34,7 +34,10 @@
 #include "hax_types.h"
 #include "hax_list.h"
 #include "hax_interface.h"
-#include "asm.h"
+
+// TODO: Refactor proc_event_pending(), and then delete the following forward
+// declaration
+struct vcpu_t;
 
 extern int hax_page_size;
 

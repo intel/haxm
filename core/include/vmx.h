@@ -486,6 +486,8 @@ typedef enum encode_t encode_t;
 #define ENCODE_MASK    0x3
 #define ENCODE_SHIFT    13
 
+struct invept_desc;
+
 vmx_result_t ASMCALL asm_invept(uint type, struct invept_desc *desc);
 vmx_result_t ASMCALL asm_vmclear(const paddr_t *addr_in);
 vmx_result_t ASMCALL asm_vmptrld(const paddr_t *addr_in);
