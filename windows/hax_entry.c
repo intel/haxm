@@ -36,6 +36,10 @@
 
 #include "hax_win.h"
 
+// vcpu.h
+int vcpu_takeoff(struct vcpu_t *vcpu);
+void vcpu_debug(struct vcpu_t *vcpu, struct hax_debug_t *debug);
+
 #define NT_DEVICE_NAME L"\\Device\\HAX"
 #define DOS_DEVICE_NAME L"\\DosDevices\\HAX"
 
@@ -244,7 +248,6 @@ NTSTATUS hax_get_versioninfo(void *buf, int buflength, int *ret_bl)
     return STATUS_SUCCESS;
 }
 
-int vcpu_takeoff(struct vcpu_t *vcpu);
 NTSTATUS HaxVcpuControl(PDEVICE_OBJECT DeviceObject,
                         struct hax_vcpu_windows *ext, PIRP Irp)
 {
@@ -417,6 +420,14 @@ NTSTATUS HaxVcpuControl(PDEVICE_OBJECT DeviceObject,
         }
         case HAX_VCPU_IOCTL_KICKOFF: {
             vcpu_takeoff(cvcpu);
+            break;
+        }
+        case HAX_IOCTL_VCPU_DEBUG: {
+            if (inBufLength < sizeof(struct hax_debug_t)) {
+                ret = STATUS_INVALID_PARAMETER;
+                goto done;
+            }
+            vcpu_debug(cvcpu, (struct hax_debug_t*)inBuf);
             break;
         }
         default:

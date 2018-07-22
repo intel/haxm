@@ -209,6 +209,9 @@ struct vcpu_t {
     uint64 cr_pat;
     uint64 cpuid_features_flag_mask;
 
+    /* Debugging */
+    uint32 debug_control;
+
     /* Interrupt stuff */
     uint32 intr_pending[8];
     uint32 nr_pending_intrs;
@@ -229,10 +232,10 @@ struct vcpu_t {
 
 struct vcpu_t *vcpu_create(struct vm_t *vm, void *vm_host, int vcpu_id);
 int vcpu_execute(struct vcpu_t *vcpu);
+void vcpu_load_guest_state(struct vcpu_t *vcpu);
+void vcpu_save_guest_state(struct vcpu_t *vcpu);
 void vcpu_load_host_state(struct vcpu_t *vcpu);
 void vcpu_save_host_state(struct vcpu_t *vcpu);
-void load_guest_msr(struct vcpu_t *vcpu);
-void save_guest_msr(struct vcpu_t *vcpu);
 
 int vtlb_active(struct vcpu_t *vcpu);
 int vcpu_vmexit_handler(struct vcpu_t *vcpu, exit_reason_t exit_reason,
@@ -248,6 +251,7 @@ int vcpu_get_fpu(struct vcpu_t *vcpu, struct fx_layout *fl);
 int vcpu_put_fpu(struct vcpu_t *vcpu, struct fx_layout *fl);
 int vcpu_get_msr(struct vcpu_t *vcpu, uint64 entry, uint64 *val);
 int vcpu_put_msr(struct vcpu_t *vcpu, uint64 entry, uint64 val);
+void vcpu_debug(struct vcpu_t *vcpu, struct hax_debug_t *debug);
 
 /* The declaration for OS wrapper code */
 int hax_vcpu_destroy_host(struct vcpu_t *cvcpu, void *vcpu_host);

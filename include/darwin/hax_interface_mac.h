@@ -68,6 +68,9 @@
 /* API 2.0 */
 #define HAX_VM_IOCTL_NOTIFY_QEMU_VERSION _IOW(0, 0x84, struct hax_qemu_version)
 
+/* API 5.0 */
+#define HAX_IOCTL_VCPU_DEBUG _IOW(0, 0xc9, struct hax_debug_t)
+
 #define HAX_KERNEL64_CS 0x80
 #define HAX_KERNEL32_CS 0x08
 #ifdef __i386__

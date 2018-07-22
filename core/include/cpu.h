@@ -77,6 +77,12 @@ struct hstate {
     uint64 fake_gs;
     system_desc_t host_gdtr;
     system_desc_t host_idtr;
+    // Debug registers
+    uint64 dr0;
+    uint64 dr1;
+    uint64 dr2;
+    uint64 dr3;
+    uint64 dr6;
 };
 
 struct hstate_compare {
