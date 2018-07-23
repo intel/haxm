@@ -30,6 +30,7 @@
 
 #include "include/vmx.h"
 #include "include/dump_vmcs.h"
+#include "include/compiler.h"
 #include "../include/hax.h"
 
 extern unsigned char **vmcs_names;

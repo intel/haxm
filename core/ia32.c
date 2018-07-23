@@ -28,19 +28,12 @@
 * POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "../include/hax.h"
-#include "../include/asm.h"
+#include "include/ia32.h"
 
 struct qword_val {
     uint32 low;
     uint32 high;
 };
-
-extern void ASMCALL asm_enable_irq(void);
-extern void ASMCALL asm_disable_irq(void);
-
-extern mword ASMCALL asm_vmread(uint32 component);
-extern void ASMCALL asm_vmwrite(uint32 component, mword val);
 
 #ifdef _M_IX86
 extern void ASMCALL asm_rdmsr(uint32 reg, struct qword_val *qv);
@@ -118,72 +111,3 @@ void bts(uint8 *addr, uint bit)
     uint offset = bit % 8;
     asm_bts(base, offset);
 }
-
-void _vmx_vmwrite(struct vcpu_t *vcpu, const char *name,
-                  component_index_t component,
-                  mword source_val)
-{
-    asm_vmwrite(component, source_val);
-}
-
-void _vmx_vmwrite_64(struct vcpu_t *vcpu, const char *name,
-                     component_index_t component,
-                     uint64 source_val)
-{
-#ifdef _M_IX86
-    asm_vmwrite(component, (uint32)source_val);
-    asm_vmwrite(component + 1, (uint32)(source_val >> 32));
-#else
-    asm_vmwrite(component, source_val);
-#endif
-}
-
-void _vmx_vmwrite_natural(struct vcpu_t *vcpu, const char *name,
-                          component_index_t component,
-                          uint64 source_val)
-{
-#ifdef _M_IX86
-    asm_vmwrite(component, (uint32)source_val);
-#else
-    asm_vmwrite(component, source_val);
-#endif
-}
-
-uint64 vmx_vmread(struct vcpu_t *vcpu, component_index_t component)
-{
-    uint64 val = 0;
-
-    val = asm_vmread(component);
-    return val;
-}
-
-uint64 vmx_vmread_natural(struct vcpu_t *vcpu, component_index_t component)
-{
-    uint64 val = 0;
-
-    val = asm_vmread(component);
-    return val;
-}
-
-uint64 vmx_vmread_64(struct vcpu_t *vcpu, component_index_t component)
-{
-    uint64 val = 0;
-
-    val = asm_vmread(component);
-#ifdef _M_IX86
-    val |= ((uint64)(asm_vmread(component + 1)) << 32);
-#endif
-    return val;
-}
-
-#ifndef __MACH__
-void hax_enable_irq(void)
-{
-    asm_enable_irq();
-}
-
-void hax_disable_irq(void)
-{
-    asm_disable_irq();
-}
-#endif

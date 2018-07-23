@@ -32,7 +32,6 @@
 #define HAX_CORE_VCPU_H_
 
 #include "emulate.h"
-#include "ia32.h"
 #include "vmx.h"
 #include "mtrr.h"
 #include "vm.h"

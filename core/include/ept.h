@@ -198,11 +198,6 @@ static void construct_eptp(eptp_t *entry, paddr_t hpa, uint emt)
 #define EPT_INVEPT_SINGLE_CONTEXT 1
 #define EPT_INVEPT_ALL_CONTEXT    2
 
-struct invept_desc {
-    uint64 eptp;
-    uint64 rsvd;
-};
-
 bool ept_init(hax_vm_t *hax_vm);
 void ept_free(hax_vm_t *hax_vm);
 

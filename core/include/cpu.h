@@ -177,9 +177,10 @@ void hax_clear_panic_log(struct vcpu_t *vcpu);
 vmx_result_t cpu_vmx_run(struct vcpu_t *vcpu, struct hax_tunnel *htun);
 int cpu_vmx_execute(struct vcpu_t *vcpu, struct hax_tunnel *htun);
 
-vmx_result_t vmptrld(paddr_t vmcs, struct vcpu_t *vcpu);
-vmx_result_t resume(paddr_t vmcs, struct vcpu_t *vcpu);
-vmx_result_t launch(paddr_t vmcs, struct vcpu_t *vcpu);
+void load_vmcs_common(struct vcpu_t *vcpu);
+uint32 load_vmcs(struct vcpu_t *vcpu, preempt_flag *flags);
+uint32 put_vmcs(struct vcpu_t *vcpu, preempt_flag *flags);
+uint8 is_vmcs_loaded(struct vcpu_t *vcpu);
 
 vmx_result_t cpu_vmxroot_leave(void);
 vmx_result_t cpu_vmxroot_enter(void);

@@ -31,8 +31,6 @@
 #ifndef HAX_CORE_MTRR_H_
 #define HAX_CORE_MTRR_H_
 
-#include "ia32.h"
-
 #define NUM_FIXED_MTRRS    11
 #define NUM_VARIABLE_MTRRS 10
 

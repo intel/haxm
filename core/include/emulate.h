@@ -34,7 +34,7 @@
 #ifdef HAX_TESTS
 #include <stdint.h>
 #else
-#include "hax_types.h"
+#include "../../include/hax_types.h"
 #endif
 
 #include "emulate_ops.h"

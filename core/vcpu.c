@@ -29,7 +29,8 @@
  */
 
 #include "../include/hax.h"
-#include "include/ia32.h"
+#include "include/compiler.h"
+#include "include/ia32_defs.h"
 #include "include/vcpu.h"
 #include "include/mtrr.h"
 #include "include/vmx.h"

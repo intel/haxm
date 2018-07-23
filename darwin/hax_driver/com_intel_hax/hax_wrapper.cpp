@@ -37,7 +37,7 @@
 #include <stdarg.h>
 #include <sys/proc.h>
 #include "../../../include/hax.h"
-#include "../../../core/include/ia32.h"
+#include "../../../core/include/ia32_defs.h"
 
 extern "C" int vcpu_event_pending(struct vcpu_t *vcpu);
 

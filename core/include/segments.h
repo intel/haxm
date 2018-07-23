@@ -31,10 +31,9 @@
 #ifndef HAX_CORE_SEGMENTS_H_
 #define HAX_CORE_SEGMENTS_H_
 
-#include "types.h"
-#include "compiler.h"
 #include "ia32.h"
-#include "../../include/hax.h"
+// TODO: Get rid of is_compatible(), and then delete the following #include
+#include "../../include/hax_interface.h"
 
 #ifdef __WINNT__
 #pragma pack(push, 1)
