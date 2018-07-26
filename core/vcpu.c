@@ -452,11 +452,7 @@ struct vcpu_t *vcpu_create(struct vm_t *vm, void *vm_host, int vcpu_id)
     // First time vmclear/vmptrld on current CPU
     vcpu_prepare(vcpu);
 
-    // Init IA32_APIC_BASE MSR
-    vcpu->gstate.apic_base = APIC_BASE_DEFAULT_ADDR | APIC_BASE_ENABLE;
-    if (vcpu_is_bsp(vcpu)) {
-        vcpu->gstate.apic_base |= APIC_BASE_BSP;
-    }
+
 
     // Publish the vcpu
     hax_mutex_lock(vm->vm_lock);
@@ -552,6 +548,8 @@ static void vcpu_init(struct vcpu_t *vcpu)
 {
     // TODO: Need to decide which mode guest will start
     struct vcpu_state_t *state = vcpu->state;
+    int i;
+
     hax_mutex_lock(vcpu->tmutex);
 
     // TODO: mtrr ?
@@ -587,6 +585,29 @@ static void vcpu_init(struct vcpu_t *vcpu)
     state->_dr0 = state->_dr1 = state->_dr2 = state->_dr3 = 0x0;
     state->_dr6 = 0xffff0ff0;
     state->_dr7 = 0x00000400;
+
+    // Initialize guest MSR state, i.e. a list of MSRs and their initial values.
+    // Note that all zeros is not a valid state (see below). At the first VM
+    // entry, these MSRs will be loaded with these values, unless QEMU has
+    // overridden them using HAX_VCPU_IOCTL_SET_MSRS.
+    // TODO: Enable hardware-assisted MSR save/restore (cf. IA SDM Vol. 3C
+    // 31.10.2-31.10.3: Using VM-Exit/VM-Entry Controls for MSRs).
+    for (i = 0; i < NR_GMSR; i++) {
+        // Without this initialization, |entry| defaults to 0, which is also
+        // a valid MSR (IA32_P5_MC_ADDR, often implemented as an alias for
+        // IA32_MC0_CTL), but which is not one that HAXM should tamper with.
+        // In fact, writing 0 to it has serious consequences, including
+        // disabling SGX (cf. IA SDM Vol. 3D 42.15.2: Machine Check Enables).
+        vcpu->gstate.gmsr[i].entry = gmsr_list[i];
+        // 0 is an appropriate initial value for all MSRs in gmsr_list[]
+        vcpu->gstate.gmsr[i].value = 0;
+    }
+
+    // Initialize IA32_APIC_BASE MSR
+    vcpu->gstate.apic_base = APIC_BASE_DEFAULT_ADDR | APIC_BASE_ENABLE;
+    if (vcpu_is_bsp(vcpu)) {
+        vcpu->gstate.apic_base |= APIC_BASE_BSP;
+    }
 
     hax_mutex_unlock(vcpu->tmutex);
 }
