@@ -178,7 +178,6 @@ struct vcpu_t {
         uint64 paused                          : 1;
         uint64 panicked                        : 1;
         uint64 is_running                      : 1;
-        uint64 is_fpu_used                     : 1;
         uint64 is_vmcs_loaded                  : 1;
         uint64 event_injected                  : 1;
         /* vcpu->state is valid or not */
@@ -190,7 +189,7 @@ struct vcpu_t {
         uint64 vmcs_pending_entry_instr_length : 1;
         uint64 vmcs_pending_entry_intr_info    : 1;
         uint64 vmcs_pending_guest_cr3          : 1;
-        uint64 padding                         : 52;
+        uint64 padding                         : 53;
     };
 
     /* For TSC offseting feature*/
