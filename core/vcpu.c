@@ -1198,7 +1198,7 @@ static void fill_common_vmcs(struct vcpu_t *vcpu)
         }
     }
 
-    exc_bitmap = (1u << VECTOR_MC) | (1u << VECTOR_NM);
+    exc_bitmap = 1u << VECTOR_MC;
 
 #ifdef __x86_64__
     exit_ctls = EXIT_CONTROL_HOST_ADDR_SPACE_SIZE | EXIT_CONTROL_LOAD_EFER |
@@ -1895,10 +1895,8 @@ static void vcpu_enter_fpu_state(struct vcpu_t *vcpu)
     struct fx_layout *hfx = (struct fx_layout *)hax_page_va(hstate->hfxpage);
     struct fx_layout *gfx = (struct fx_layout *)hax_page_va(gstate->gfxpage);
 
-    if (vcpu->is_fpu_used) {
-        fxsave((mword *)hfx);
-        fxrstor((mword *)gfx);
-    }
+    fxsave((mword *)hfx);
+    fxrstor((mword *)gfx);
 }
 
 static void vcpu_exit_fpu_state(struct vcpu_t *vcpu)
@@ -1908,10 +1906,8 @@ static void vcpu_exit_fpu_state(struct vcpu_t *vcpu)
     struct fx_layout *hfx = (struct fx_layout *)hax_page_va(hstate->hfxpage);
     struct fx_layout *gfx = (struct fx_layout *)hax_page_va(gstate->gfxpage);
 
-    if (vcpu->is_fpu_used) {
-        fxsave((mword *)gfx);
-        fxrstor((mword *)hfx);
-    }
+    fxsave((mword *)gfx);
+    fxrstor((mword *)hfx);
 }
 
 // Instructions are never longer than 15 bytes:
@@ -2169,7 +2165,6 @@ static int exit_exc_nmi(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
     struct vcpu_state_t *state = vcpu->state;
     interruption_info_t exit_intr_info;
-    uint64 cr0;
 
     exit_intr_info.raw = vmx(vcpu, exit_intr_info).raw;
     htun->_exit_reason = vmx(vcpu, exit_reason).basic_reason;
@@ -2192,19 +2187,6 @@ static int exit_exc_nmi(struct vcpu_t *vcpu, struct hax_tunnel *htun)
                 dump_vmcs(vcpu);
             }
             break;
-        }
-        case VECTOR_NM: {
-            cr0 = vcpu_read_cr(state, 0);
-            if (cr0 & CR0_TS) {
-                uint32 exc_bitmap = vmx(vcpu, exc_bitmap);
-                if (!vcpu->is_fpu_used) {
-                    vcpu->is_fpu_used = 1;
-                }
-                exc_bitmap &= ~(1u << VECTOR_NM);
-                vmwrite(vcpu, VMX_EXCEPTION_BITMAP,
-                        vmx(vcpu, exc_bitmap) = exc_bitmap);
-            }
-            return HAX_RESUME;
         }
         case VECTOR_MC: {
             hax_panic_vcpu(vcpu, "Machine check happens!\n");
@@ -2757,9 +2739,6 @@ static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
         case 2: { // CLTS
             hax_info("CLTS\n");
             state->_cr0 &= ~(uint64)CR0_TS;
-            if (!vcpu->is_fpu_used) {
-                vcpu->is_fpu_used = 1;
-            }
             if ((vmcs_err = load_vmcs(vcpu, &flags))) {
                 hax_panic_vcpu(vcpu, "load_vmcs failed while CLTS: %x\n",
                                vmcs_err);
