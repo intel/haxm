@@ -148,7 +148,7 @@ typedef mword preempt_flag;
 typedef uint64_t cpumap_t;
 typedef uint64_t HAX_VADDR_T;
 
-inline cpumap_t cpu2cpumap(int cpu)
+static inline cpumap_t cpu2cpumap(int cpu)
 {
     return (0x1UL << cpu);
 }

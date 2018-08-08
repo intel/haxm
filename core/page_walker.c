@@ -114,7 +114,8 @@ typedef union PW_PFEC_U {
 
 uint32 pw_reserved_bits_high_mask;
 
-inline uint64 pw_retrieve_table_from_cr3(uint64 cr3, bool is_pae, bool is_lme)
+static inline uint64 pw_retrieve_table_from_cr3(uint64 cr3, bool is_pae,
+                                                bool is_lme)
 {
     if (!is_pae || is_lme)
         return ALIGN_BACKWARD(cr3, PAGE_SIZE_4K);
@@ -215,7 +216,7 @@ static bool pw_is_big_page_pde(PW_PAGE_ENTRY *entry, bool is_lme, bool is_pae,
     return is_pse;
 }
 
-inline bool pw_is_1gb_page_pdpte(PW_PAGE_ENTRY *entry)
+static inline bool pw_is_1gb_page_pdpte(PW_PAGE_ENTRY *entry)
 {
     return entry->pae_lme_entry.bits._page_size;
 }
