@@ -46,8 +46,9 @@ The `Release` configuration does not do that.
 1. `cd X:\path\to\haxm\`
 1. `X:\path\to\nuget.exe restore`
 1. `msbuild HaxmDriver.sln /p:Configuration="Debug" /p:Platform="x64"`
-   * Use `Release` instead of `Debug` to build a faster driver without
-a digital signature.
+   * Use `Release` instead of `Debug` to build an optimized driver that is
+suitable for release. Note that the `Release` configuration does not sign the
+driver with a test certificate.
    * Use `Win32` instead of `x64` to build a 32-bit driver that works on 32-bit
 Windows.
    * Add `/t:rebuild` for a clean rebuild instead of an incremental build.
@@ -67,12 +68,14 @@ If successful, the driver binary (`IntelHaxm.sys`) will be generated in
 ### Build steps
 1. `cd /path/to/haxm/`
 1. `cd darwin/hax_driver/com_intel_hax/`
-1. `xcodebuild -config Release`
+1. `xcodebuild -configuration Debug`
    * Use `-sdk` to override the default macOS SDK version (10.10), e.g.
 `-sdk macosx10.12`.
+   * Use `Release` instead of `Debug` to build an optimized KEXT that is
+suitable for release.
 
 If successful, the kext (`intelhaxm.kext/`) will be generated in
-`/path/to/haxm/darwin/hax_driver/com_intel_hax/build/Release/`.
+`/path/to/haxm/darwin/hax_driver/com_intel_hax/build/Debug/`.
 
 ## Reporting an Issue
 You are welcome to file a GitHub issue if you discover a general HAXM bug or

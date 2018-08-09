@@ -575,7 +575,7 @@
 				1DEB91C508733DAC0010E9CD /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		1DEB91C708733DAC0010E9CD /* Build configuration list for PBXProject "intelhaxm" */ = {
 			isa = XCConfigurationList;
@@ -584,7 +584,7 @@
 				1DEB91C908733DAC0010E9CD /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
 	};
