@@ -557,7 +557,7 @@ static void vcpu_init(struct vcpu_t *vcpu)
     vcpu->cpuid_features_flag_mask = 0xffffffffffffffffULL;
     vcpu->cur_state = GS_VALID;
     vmx(vcpu, entry_exception_vector) = ~0u;
-    vmx(vcpu, cr0_mask) = 0;
+    vmx(vcpu, cr0_mask) = CR0_TS;
     vmx(vcpu, cr0_shadow) = 0;
     vmx(vcpu, cr4_mask) = 0;
     vmx(vcpu, cr4_shadow) = 0;
@@ -569,7 +569,8 @@ static void vcpu_init(struct vcpu_t *vcpu)
     // Prepare the vcpu state to Power-up
     state->_rflags = 2;
     state->_rip = 0x0000fff0;
-    state->_cr0 = 0x60000010;
+    state->_cr0 = 0x60000018;
+    vcpu->is_ts_set_by_haxm = 1;
 
     get_segment_desc_t(&state->_cs, 0xf000, 0xffff0000, 0xffff, 0x93);
     get_segment_desc_t(&state->_ss, 0, 0, 0xffff, 0x93);
@@ -1198,7 +1199,7 @@ static void fill_common_vmcs(struct vcpu_t *vcpu)
         }
     }
 
-    exc_bitmap = 1u << VECTOR_MC;
+    exc_bitmap = (1u << VECTOR_MC) | (1u << VECTOR_NM);
 
 #ifdef __x86_64__
     exit_ctls = EXIT_CONTROL_HOST_ADDR_SPACE_SIZE | EXIT_CONTROL_LOAD_EFER |
@@ -1895,8 +1896,10 @@ static void vcpu_enter_fpu_state(struct vcpu_t *vcpu)
     struct fx_layout *hfx = (struct fx_layout *)hax_page_va(hstate->hfxpage);
     struct fx_layout *gfx = (struct fx_layout *)hax_page_va(gstate->gfxpage);
 
-    fxsave((mword *)hfx);
-    fxrstor((mword *)gfx);
+    if (vcpu->is_fpu_used) {
+        fxsave((mword *)hfx);
+        fxrstor((mword *)gfx);
+    }
 }
 
 static void vcpu_exit_fpu_state(struct vcpu_t *vcpu)
@@ -1906,8 +1909,10 @@ static void vcpu_exit_fpu_state(struct vcpu_t *vcpu)
     struct fx_layout *hfx = (struct fx_layout *)hax_page_va(hstate->hfxpage);
     struct fx_layout *gfx = (struct fx_layout *)hax_page_va(gstate->gfxpage);
 
-    fxsave((mword *)gfx);
-    fxrstor((mword *)hfx);
+    if (vcpu->is_fpu_used) {
+        fxsave((mword *)gfx);
+        fxrstor((mword *)hfx);
+    }
 }
 
 // Instructions are never longer than 15 bytes:
@@ -2165,6 +2170,9 @@ static int exit_exc_nmi(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
     struct vcpu_state_t *state = vcpu->state;
     interruption_info_t exit_intr_info;
+    uint64 cr0;
+    preempt_flag flags;
+    uint32 vmcs_err = 0;
 
     exit_intr_info.raw = vmx(vcpu, exit_intr_info).raw;
     htun->_exit_reason = vmx(vcpu, exit_reason).basic_reason;
@@ -2187,6 +2195,37 @@ static int exit_exc_nmi(struct vcpu_t *vcpu, struct hax_tunnel *htun)
                 dump_vmcs(vcpu);
             }
             break;
+        }
+        case VECTOR_NM: {
+            cr0 = vcpu_read_cr(state, 0);
+            if (vcpu->is_ts_set_by_haxm) {
+                vcpu->is_ts_set_by_haxm = 0;
+                vcpu_write_cr(state, 0, cr0 & ~(uint64)CR0_TS);
+                vmx(vcpu, cr0_mask) &= ~(uint64)CR0_TS;
+                if ((vmcs_err = load_vmcs(vcpu, &flags))) {
+                    hax_panic_vcpu(vcpu, "load_vmcs failed while CLTS: %x\n",
+                                   vmcs_err);
+                    hax_panic_log(vcpu);
+                    return HAX_RESUME;
+                }
+                vmwrite_cr(vcpu);
+                if ((vmcs_err = put_vmcs(vcpu, &flags))) {
+                    hax_panic_vcpu(vcpu, "put_vmcs failed while CLTS: %x\n",
+                                   vmcs_err);
+                    hax_panic_log(vcpu);
+                    return HAX_RESUME;
+                }
+            }
+            if (cr0 & CR0_TS) {
+                uint32 exc_bitmap = vmx(vcpu, exc_bitmap);
+                if (!vcpu->is_fpu_used) {
+                    vcpu->is_fpu_used = 1;
+                }
+                exc_bitmap &= ~(1u << VECTOR_NM);
+                vmwrite(vcpu, VMX_EXCEPTION_BITMAP,
+                        vmx(vcpu, exc_bitmap) = exc_bitmap);
+            }
+            return HAX_RESUME;
         }
         case VECTOR_MC: {
             hax_panic_vcpu(vcpu, "Machine check happens!\n");
@@ -2650,6 +2689,13 @@ static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
                     hax_debug("Enter NON-PE from PE\n");
                     return HAX_EXIT;
                 }
+                if (vcpu->is_ts_set_by_haxm) {
+                    if (val & CR0_TS) {
+                        vcpu->is_ts_set_by_haxm = 0;
+                        vmx(vcpu, cr0_mask) &= ~(uint64)CR0_TS;
+                    } else
+                        val |= CR0_TS;
+                }
 
                 // See IASDM Vol. 3A 4.4.1
                 cr0_pae_triggers = CR0_CD | CR0_NW | CR0_PG;
@@ -2739,6 +2785,9 @@ static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
         case 2: { // CLTS
             hax_info("CLTS\n");
             state->_cr0 &= ~(uint64)CR0_TS;
+            if (!vcpu->is_fpu_used) {
+                vcpu->is_fpu_used = 1;
+            }
             if ((vmcs_err = load_vmcs(vcpu, &flags))) {
                 hax_panic_vcpu(vcpu, "load_vmcs failed while CLTS: %x\n",
                                vmcs_err);
@@ -3605,6 +3654,8 @@ int vcpu_get_regs(struct vcpu_t *vcpu, struct vcpu_state_t *ustate)
     ustate->_rflags = state->_rflags;
 
     ustate->_cr0 = state->_cr0;
+    if (vcpu->is_ts_set_by_haxm)
+        ustate->_cr0 &= CR0_TS;
     ustate->_cr2 = state->_cr2;
     ustate->_cr3 = state->_cr3;
     ustate->_cr4 = state->_cr4;
@@ -3675,6 +3726,16 @@ int vcpu_set_regs(struct vcpu_t *vcpu, struct vcpu_state_t *ustate)
     if (rsp_dirty) {
         state->_rsp = ustate->_rsp;
         vmwrite(vcpu, GUEST_RSP, state->_rsp);
+    }
+
+    if (vcpu->is_ts_set_by_haxm) {
+        if (ustate->_cr0 & CR0_TS) {
+            vcpu->is_ts_set_by_haxm = 0;
+            vmx(vcpu, cr0_mask) &= ~(uint64)CR0_TS;
+            cr_dirty += 1;
+        } else {
+            ustate->_cr0 |= CR0_TS;
+        }
     }
 
     UPDATE_VCPU_STATE(_cr0, cr_dirty);
