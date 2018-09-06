@@ -99,23 +99,20 @@ cleanup:
     return retval;
 }
 
-static int DriverInstall(const wchar_t *sysFileName)
+static int DriverInstall(const wchar_t *sysFilePath)
 {
+    DWORD pathLen;
     HANDLE fileHandle;
     wchar_t driverLocation[MAX_PATH];
     SC_HANDLE hSCManager = NULL;
     SC_HANDLE hService = NULL;
     int retval = 1;
 
-    if (!GetCurrentDirectory(MAX_PATH, (LPTSTR)driverLocation)) {
-        printf("%s(): Failed to get current directory\r\n", __FUNCTION__);
-        goto cleanup;
-    }
-    if (StringCchCatW(driverLocation, MAX_PATH, L"\\") != S_OK ||
-        StringCchCatW(driverLocation, MAX_PATH, sysFileName) != S_OK) {
+    pathLen = GetFullPathNameW(sysFilePath, MAX_PATH, driverLocation, NULL);
+    if (!pathLen || pathLen >= MAX_PATH) {
         printf("%s(): Failed to get absolute path:\r\n",
                 __FUNCTION__);
-        wprintf(L"  sysFileName='%s'\r\n", sysFileName);
+        wprintf(L"  sysFilePath='%s'\r\n", sysFilePath);
         goto cleanup;
     }
 
@@ -130,7 +127,7 @@ static int DriverInstall(const wchar_t *sysFileName)
     if (fileHandle == INVALID_HANDLE_VALUE) {
         printf("%s() Error: Cannot locate driver file:\r\n",
                 __FUNCTION__);
-        wprintf(L"  sysFileName='%s'\r\n", sysFileName);
+        wprintf(L"  driverLocation='%s'\r\n", driverLocation);
         goto cleanup;
     } else {
         CloseHandle(fileHandle);
@@ -178,8 +175,8 @@ static void PrintUsage(void)
 {
     printf("Usage: HaxmLoader [mode]\r\n");
     printf("  Modes:\r\n");
-    printf("    -i <filename>: install driver (*.sys, "
-           "must be in current dir and signed)\r\n");
+    printf("    -i <sys_file_path>: install driver"
+           " (*.sys, must be signed)\r\n");
     printf("    -u: uninstall driver\r\n");
 }
 
