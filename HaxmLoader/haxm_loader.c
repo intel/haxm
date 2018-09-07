@@ -29,45 +29,44 @@
  */
 
 #include <stdio.h>
-#include <stdlib.h>
+#include <strsafe.h>
 #include <windows.h>
-#include <winioctl.h>
 
-#define SERVICE_NAME "haxm service for test"
-#define HAX_DEVICE "\\\\.\\HAX"
+#define SERVICE_NAME L"haxm service for test"
 
-void PrintErrorMessage(void)
+static void PrintErrorMessage(void)
 {
     DWORD LastError;
     LPVOID lpMsgBuf;
 
     LastError = GetLastError();
-    FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
-                  FORMAT_MESSAGE_FROM_SYSTEM |
-                  FORMAT_MESSAGE_IGNORE_INSERTS,
-                  NULL,
-                  LastError,
-                  MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), // Default language
-                  (LPTSTR)&lpMsgBuf,
-                  0,
-                  NULL);
-    printf("Error Code: %d, %s\r\n", LastError, (char *)lpMsgBuf);
+    FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER |
+                   FORMAT_MESSAGE_FROM_SYSTEM |
+                   FORMAT_MESSAGE_IGNORE_INSERTS,
+                   NULL,
+                   LastError,
+                   // Default language
+                   MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                   (LPWSTR)&lpMsgBuf,
+                   0,
+                   NULL);
+    wprintf(L"Error Code: %d, %s\r\n", LastError, (wchar_t *)lpMsgBuf);
     LocalFree(lpMsgBuf);
 }
 
-int DriverUninstall(void)
+static int DriverUninstall(void)
 {
     SC_HANDLE hSCManager = NULL;
     SC_HANDLE hService = NULL;
     SERVICE_STATUS ss;
     int retval = 1;
 
-    hSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
+    hSCManager = OpenSCManagerW(NULL, NULL, SC_MANAGER_ALL_ACCESS);
     if (!hSCManager) {
         printf("%s(): OpenSCManager failed.\r\n", __FUNCTION__);
         goto cleanup;
     }
-    hService = OpenService(hSCManager, SERVICE_NAME, SERVICE_ALL_ACCESS);
+    hService = OpenServiceW(hSCManager, SERVICE_NAME, SERVICE_ALL_ACCESS);
     if (!hService) { // service already deleted
         retval = 0;
         goto cleanup;
@@ -100,55 +99,61 @@ cleanup:
     return retval;
 }
 
-int DriverInstall(char *sysFileName)
+static int DriverInstall(const wchar_t *sysFilePath)
 {
+    DWORD pathLen;
     HANDLE fileHandle;
-    UCHAR driverLocation[MAX_PATH];
+    wchar_t driverLocation[MAX_PATH];
     SC_HANDLE hSCManager = NULL;
     SC_HANDLE hService = NULL;
     int retval = 1;
 
-    GetCurrentDirectory(MAX_PATH, (LPTSTR)driverLocation);
-    strcat((char *)driverLocation, "\\");
-    strcat((char *)driverLocation, sysFileName);
+    pathLen = GetFullPathNameW(sysFilePath, MAX_PATH, driverLocation, NULL);
+    if (!pathLen || pathLen >= MAX_PATH) {
+        printf("%s(): Failed to get absolute path:\r\n",
+                __FUNCTION__);
+        wprintf(L"  sysFilePath='%s'\r\n", sysFilePath);
+        goto cleanup;
+    }
 
     // check if sysFile exists
-    fileHandle = CreateFile((LPCSTR)driverLocation,
-                            GENERIC_READ,
-                            0,
-                            NULL,
-                            OPEN_EXISTING,
-                            FILE_ATTRIBUTE_NORMAL,
-                            NULL);
+    fileHandle = CreateFileW(driverLocation,
+                             GENERIC_READ,
+                             0,
+                             NULL,
+                             OPEN_EXISTING,
+                             FILE_ATTRIBUTE_NORMAL,
+                             NULL);
     if (fileHandle == INVALID_HANDLE_VALUE) {
-        printf("%s() Error: Cannot locate driver file %s\r\n",
-               __FUNCTION__, driverLocation);
+        printf("%s() Error: Cannot locate driver file:\r\n",
+                __FUNCTION__);
+        wprintf(L"  driverLocation='%s'\r\n", driverLocation);
         goto cleanup;
     } else {
         CloseHandle(fileHandle);
     }
 
-    hSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
-    if(!hSCManager) {
+    hSCManager = OpenSCManagerW(NULL, NULL, SC_MANAGER_ALL_ACCESS);
+    if (!hSCManager) {
         printf("%s() Error: OpenSCManager Fail. \r\n", __FUNCTION__);
         goto cleanup;
     }
 
-    hService = CreateService(hSCManager, SERVICE_NAME,
-                             SERVICE_NAME,
-                             SERVICE_ALL_ACCESS,
-                             SERVICE_KERNEL_DRIVER,
-                             SERVICE_DEMAND_START,
-                             SERVICE_ERROR_IGNORE,
-                             (LPCSTR) driverLocation,
-                             NULL, NULL, NULL, NULL, NULL);
+    hService = CreateServiceW(hSCManager, SERVICE_NAME,
+                              SERVICE_NAME,
+                              SERVICE_ALL_ACCESS,
+                              SERVICE_KERNEL_DRIVER,
+                              SERVICE_DEMAND_START,
+                              SERVICE_ERROR_IGNORE,
+                              driverLocation,
+                              NULL, NULL, NULL, NULL, NULL);
     if (!hService) {
         printf("%s() Error: OpenDriverService failed \r\n",
                __FUNCTION__);
         goto cleanup;
     }
 
-    if (!StartService(hService, 0, NULL)) {
+    if (!StartServiceW(hService, 0, NULL)) {
         printf("%s() Error: StartService, Couldn't start service. \r\n",
                __FUNCTION__);
         goto cleanup;
@@ -166,73 +171,37 @@ cleanup:
     return retval;
 }
 
-int WriteToReg(int mem_limit, int log_level)
-{
-    HKEY hk = NULL;
-    int retval = 0;
-
-    if (RegCreateKeyEx(HKEY_LOCAL_MACHINE, "SOFTWARE\\HAXM\\HAXM",
-                       0, NULL, REG_OPTION_NON_VOLATILE, KEY_WRITE,
-                       NULL, &hk, NULL) != ERROR_SUCCESS) {
-        printf("%s(): failed to create/open registry key\r\n",
-               __FUNCTION__);
-        PrintErrorMessage();
-        return 1;
-    }
-
-    if (RegSetValueEx(hk, "MemLimit", 0,
-                      REG_DWORD, (const BYTE *)&mem_limit,
-                      sizeof(DWORD)) != ERROR_SUCCESS) {
-        printf("%s(): failed to set MemLimit\r\n", __FUNCTION__);
-        PrintErrorMessage();
-        retval = 1;
-    }
-
-    if (RegSetValueEx(hk, "LogLevel", 0,
-                      REG_DWORD, (const BYTE *)&log_level,
-                      sizeof(DWORD)) != ERROR_SUCCESS) {
-        printf("%s(): failed to set LogLevel\r\n", __FUNCTION__);
-        PrintErrorMessage();
-        retval = 1;
-    }
-
-    if (retval == 0)
-        printf("%s(): write mem_limit (%dMB) and log level (%d) to "
-               "registry done\r\n", __FUNCTION__, mem_limit, log_level);
-    return retval;
-}
-
-void PrintUsage(void)
+static void PrintUsage(void)
 {
     printf("Usage: HaxmLoader [mode]\r\n");
     printf("  Modes:\r\n");
-    printf("    -i <filename>: install driver (*.sys, "
-           "must be in current dir and signed)\r\n");
+    printf("    -i <sys_file_path>: install driver"
+           " (*.sys, must be signed)\r\n");
     printf("    -u: uninstall driver\r\n");
-    printf("    -s <mem_limit> <log_level>: set memory "
-           "limit (in MB) and log level (0~3)\r\n");
 }
 
-int __cdecl main(int argc, char *argv[])
+int __cdecl wmain(int argc, wchar_t *argv[])
 {
+    wchar_t *modeStr;
+    size_t modeStrLen = 0;
+
     if (argc == 1) {
         PrintUsage();
         return 0;
     }
-    if (argv[1][0] == '-') {
-        switch (argv[1][1]) {
-            case 'i':
+
+    modeStr = argv[1];
+    // Expect modeStr == { L'-', modeChar, NULL }
+    if (StringCchLengthW(modeStr, 3, &modeStrLen) == S_OK &&
+        modeStrLen == 2 && modeStr[0] == L'-') {
+        switch (modeStr[1]) {
+            case L'i':
                 if (argc == 3)
                     return DriverInstall(argv[2]);
                 break;
-            case 'u':
+            case L'u':
                 if (argc == 2)
                     return DriverUninstall();
-                break;
-            case 's':
-                if (argc == 4)
-                    return WriteToReg(atoi(argv[2]),
-                                      atoi(argv[3]));
                 break;
             default:
                 break;
