@@ -1504,7 +1504,7 @@ int vcpu_execute(struct vcpu_t *vcpu)
     if (!em_ctxt->finished) {
         rc = em_emulate_insn(em_ctxt);
         if (rc < 0) {
-            hax_panic_vcpu(vcpu, "%s: em_emulate_insn() failed: vcpu_id=%u",
+            hax_panic_vcpu(vcpu, "%s: em_emulate_insn() failed: vcpu_id=%u\n",
                            __func__, vcpu->vcpu_id);
             err = HAX_RESUME;
             goto out;
@@ -1956,6 +1956,10 @@ static int vcpu_emulate_insn(struct vcpu_t *vcpu)
     uint64 rip = vcpu->state->_rip;
     uint64 va;
 
+    // Clean up the emulation context of the previous MMIO instruction, so that
+    // even if things go wrong, the behavior will still be predictable.
+    vcpu_init_emulator(vcpu);
+
     // Detect guest mode
     if (!(vcpu->state->_cr0 & CR0_PE))
         mode = EM_MODE_REAL;
@@ -1991,8 +1995,12 @@ static int vcpu_emulate_insn(struct vcpu_t *vcpu)
     em_ctxt->rip = rip;
     rc = em_decode_insn(em_ctxt, instr);
     if (rc < 0) {
-        hax_panic_vcpu(vcpu, "%s: em_decode_insn() failed: vcpu_id=%u",
-                       __func__, vcpu->vcpu_id);
+        hax_panic_vcpu(vcpu, "em_decode_insn() failed: vcpu_id=%u,"
+                       " len=%u, CS:IP=0x%llx:0x%llx, instr[0..5]="
+                       "0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n", vcpu->vcpu_id,
+                       vcpu->vmx.exit_instr_length, cs_base, rip, instr[0],
+                       instr[1], instr[2], instr[3], instr[4], instr[5]);
+        dump_vmcs(vcpu);
         return HAX_RESUME;
     }
     if (em_ctxt->len != vcpu->vmx.exit_instr_length) {
@@ -2004,8 +2012,12 @@ static int vcpu_emulate_insn(struct vcpu_t *vcpu)
     }
     rc = em_emulate_insn(em_ctxt);
     if (rc < 0) {
-        hax_panic_vcpu(vcpu, "%s: em_emulate_insn() failed: vcpu_id=%u",
-                       __func__, vcpu->vcpu_id);
+        hax_panic_vcpu(vcpu, "em_emulate_insn() failed: vcpu_id=%u,"
+                       " len=%u, CS:IP=0x%llx:0x%llx, instr[0..5]="
+                       "0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n", vcpu->vcpu_id,
+                       vcpu->vmx.exit_instr_length, cs_base, rip, instr[0],
+                       instr[1], instr[2], instr[3], instr[4], instr[5]);
+        dump_vmcs(vcpu);
         return HAX_RESUME;
     }
     return HAX_EXIT;
@@ -2156,6 +2168,8 @@ static const struct em_vcpu_ops_t em_ops = {
 static void vcpu_init_emulator(struct vcpu_t *vcpu)
 {
     struct em_context_t *em_ctxt = &vcpu->emulate_ctxt;
+
+    memset(em_ctxt, 0, sizeof(*em_ctxt));
     em_ctxt->vcpu = vcpu;
     em_ctxt->ops = &em_ops;
     em_ctxt->finished = true;

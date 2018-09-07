@@ -164,28 +164,43 @@ protected:
         em_ctxt.ops = &em_ops;
         em_ctxt.mode = EM_MODE_PROT64;
         em_ctxt.vcpu = &vcpu;
+        em_ctxt.rip = 0;
+    }
+
+    void assemble_decode(const char* insn,
+                         uint64_t rip,
+                         size_t* size,
+                         size_t* count,
+                         em_status_t* decode_status) {
+        uint8_t* code;
+        int err;
+
+        err = ks_asm(ks, insn, 0, &code, size, count);
+        ASSERT_TRUE(err == 0);
+        EXPECT_TRUE(*size != 0);
+        EXPECT_TRUE(*count != 0);
+
+        em_ctxt.rip = rip;
+        *decode_status = em_decode_insn(&em_ctxt, code);
+        // code == em_ctxt->insn should never be used after em_decode_insn()
+        ks_free(code);
     }
 
     void run(const char* insn,
              const test_cpu_t& vcpu_original,
              const test_cpu_t& vcpu_expected) {
-        uint8_t* code;
         size_t count;
         size_t size;
-        int err;
+        em_status_t ret = EM_ERROR;
 
         vcpu = vcpu_original;
-        err = ks_asm(ks, insn, 0, &code, &size, &count);
-        ASSERT_FALSE(err);
-        em_ctxt.rip = 0;
-        err = em_decode_insn(&em_ctxt, code);
-        ASSERT_TRUE(err != EM_ERROR);
-        err = em_emulate_insn(&em_ctxt);
-        ASSERT_TRUE(err != EM_ERROR);
-        EXPECT_TRUE(vcpu.rip == size);
-        vcpu.rip = 0;
-        EXPECT_FALSE(memcmp(&vcpu, &vcpu_expected, sizeof(test_cpu_t)));
-        ks_free(code);
+        assemble_decode(insn, vcpu.rip, &size, &count, &ret);
+        ASSERT_TRUE(ret != EM_ERROR);
+        ret = em_emulate_insn(&em_ctxt);
+        ASSERT_TRUE(ret != EM_ERROR);
+        EXPECT_TRUE(vcpu.rip == vcpu_original.rip + size);
+        vcpu.rip = vcpu_expected.rip;
+        EXPECT_EQ(memcmp(&vcpu, &vcpu_expected, sizeof(test_cpu_t)), 0);
     }
 
     /* Test cases */
@@ -251,6 +266,16 @@ protected:
         default:
             return "";
         }
+    }
+
+    void test_insn_unimpl(const char* insn) {
+        size_t size;
+        size_t count;
+        em_status_t ret = EM_CONTINUE;
+
+        assemble_decode(insn, 0, &size, &count, &ret);
+        // Decoding should fail
+        EXPECT_LT(ret, 0);
     }
 
     template <int N>
@@ -453,6 +478,16 @@ protected:
         test_insn_mN_rN<N>(insn_name, tests);
     }
 };
+
+TEST_F(EmulatorTest, insn_unimpl_primary) {
+    // Opcode 0x85 (TEST r/mN, rN) is unimplemented
+    test_insn_unimpl("test dword ptr [edx + 2*ecx + 0x10], esi");
+}
+
+TEST_F(EmulatorTest, insn_unimpl_secondary) {
+    // Opcode 0xF7 /4 (MUL r/mN) is unimplemented
+    test_insn_unimpl("mul dword ptr [edx + 2*ecx + 0x10]");
+}
 
 TEST_F(EmulatorTest, insn_add) {
     test_alu_2op<8>("add", {
