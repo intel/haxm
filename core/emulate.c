@@ -197,7 +197,8 @@ static const struct em_opcode_t opcode_table[256] = {
     G(opcode_group1, op_modrm_rm, op_simm, op_none, 0),
     G(opcode_group1, op_modrm_rm, op_simm, op_none, INSN_BYTEOP),
     G(opcode_group1, op_modrm_rm, op_simm8, op_none, 0),
-    X4(N),
+    F2_BV(em_test, op_modrm_rm, op_modrm_reg, op_none, INSN_MODRM),
+    X2(N),  /* TODO: 0x86 & 0x87 (XCHG) */
     I2_BV(em_mov, op_modrm_rm, op_modrm_reg, op_none, INSN_MODRM | INSN_MOV),
     I2_BV(em_mov, op_modrm_reg, op_modrm_rm, op_none, INSN_MODRM | INSN_MOV),
     X4(N),
