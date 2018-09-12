@@ -197,7 +197,8 @@ static const struct em_opcode_t opcode_table[256] = {
     G(opcode_group1, op_modrm_rm, op_simm, op_none, 0),
     G(opcode_group1, op_modrm_rm, op_simm, op_none, INSN_BYTEOP),
     G(opcode_group1, op_modrm_rm, op_simm8, op_none, 0),
-    X4(N),
+    F2_BV(em_test, op_modrm_rm, op_modrm_reg, op_none, INSN_MODRM),
+    X2(N),  /* TODO: 0x86 & 0x87 (XCHG) */
     I2_BV(em_mov, op_modrm_rm, op_modrm_reg, op_none, INSN_MODRM | INSN_MOV),
     I2_BV(em_mov, op_modrm_reg, op_modrm_rm, op_none, INSN_MODRM | INSN_MOV),
     X4(N),
@@ -881,7 +882,6 @@ em_status_t EMCALL em_decode_insn(struct em_context_t *ctxt, const uint8_t *insn
     uint8_t b;
     uint64_t flags;
     struct em_opcode_t *opcode;
-    const struct em_opcode_t *opcode_group;
 
     switch (ctxt->mode) {
     case EM_MODE_REAL:
@@ -1010,21 +1010,29 @@ em_status_t EMCALL em_decode_insn(struct em_context_t *ctxt, const uint8_t *insn
         ctxt->operand_size = 1;
     }
     if (flags & INSN_GROUP) {
-        opcode_group = &opcode->group[ctxt->modrm.opc];
-        opcode->handler = opcode_group->handler;
-        if (!opcode_group->handler) {
+        const struct em_opcode_t *group_opcode;
+
+        if (!opcode->group) {
+            /* Should never happen */
             return EM_ERROR;
         }
-        opcode->flags |= opcode_group->flags;
-        if (opcode_group->decode_dst != decode_op_none) {
-            opcode->decode_dst = opcode_group->decode_dst;
+        group_opcode = &opcode->group[ctxt->modrm.opc];
+        opcode->handler = group_opcode->handler;
+        opcode->flags |= group_opcode->flags;
+        if (group_opcode->decode_dst != decode_op_none) {
+            opcode->decode_dst = group_opcode->decode_dst;
         }
-        if (opcode_group->decode_src1 != decode_op_none) {
-            opcode->decode_src1 = opcode_group->decode_src1;
+        if (group_opcode->decode_src1 != decode_op_none) {
+            opcode->decode_src1 = group_opcode->decode_src1;
         }
-        if (opcode_group->decode_src2 != decode_op_none) {
-            opcode->decode_src2 = opcode_group->decode_src2;
+        if (group_opcode->decode_src2 != decode_op_none) {
+            opcode->decode_src2 = group_opcode->decode_src2;
         }
+    }
+
+    /* Some unimplemented opcodes have an all-zero em_opcode_t */
+    if ((opcode->flags & INSN_NOTIMPL) || !opcode->handler) {
+        return EM_ERROR;
     }
     return decode_operands(ctxt);
 }
