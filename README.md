@@ -58,7 +58,7 @@ If successful, the driver binary (`IntelHaxm.sys`) will be generated in
 `Platform="Win32"`), and will be able to run on Windows 7 and later.
 
 ## Testing on Windows
-### System Requirements
+### System requirements
 Note that these are requirements for the _test_ environment, which does not
 have to be the same as the _build_ environment.
 
@@ -70,8 +70,8 @@ are good to go.
 support _Unrestricted Guest_ (UG), which is another advanced feature of VT-x.
 It may still be possible to run HAXM on very old (pre-2010) CPUs, e.g.
 Intel Core 2 Duo, which implement an earlier version of VT-x that does not
-include either EPT or UG, because there is still legacy code that enables HAXM
-to work in non-EPT and non-UG modes. However, such code may be removed soon.
+include either EPT or UG. However, the legacy code that enables HAXM to work in
+in non-EPT and non-UG modes may be removed soon.
 1. Windows 7 or later; both 32-bit and 64-bit Windows are supported.
    * Running HAXM in a nested virtualization setup, where Windows itself runs as
 a guest OS on another hypervisor, may be possible, but this use case is not well
@@ -93,9 +93,17 @@ more details, please read [this article][windows-test-driver-install].
 by the `Debug` build configuration.
    1. In the test environment, open an *elevated* Command Prompt and run
 `certmgr.exe /add X:\path\to\IntelHaxm.cer /s /r localMachine root`
+1. Optionally, install [DebugView][debugview] to capture HAXM debug output.
 
 ### Loading and unloading the test driver
 TODO: HaxmLoader.exe usage
+
+### Capturing driver logs
+1. Launch DebugView (`Dbgview.exe`) as administrator.
+1. In the _Capture_ menu, select everything except _Log Boot_. DebugView will
+now start capturing debug output from all kernel-mode drivers.
+1. In order to filter out non-HAXM logs, go to _Edit_ > _Filter/Highlight..._,
+enter `hax*` for _Include_, and click on _OK_.
 
 ## Building for macOS
 ### Prerequisites
@@ -155,6 +163,19 @@ To unload the test kext:
 the signed one installed to `/Library/Extensions/`:
 `sudo kextload /Library/Extensions/intelhaxm.kext`
 
+### Viewing kext logs
+On macOS, HAXM debug output goes to the system log database, and can be
+retrieved at almost any time.
+
+* On OS X 10.10, HAXM log messages are written immediately to
+`/var/log/system.log`. They can be viewed conveniently using _Console.app_ or
+the `syslog` command.
+* On macOS 10.11 or later, there can be a delay before a HAXM log message is
+picked up by the system. With that in mind, you can query the system log
+database for past HAXM logs. E.g.
+`log show --predicate 'eventMessage contains "hax"' --last 1h`
+dumps the HAXM debug output from the past hour.
+
 ## Reporting an Issue
 You are welcome to file a GitHub issue if you discover a general HAXM bug or
 have a feature request.
@@ -176,6 +197,7 @@ sensitive information.
 [nuget]: https://www.nuget.org/downloads
 [intel-ept-cpus]: https://ark.intel.com/Search/FeatureFilter?productType=processors&ExtendedPageTables=true
 [windows-test-driver-install]: https://docs.microsoft.com/en-us/windows-hardware/drivers/install/installing-test-signed-driver-packages
+[debugview]: https://docs.microsoft.com/en-us/sysinternals/downloads/debugview
 [osx-sdks]: https://github.com/phracker/MacOSX-SDKs
 [macos-kext-dev-mode]: https://developer.apple.com/library/archive/documentation/Security/Conceptual/System_Integrity_Protection_Guide/KernelExtensions/KernelExtensions.html
 [macos-sip-disable]: https://developer.apple.com/library/archive/documentation/Security/Conceptual/System_Integrity_Protection_Guide/ConfiguringSystemIntegrityProtection/ConfiguringSystemIntegrityProtection.html
