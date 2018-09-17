@@ -229,6 +229,12 @@ static int hax_vcpu_ioctl(dev_t dev, ulong cmd, caddr_t data, int flag,
             vcpu_interrupt(mvcpu2cvcpu(vcpu), vector);
             break;
         }
+        case HAX_IOCTL_VCPU_DEBUG: {
+            struct hax_debug_t *hax_debug;
+            hax_debug = (struct hax_debug_t *)data;
+            vcpu_debug(cvcpu, hax_debug);
+            break;
+        }
         default: {
             int pid;
             char task_name[17];

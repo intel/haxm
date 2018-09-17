@@ -45,6 +45,7 @@ int vcpu_put_fpu(struct vcpu_t *vcpu, struct fx_layout *fl);
 int vcpu_get_fpu(struct vcpu_t *vcpu, struct fx_layout *fl);
 int vcpu_set_regs(struct vcpu_t *vcpu, struct vcpu_state_t *vs);
 int vcpu_get_regs(struct vcpu_t *vcpu, struct vcpu_state_t *vs);
+void vcpu_debug(struct vcpu_t *vcpu, struct hax_debug_t *debug);
 
 void * get_vcpu_host(struct vcpu_t *vcpu);
 int set_vcpu_host(struct vcpu_t *vcpu, void *vcpu_host);

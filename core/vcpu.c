@@ -1154,9 +1154,28 @@ void vcpu_save_host_state(struct vcpu_t *vcpu)
     save_host_msr(vcpu);
 
     hstate->hcr2 = get_cr2();
+    hstate->dr0 = get_dr0();
+    hstate->dr1 = get_dr1();
+    hstate->dr2 = get_dr2();
+    hstate->dr3 = get_dr3();
+    hstate->dr6 = get_dr6();
     vcpu_enter_fpu_state(vcpu);
     // CR0 should be written after host fpu state is saved
     vmwrite(vcpu, HOST_CR0, get_cr0());
+}
+
+static void vcpu_update_exception_bitmap(struct vcpu_t *vcpu)
+{
+    uint32 exc_bitmap;
+
+    exc_bitmap = (1u << VECTOR_MC);
+    if (vcpu->debug_control & (HAX_DEBUG_USE_HW_BP | HAX_DEBUG_STEP)) {
+        exc_bitmap |= (1u << VECTOR_DB);
+    }
+    if (vcpu->debug_control & HAX_DEBUG_USE_SW_BP) {
+        exc_bitmap |= (1u << VECTOR_BP);
+    }
+    vmwrite(vcpu, VMX_EXCEPTION_BITMAP, exc_bitmap);
 }
 
 static void fill_common_vmcs(struct vcpu_t *vcpu)
@@ -1164,7 +1183,6 @@ static void fill_common_vmcs(struct vcpu_t *vcpu)
     uint32 pin_ctls;
     uint32 pcpu_ctls;
     uint32 scpu_ctls;
-    uint32 exc_bitmap;
     uint32 exit_ctls = 0;
     uint32 entry_ctls;
     uint32 vmcs_err = 0;
@@ -1197,8 +1215,6 @@ static void fill_common_vmcs(struct vcpu_t *vcpu)
             }
         }
     }
-
-    exc_bitmap = 1u << VECTOR_MC;
 
 #ifdef __x86_64__
     exit_ctls = EXIT_CONTROL_HOST_ADDR_SPACE_SIZE | EXIT_CONTROL_LOAD_EFER |
@@ -1272,7 +1288,7 @@ static void fill_common_vmcs(struct vcpu_t *vcpu)
         WRITE_CONTROLS(vcpu, VMX_SECONDARY_PROCESSOR_CONTROLS, scpu_ctls);
     }
 
-    vmwrite(vcpu, VMX_EXCEPTION_BITMAP, exc_bitmap);
+    vcpu_update_exception_bitmap(vcpu);
 
     WRITE_CONTROLS(vcpu, VMX_EXIT_CONTROLS, exit_ctls);
 
@@ -1368,8 +1384,37 @@ void vcpu_load_host_state(struct vcpu_t *vcpu)
 
     load_host_msr(vcpu);
     set_cr2(hstate->hcr2);
+    set_dr0(hstate->dr0);
+    set_dr1(hstate->dr1);
+    set_dr2(hstate->dr2);
+    set_dr3(hstate->dr3);
+    set_dr6(hstate->dr6);
 
     vcpu_exit_fpu_state(vcpu);
+}
+
+void vcpu_save_guest_state(struct vcpu_t *vcpu)
+{
+    struct vcpu_state_t *state = vcpu->state;
+
+    save_guest_msr(vcpu);
+    state->_dr0 = get_dr0();
+    state->_dr1 = get_dr1();
+    state->_dr2 = get_dr2();
+    state->_dr3 = get_dr3();
+    state->_dr6 = get_dr6();
+}
+
+void vcpu_load_guest_state(struct vcpu_t *vcpu)
+{
+    struct vcpu_state_t *state = vcpu->state;
+
+    load_guest_msr(vcpu);
+    set_dr0(state->_dr0);
+    set_dr1(state->_dr1);
+    set_dr2(state->_dr2);
+    set_dr3(state->_dr3);
+    set_dr6(state->_dr6);
 }
 
 /*
@@ -2213,6 +2258,20 @@ static int exit_exc_nmi(struct vcpu_t *vcpu, struct hax_tunnel *htun)
             dump_vmcs(vcpu);
             break;
         }
+        case VECTOR_DB: {
+            htun->_exit_status = HAX_EXIT_DEBUG;
+            htun->debug.rip = vcpu->state->_rip;
+            htun->debug.dr6 = vmx(vcpu, exit_qualification).raw;
+            htun->debug.dr7 = vmread(vcpu, GUEST_DR7);
+            return HAX_EXIT;
+        }
+        case VECTOR_BP: {
+            htun->_exit_status = HAX_EXIT_DEBUG;
+            htun->debug.rip = vcpu->state->_rip;
+            htun->debug.dr6 = 0;
+            htun->debug.dr7 = 0;
+            return HAX_EXIT;
+        }
     }
 
     if (exit_intr_info.vector == VECTOR_PF) {
@@ -2797,6 +2856,10 @@ static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 
 static int exit_dr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
+    // TODO: DR-exiting flag is disabled so this function is never executed.
+    //       We should conditionally enable "DR exiting" whenever
+    //       HAX_DEBUG_USE_HW_BP is enabled, to prevent the guest from
+    //       tampering with debug drN registers.
     uint64 *dr;
     struct vcpu_state_t *state = vcpu->state;
 
@@ -2856,7 +2919,7 @@ static int exit_dr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     if (vmx(vcpu, exit_qualification.dr.direction)) {
         // MOV DR -> GPR
         state->_regs[vmx(vcpu, exit_qualification).dr.gpr] = *dr;
-    } else {
+    } else if (!(vcpu->debug_control & HAX_DEBUG_USE_HW_BP)) {
         // MOV DR <- GPR
         *dr = state->_regs[vmx(vcpu, exit_qualification).dr.gpr];
     }
@@ -3798,6 +3861,37 @@ int vcpu_set_msr(struct vcpu_t *vcpu, uint64 entry, uint64 val)
 {
     return handle_msr_write(vcpu, entry, val);
 }
+
+void vcpu_debug(struct vcpu_t *vcpu, struct hax_debug_t *debug)
+{
+    if (debug->control & HAX_DEBUG_ENABLE) {
+        vcpu->debug_control = debug->control;
+        // Hardware breakpoints
+        if (debug->control & HAX_DEBUG_USE_HW_BP) {
+            vcpu->state->_dr0 = debug->dr[0];
+            vcpu->state->_dr1 = debug->dr[1];
+            vcpu->state->_dr2 = debug->dr[2];
+            vcpu->state->_dr3 = debug->dr[3];
+            vmwrite(vcpu, GUEST_DR7, debug->dr[7]);
+        } else {
+            vmwrite(vcpu, GUEST_DR7, 0);
+        }
+        // Single-stepping
+        if (debug->control & HAX_DEBUG_STEP) {
+            vmwrite(vcpu, GUEST_RFLAGS,
+                    vmread(vcpu, GUEST_RFLAGS) | EFLAGS_TF);
+        } else {
+            vmwrite(vcpu, GUEST_RFLAGS,
+                    vmread(vcpu, GUEST_RFLAGS) & ~EFLAGS_TF);
+        }
+    } else {
+        vcpu->debug_control = 0;
+        vmwrite(vcpu, GUEST_DR7, 0);
+        vmwrite(vcpu, GUEST_RFLAGS,
+                vmread(vcpu, GUEST_RFLAGS) & ~EFLAGS_TF);
+    }
+    vcpu_update_exception_bitmap(vcpu);
+};
 
 static void vcpu_dump(struct vcpu_t *vcpu, uint32 mask, const char *caption)
 {

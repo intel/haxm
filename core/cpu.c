@@ -347,12 +347,12 @@ vmx_result_t cpu_vmx_run(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     /* Must ensure the IRQ is disabled before setting CR2 */
     set_cr2(vcpu->state->_cr2);
 
-    load_guest_msr(vcpu);
+    vcpu_load_guest_state(vcpu);
 
     result = asm_vmxrun(vcpu->state, vcpu->launched);
 
     vcpu->is_running = 0;
-    save_guest_msr(vcpu);
+    vcpu_save_guest_state(vcpu);
     vcpu_load_host_state(vcpu);
 
 #ifdef  DEBUG_HOST_STATE

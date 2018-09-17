@@ -348,6 +348,7 @@ int hax_get_capability(void *buf, int bufLeng, int *outLength)
 #endif
         cap->winfo |= HAX_CAP_TUNNEL_PAGE;
         cap->winfo |= HAX_CAP_RAM_PROTECTION;
+        cap->winfo |= HAX_CAP_DEBUG;
         if (cpu_data->vmx_info._ept_cap) {
             cap->winfo |= HAX_CAP_EPT;
         }

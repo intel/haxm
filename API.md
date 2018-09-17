@@ -95,6 +95,7 @@ itself as well as the host environment.
   #define HAX_CAP_64BIT_RAMBLOCK     (1 << 3)
   #define HAX_CAP_64BIT_SETRAM       (1 << 4)
   #define HAX_CAP_TUNNEL_PAGE        (1 << 5)
+  #define HAX_CAP_DEBUG              (1 << 7)
   ```
   * (Output) `wstatus`: The first set of capability flags reported to the
 caller. The following bits may be set, while others are reserved:
