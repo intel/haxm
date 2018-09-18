@@ -71,7 +71,7 @@ support _Unrestricted Guest_ (UG), which is another advanced feature of VT-x.
 It may still be possible to run HAXM on very old (pre-2010) CPUs, e.g.
 Intel Core 2 Duo, which implement an earlier version of VT-x that does not
 include either EPT or UG. However, the legacy code that enables HAXM to work in
-in non-EPT and non-UG modes may be removed soon.
+non-EPT and non-UG modes may be removed soon.
 1. Windows 7 or later; both 32-bit and 64-bit Windows are supported.
    * Running HAXM in a nested virtualization setup, where Windows itself runs as
 a guest OS on another hypervisor, may be possible, but this use case is not well
@@ -96,7 +96,35 @@ by the `Debug` build configuration.
 1. Optionally, install [DebugView][debugview] to capture HAXM debug output.
 
 ### Loading and unloading the test driver
-TODO: HaxmLoader.exe usage
+`HaxmLoader` is a small tool that can load and unload a test-signed driver
+without using an INF file. You can download it from [Releases](./releases),
+or building `HaxmLoader/HaxmLoader.sln` yourself using Visual Studio or EWDK.
+
+Basically, kernel-mode drivers like HAXM are managed by Windows Service Control
+Manager as services. Each such service has a unique name, a corresponding driver
+file, and a state. For example, when the HAXM installer installs the
+release-signed driver to `C:\Windows\System32\drivers\IntelHaxm.sys`, it also
+creates a service for it. This service is named `intelhaxm` and is started at
+boot time. `HaxmLoader` works in a similar manner: when loading a test driver,
+it creates a temporary service and starts it; when unloading the test driver, it
+stops and then deletes the service. 
+
+To load the test driver:
+1. Open an *elevated* Command Prompt.
+1. Make sure no other HAXM driver is loaded.
+   1. If `sc query intelhaxm` shows the `intelhaxm` service as `RUNNING`, you
+must stop it first: `sc stop intelhaxm`
+   1. Otherwise, unload the previously loaded test driver, if any:
+`HaxmLoader.exe -u`
+1. `HaxmLoader.exe -i X:\path\to\IntelHaxm.sys`
+   * Note that `HaxmLoader` can load a driver from any folder, so there is no
+need to copy the test driver to `C:\Windows\System32\drivers\` first.
+
+To unload the test driver:
+1. Open an *elevated* Command Prompt.
+1. `HaxmLoader.exe -u`
+1. Optionally, you may want to restore the original, release-signed driver
+(i.e. `C:\Windows\System32\drivers\IntelHaxm.sys`): `sc start intelhaxm`
 
 ### Capturing driver logs
 1. Launch DebugView (`Dbgview.exe`) as administrator.
@@ -156,6 +184,8 @@ first: `sudo kextunload -b com.intel.kext.intelhaxm`
 1. `sudo chown -R root:wheel /path/to/intelhaxm.kext`
 1. `sudo chmod -R 755 /path/to/intelhaxm.kext`
 1. `sudo kextload /path/to/intelhaxm.kext`
+   * Note that `kextload` can load a kext from any folder, so there is no need
+to copy the test kext to `/Library/Extensions/` first.
 
 To unload the test kext:
 1. `sudo kextunload /path/to/intelhaxm.kext`
