@@ -6,7 +6,9 @@ It started as an [Android SDK][android-studio] component, but has recently
 transformed itself into a general accelerator for [QEMU][qemu].
 
 HAXM can be built as either a kernel-mode driver for Windows or a kernel
-extension (_kext_) for macOS.
+extension (_kext_) for macOS. If you are interested in building HAXM from the
+source code, please read on. If you are just looking for the latest HAXM
+release, you can get it [here](./releases/latest).
 
 ## Building for Windows
 ### Prerequisites
