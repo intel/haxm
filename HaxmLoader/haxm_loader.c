@@ -173,6 +173,7 @@ cleanup:
 
 static void PrintUsage(void)
 {
+    printf("HaxmLoader version 1.0.0\r\n");
     printf("Usage: HaxmLoader [mode]\r\n");
     printf("  Modes:\r\n");
     printf("    -i <sys_file_path>: install driver"
