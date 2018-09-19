@@ -83,7 +83,7 @@ The following steps prepare the test environment for installing a test-signed
 more details, please read [this article][windows-test-driver-install].
 
 1. Disable Hyper-V and enable _Test Mode_:
-   1. Open an *elevated* Command Prompt.
+   1. Open an **elevated** (i.e. _Run as administrator_) Command Prompt.
    1. `bcdedit /set hypervisorlaunchtype off`
    1. `bcdedit /set testsigning off`
    1. Reboot.
@@ -91,7 +91,7 @@ more details, please read [this article][windows-test-driver-install].
    1. Copy `IntelHaxm.cer` from the build environment to the test environment
 (if the two are not the same). This file is generated alongside `IntelHaxm.sys`
 by the `Debug` build configuration.
-   1. In the test environment, open an *elevated* Command Prompt and run
+   1. In the test environment, open an **elevated** Command Prompt and run
 `certmgr.exe /add X:\path\to\IntelHaxm.cer /s /r localMachine root`
 1. Optionally, install [DebugView][debugview] to capture HAXM debug output.
 
@@ -110,18 +110,18 @@ it creates a temporary service and starts it; when unloading the test driver, it
 stops and then deletes the service. 
 
 To load the test driver:
-1. Open an *elevated* Command Prompt.
+1. Open an **elevated** Command Prompt.
 1. Make sure no other HAXM driver is loaded.
    1. If `sc query intelhaxm` shows the `intelhaxm` service as `RUNNING`, you
 must stop it first: `sc stop intelhaxm`
    1. Otherwise, unload the previously loaded test driver, if any:
 `HaxmLoader.exe -u`
-1. `HaxmLoader.exe -i X:\path\to\IntelHaxm.sys`
+1. Load the test driver: `HaxmLoader.exe -i X:\path\to\IntelHaxm.sys`
    * Note that `HaxmLoader` can load a driver from any folder, so there is no
 need to copy the test driver to `C:\Windows\System32\drivers\` first.
 
 To unload the test driver:
-1. Open an *elevated* Command Prompt.
+1. Open an **elevated** Command Prompt.
 1. `HaxmLoader.exe -u`
 1. Optionally, you may want to restore the original, release-signed driver
 (i.e. `C:\Windows\System32\drivers\IntelHaxm.sys`): `sc start intelhaxm`
@@ -198,13 +198,17 @@ On macOS, HAXM debug output goes to the system log database, and can be
 retrieved at almost any time.
 
 * On OS X 10.10, HAXM log messages are written immediately to
-`/var/log/system.log`. They can be viewed conveniently using _Console.app_ or
-the `syslog` command.
-* On macOS 10.11 or later, there can be a delay before a HAXM log message is
-picked up by the system. With that in mind, you can query the system log
-database for past HAXM logs. E.g.
-`log show --predicate 'eventMessage contains "hax"' --last 1h`
-dumps the HAXM debug output from the past hour.
+`/var/log/system.log`. You can monitor this file for real-time updates using
+_Console.app_ or the `syslog -w` command.
+* On macOS 10.11 or later, HAXM log messages are no longer written to
+`/var/log/system.log`, and there is no good way to capture them in real time.
+However, you can still retrieve them at a later time using one of the following
+methods:
+  1. `log show --predicate 'sender == "intelhaxm"' --style syslog --last 1h`,
+which is complex but very flexible. In this example, `--last 1h` indicates the
+past hour, and can be replaced with other queries.
+  1. `sudo dmesg | grep hax`, which is simple, but does not show the timestamp
+of each message.
 
 ## Reporting an Issue
 You are welcome to file a GitHub issue if you discover a general HAXM bug or
