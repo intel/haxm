@@ -8,7 +8,7 @@ transformed itself into a general accelerator for [QEMU][qemu].
 HAXM can be built as either a kernel-mode driver for Windows or a kernel
 extension (_kext_) for macOS. If you are interested in building HAXM from the
 source code, please read on. If you are just looking for the latest HAXM
-release, you can get it [here](./releases/latest).
+release, you can get it [here][github-haxm-latest-release].
 
 ## Building for Windows
 ### Prerequisites
@@ -99,8 +99,9 @@ by the `Debug` build configuration.
 
 ### Loading and unloading the test driver
 `HaxmLoader` is a small tool that can load and unload a test-signed driver
-without using an INF file. You can download it from [Releases](./releases),
-or building `HaxmLoader/HaxmLoader.sln` yourself using Visual Studio or EWDK.
+without using an INF file. You can download it from the
+[Releases][github-haxm-releases] page, or building `HaxmLoader/HaxmLoader.sln`
+yourself using Visual Studio or EWDK.
 
 Basically, kernel-mode drivers like HAXM are managed by Windows Service Control
 Manager as services. Each such service has a unique name, a corresponding driver
@@ -226,6 +227,7 @@ sensitive information.
 [intel-vt]: https://www.intel.com/content/www/us/en/virtualization/virtualization-technology/intel-virtualization-technology.html
 [android-studio]: https://developer.android.com/studio/index.html
 [qemu]: https://www.qemu.org/
+[github-haxm-latest-release]: https://github.com/intel/haxm/releases/latest
 [visualstudio]: https://www.visualstudio.com/downloads/
 [ewdk10]: https://docs.microsoft.com/en-us/windows-hardware/drivers/develop/using-the-enterprise-wdk
 [sdk10]: https://developer.microsoft.com/en-us/windows/downloads/windows-10-sdk
@@ -234,6 +236,7 @@ sensitive information.
 [intel-ept-cpus]: https://ark.intel.com/Search/FeatureFilter?productType=processors&ExtendedPageTables=true
 [windows-test-driver-install]: https://docs.microsoft.com/en-us/windows-hardware/drivers/install/installing-test-signed-driver-packages
 [debugview]: https://docs.microsoft.com/en-us/sysinternals/downloads/debugview
+[github-haxm-releases]: https://github.com/intel/haxm/releases
 [osx-sdks]: https://github.com/phracker/MacOSX-SDKs
 [macos-kext-dev-mode]: https://developer.apple.com/library/archive/documentation/Security/Conceptual/System_Integrity_Protection_Guide/KernelExtensions/KernelExtensions.html
 [macos-sip-disable]: https://developer.apple.com/library/archive/documentation/Security/Conceptual/System_Integrity_Protection_Guide/ConfiguringSystemIntegrityProtection/ConfiguringSystemIntegrityProtection.html
