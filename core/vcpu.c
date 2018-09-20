@@ -935,6 +935,10 @@ void save_guest_msr(struct vcpu_t *vcpu)
         }
     }
 
+    if (cpu_has_feature(X86_FEATURE_RDTSCP)) {
+        gstate->tsc_aux = ia32_rdmsr(IA32_TSC_AUX);
+    }
+
     if (!hax->apm_version)
         return;
 
@@ -944,10 +948,6 @@ void save_guest_msr(struct vcpu_t *vcpu)
         gstate->apm_pmc_msrs[i] = ia32_rdmsr(msr);
         msr = (uint32)(IA32_PERFEVTSEL0 + i);
         gstate->apm_pes_msrs[i] = ia32_rdmsr(msr);
-    }
-
-    if (!cpu_has_feature(X86_FEATURE_RDTSCP)) {
-        gstate->tsc_aux = ia32_rdmsr(IA32_TSC_AUX);
     }
 }
 
@@ -963,6 +963,10 @@ void load_guest_msr(struct vcpu_t *vcpu)
         }
     }
 
+    if (cpu_has_feature(X86_FEATURE_RDTSCP)) {
+        ia32_wrmsr(IA32_TSC_AUX, gstate->tsc_aux);
+    }
+
     if (!hax->apm_version)
         return;
 
@@ -972,10 +976,6 @@ void load_guest_msr(struct vcpu_t *vcpu)
         ia32_wrmsr(msr, gstate->apm_pmc_msrs[i]);
         msr = (uint32)(IA32_PERFEVTSEL0 + i);
         ia32_wrmsr(msr, gstate->apm_pes_msrs[i]);
-    }
-
-    if (!cpu_has_feature(X86_FEATURE_RDTSCP)) {
-        ia32_wrmsr(IA32_TSC_AUX, gstate->tsc_aux);
     }
 }
 
@@ -992,6 +992,10 @@ static void save_host_msr(struct vcpu_t *vcpu)
         }
     }
 
+    if (cpu_has_feature(X86_FEATURE_RDTSCP)) {
+        hstate->tsc_aux = ia32_rdmsr(IA32_TSC_AUX);
+    }
+
     if (!hax->apm_version)
         return;
 
@@ -1001,10 +1005,6 @@ static void save_host_msr(struct vcpu_t *vcpu)
         hstate->apm_pmc_msrs[i] = ia32_rdmsr(msr);
         msr = (uint32)(IA32_PERFEVTSEL0 + i);
         hstate->apm_pes_msrs[i] = ia32_rdmsr(msr);
-    }
-
-    if (!cpu_has_feature(X86_FEATURE_RDTSCP)) {
-        hstate->tsc_aux = ia32_rdmsr(IA32_TSC_AUX);
     }
 }
 
@@ -1020,6 +1020,10 @@ static void load_host_msr(struct vcpu_t *vcpu)
         }
     }
 
+    if (cpu_has_feature(X86_FEATURE_RDTSCP)) {
+        ia32_wrmsr(IA32_TSC_AUX, hstate->tsc_aux);
+    }
+
     if (!hax->apm_version)
         return;
 
@@ -1029,10 +1033,6 @@ static void load_host_msr(struct vcpu_t *vcpu)
         ia32_wrmsr(msr, hstate->apm_pmc_msrs[i]);
         msr = (uint32)(IA32_PERFEVTSEL0 + i);
         ia32_wrmsr(msr, hstate->apm_pes_msrs[i]);
-    }
-
-    if (!cpu_has_feature(X86_FEATURE_RDTSCP)) {
-        ia32_wrmsr(IA32_TSC_AUX, hstate->tsc_aux);
     }
 }
 
@@ -1197,7 +1197,14 @@ static void fill_common_vmcs(struct vcpu_t *vcpu)
                 INTERRUPT_WINDOW_EXITING | USE_TSC_OFFSETTING | HLT_EXITING |
                 SECONDARY_CONTROLS;
 
-    scpu_ctls = ENABLE_EPT | ENABLE_RDTSCP;
+    scpu_ctls = ENABLE_EPT;
+
+    // Make the RDTSCP instruction available to the guest if the host supports
+    // it (cf. Intel SDM Vol. 3C Table 24-7, bit 3: Enable RDTSCP)
+    if (cpu_has_feature(X86_FEATURE_RDTSCP)) {
+        // TODO: Check VMX capabilities to ensure ENABLE_RDTSCP is available
+        scpu_ctls |= ENABLE_RDTSCP;
+    }
 
     // If UG exists, we want it.
     if (hax->ug_enable_flag) {
