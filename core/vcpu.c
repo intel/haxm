@@ -2108,6 +2108,7 @@ void vcpu_write_rflags(void *obj, uint64_t value)
 {
     struct vcpu_t *vcpu = obj;
     vcpu->state->_rflags = value;
+    vmwrite(vcpu, GUEST_RFLAGS, vcpu->state->_rflags);
 }
 
 static uint64_t vcpu_get_segment_base(void *obj, uint32_t segment)
