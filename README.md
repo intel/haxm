@@ -87,14 +87,14 @@ more details, please read [this article][windows-test-driver-install].
 1. Disable Hyper-V and enable _Test Mode_:
    1. Open an **elevated** (i.e. _Run as administrator_) Command Prompt.
    1. `bcdedit /set hypervisorlaunchtype off`
-   1. `bcdedit /set testsigning off`
+   1. `bcdedit /set testsigning on`
    1. Reboot.
 1. Install the test certificate:
    1. Copy `IntelHaxm.cer` from the build environment to the test environment
 (if the two are not the same). This file is generated alongside `IntelHaxm.sys`
 by the `Debug` build configuration.
    1. In the test environment, open an **elevated** Command Prompt and run
-`certmgr.exe /add X:\path\to\IntelHaxm.cer /s /r localMachine root`
+`certmgr /add X:\path\to\IntelHaxm.cer /s /r localMachine root`
 1. Optionally, install [DebugView][debugview] to capture HAXM debug output.
 
 ### Loading and unloading the test driver
@@ -176,9 +176,7 @@ Certificate, you must configure your test Mac to allow unsigned kexts to load:
 * For OS X 10.10, the solution is to add the `kext-dev-mode=1` _boot-arg_. More
 details can be found [here][macos-kext-dev-mode].
 * For macOS 10.11 and later, the solution is to turn off System Integrity
-Protection (SIP). More details can be found [here][macos-sip-disable]. Note that
-this means every time you want to test an unsigned kext, you must reboot your
-Mac into recovery mode.
+Protection (SIP). More details can be found [here][macos-sip-disable].
 
 To load the test kext:
 1. Make sure no other HAXM kext is loaded. If the output of
