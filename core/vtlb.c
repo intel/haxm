@@ -93,7 +93,7 @@ static uint32 vtlb_insert_entry(struct vcpu_t *vcpu, hax_mmu_t *mmu,
     uint64 flags = 0;
 
     is_global = !!(tlb->flags & PTE32_G_BIT_MASK);
-    ASSERT(mmu->host_mode == PM_PAE && tlb->order == 12);
+    assert(mmu->host_mode == PM_PAE && tlb->order == 12);
 retry:
     pde = vtlb_get_pde(mmu, tlb->va, 0);
     shadow_pde = vtlb_get_pde(mmu, tlb->va, 1);
@@ -220,7 +220,7 @@ static struct hax_page * mmu_zalloc_one_page(hax_mmu_t *mmu, bool igo)
             hax_list_add(&page->list, &mmu->used_page_list);
         }
         page_va = hax_page_va(page);
-        ASSERT(page_va);
+        assert(page_va);
         memset(page_va, 0, PAGE_SIZE_4K);
         return page;
     }
@@ -249,7 +249,7 @@ uint vcpu_vtlb_alloc(struct vcpu_t *vcpu)
     unsigned char *pde_va, *addr;
     hax_mmu_t *mmu;
 
-    ASSERT(!vcpu->mmu);
+    assert(!vcpu->mmu);
 
     mmu = hax_vmalloc(sizeof(hax_mmu_t), 0);
 
@@ -352,7 +352,7 @@ static pte64_t * vtlb_get_pde(hax_mmu_t *mmu, vaddr_t va, bool is_shadow)
 
     pde_va = (unsigned char *)hax_page_va(pde_page) + which_g * PAGE_SIZE_4K;
 
-    ASSERT(mmu->guest_mode < PM_PAE);
+    assert(mmu->guest_mode < PM_PAE);
     pde = (pte64_t *)pde_va + idx;
     return pde;
 }
@@ -378,7 +378,7 @@ void vtlb_invalidate_addr(hax_mmu_t *mmu, vaddr_t va)
     if (mmu->clean && !igo_addr(va))
         return;
 
-    ASSERT(mmu->host_mode == PM_PAE);
+    assert(mmu->host_mode == PM_PAE);
 
     hax_debug("Flush address 0x%llx\n", va);
 
@@ -406,7 +406,7 @@ void vtlb_invalidate(hax_mmu_t *mmu)
     if (mmu->clean)
         return;
 
-    ASSERT(mmu->host_mode == PM_PAE);
+    assert(mmu->host_mode == PM_PAE);
     hax_debug("Flush whole vTLB\n");
     mmu_recycle_vtlb_pages(mmu);
 
@@ -425,7 +425,7 @@ static uint vtlb_handle_page_fault(struct vcpu_t *vcpu, pagemode_t guest_mode,
     hax_debug("vTLB::handle_pagefault %08llx, %08llx %x [Mode %u]\n", pdir, va,
               access, guest_mode);
 
-    ASSERT(guest_mode != PM_INVALID);
+    assert(guest_mode != PM_INVALID);
     if (guest_mode != mmu->guest_mode) {
         pagemode_t new_host_mode = PM_INVALID;
         switch (guest_mode) {
@@ -492,7 +492,7 @@ static uint vtlb_handle_page_fault(struct vcpu_t *vcpu, pagemode_t guest_mode,
     }
 
     tlb.order = tlb.guest_order = PG_ORDER_4K;
-    ASSERT(tlb.order == PG_ORDER_4K);
+    assert(tlb.order == PG_ORDER_4K);
 
     tlb.ha = hax_gpfn_to_hpa(vcpu->vm, gpa >> 12);
     if (!tlb.ha)
@@ -505,7 +505,7 @@ static uint vtlb_handle_page_fault(struct vcpu_t *vcpu, pagemode_t guest_mode,
      * Only PAE paging is used to emulate pure 32-bit 2-level paging.
      * Now insert the entry in the vtlb for the translation.
      */
-    ASSERT(mmu->host_mode == PM_PAE);
+    assert(mmu->host_mode == PM_PAE);
     vtlb_insert_entry(vcpu, mmu, &tlb);
     mmu->clean = 0;
 
@@ -563,7 +563,7 @@ static uint32 vcpu_mmu_walk(struct vcpu_t *vcpu, vaddr_t va, uint32 access,
     requested_rights = (access & (TF_WRITE | TF_USER)) |
                        (access & TF_EXEC ? EXECUTION_DISABLE_MASK : 0);
     // Seems the following one is wrong?
-    // ASSERT((mmu->guest_mode) == PM_2LVL);
+    // assert((mmu->guest_mode) == PM_2LVL);
 
 #ifndef CONFIG_HAX_EPT2
 #if (!defined(__MACH__) && !defined(_WIN64))
@@ -1169,7 +1169,7 @@ pagemode_t vcpu_get_pagemode(struct vcpu_t *vcpu)
         return PM_2LVL;
 
     // Only support pure 32-bit paging. May support PAE paging in future.
-    // ASSERT(0);
+    // assert(0);
     if (!(vcpu->state->_efer & IA32_EFER_LMA))
         return PM_PAE;
 

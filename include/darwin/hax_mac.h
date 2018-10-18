@@ -200,8 +200,6 @@ extern int default_hax_log_level;
             v->panicked = 1;          \
         }
 
-#define ASSERT(condition) assert(condition)
-
 static inline bool cpu_is_online(int cpu)
 {
     if (cpu < 0 || cpu >= max_cpus)

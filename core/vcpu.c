@@ -1874,7 +1874,7 @@ static void vmwrite_cr(struct vcpu_t *vcpu)
         // Vol. 3A 4.4.1)
         cr4_mask |= CR4_PAE;
         eptp = vm_get_eptp(vcpu->vm);
-        ASSERT(eptp != INVALID_EPTP);
+        assert(eptp != INVALID_EPTP);
         // hax_debug("Guest eip:%llx, EPT mode, eptp:%llx\n", vcpu->state->_rip,
         //           eptp);
         vmwrite(vcpu, GUEST_CR3, state->_cr3);

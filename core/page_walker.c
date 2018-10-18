@@ -145,16 +145,16 @@ static void pw_retrieve_indices(IN uint64 virtual_address, IN bool is_pae,
             *pdpte_index = (virtual_address_low_32_bit &
                             PW_PDPTE_INDEX_MASK_IN_32_BIT_ADDR)
                            >> PW_PDPTE_INDEX_SHIFT;
-            ASSERT(*pdpte_index < PW_NUM_OF_PDPT_ENTRIES_IN_32_BIT_MODE);
+            assert(*pdpte_index < PW_NUM_OF_PDPT_ENTRIES_IN_32_BIT_MODE);
         }
         *pde_index = (virtual_address_low_32_bit &
                       PW_PDE_INDEX_MASK_IN_PAE_MODE)
                      >> PW_PDE_INDEX_SHIFT_IN_PAE_MODE;
-        ASSERT(*pde_index < PW_NUM_OF_TABLE_ENTRIES_IN_PAE_MODE);
+        assert(*pde_index < PW_NUM_OF_TABLE_ENTRIES_IN_PAE_MODE);
         *pte_index = (virtual_address_low_32_bit &
                       PW_PTE_INDEX_MASK_IN_PAE_MODE)
                      >> PW_PTE_INDEX_SHIFT;
-        ASSERT(*pte_index < PW_NUM_OF_TABLE_ENTRIES_IN_PAE_MODE);
+        assert(*pte_index < PW_NUM_OF_TABLE_ENTRIES_IN_PAE_MODE);
     } else {
         *pml4te_index = PW_INVALID_INDEX;
         *pdpte_index = PW_INVALID_INDEX;
@@ -207,11 +207,11 @@ static bool pw_is_big_page_pde(PW_PAGE_ENTRY *entry, bool is_lme, bool is_pae,
 {
     // Doesn't matter which type "non_pae" or "pae_lme"
     if (!entry->non_pae_entry.bits._page_size)
-        return FALSE;
+        return false;
 
     // Ignore pse bit in these cases
     if (is_lme || is_pae)
-        return TRUE;
+        return true;
 
     return is_pse;
 }
@@ -225,38 +225,38 @@ static bool pw_are_reserved_bits_in_pml4te_cleared(PW_PAGE_ENTRY *entry,
                                                    bool is_nxe)
 {
     if (entry->pae_lme_entry.bits.addr_base_high & pw_reserved_bits_high_mask)
-        return FALSE;
+        return false;
 
     if (!is_nxe && entry->pae_lme_entry.bits.exb_or_res)
-        return FALSE;
+        return false;
 
-    return TRUE;
+    return true;
 }
 
 static bool pw_are_reserved_bits_in_pdpte_cleared(PW_PAGE_ENTRY *entry,
                                                   bool is_nxe, bool is_lme)
 {
     if (entry->pae_lme_entry.bits.addr_base_high & pw_reserved_bits_high_mask)
-        return FALSE;
+        return false;
 
     if (!is_lme) {
         if (entry->pae_lme_entry.bits.avl_or_res ||
             entry->pae_lme_entry.bits.exb_or_res ||
             entry->pae_lme_entry.bits.writable ||
             entry->pae_lme_entry.bits.user)
-            return FALSE;
+            return false;
     } else {
         if (!is_nxe && entry->pae_lme_entry.bits.exb_or_res)
-            return FALSE;
+            return false;
 
         if (pw_is_1gb_page_pdpte(entry)) {
             if (entry->pae_lme_entry.val &
                 PW_1G_PAE_PDPTE_RESERVED_BITS_IN_ENTRY_LOW_MASK)
-                return FALSE;
+                return false;
         }
     }
 
-    return TRUE;
+    return true;
 }
 
 static bool pw_are_reserved_bits_in_pde_cleared(
@@ -266,43 +266,43 @@ static bool pw_are_reserved_bits_in_pde_cleared(
     if (is_pae) {
         if (entry->pae_lme_entry.bits.addr_base_high &
             pw_reserved_bits_high_mask)
-            return FALSE;
+            return false;
 
         if (!is_nxe && entry->pae_lme_entry.bits.exb_or_res)
-            return FALSE;
+            return false;
 
         if (!is_lme && entry->pae_lme_entry.bits.avl_or_res)
-            return FALSE;
+            return false;
 
         if (pw_is_big_page_pde(entry, is_lme, is_pae, is_pse)) {
             if (entry->pae_lme_entry.val &
                 PW_2M_PAE_PDE_RESERVED_BITS_IN_ENTRY_LOW_MASK)
-                return FALSE;
+                return false;
         }
     } else if (pw_is_big_page_pde(entry, is_lme, is_pae, is_pse) &&
                entry->non_pae_entry.val &
                PW_4M_NON_PAE_PDE_RESERVED_BITS_IN_ENTRY_LOW_MASK)
-        return FALSE;
+        return false;
 
-    return TRUE;
+    return true;
 }
 
 static bool pw_are_reserved_bits_in_pte_cleared(
         PW_PAGE_ENTRY *pte, bool is_nxe, bool is_lme, bool is_pae)
 {
     if (!is_pae)
-        return TRUE;
+        return true;
 
     if (pte->pae_lme_entry.bits.addr_base_high & pw_reserved_bits_high_mask)
-        return FALSE;
+        return false;
 
     if (!is_lme && pte->pae_lme_entry.bits.avl_or_res)
-        return FALSE;
+        return false;
 
     if (!is_nxe && pte->pae_lme_entry.bits.exb_or_res)
-        return FALSE;
+        return false;
 
-    return TRUE;
+    return true;
 }
 
 static bool pw_is_write_access_permitted(
@@ -311,32 +311,32 @@ static bool pw_is_write_access_permitted(
         bool is_pse)
 {
     if (!is_user && !is_wp)
-        return TRUE;
+        return true;
 
     if (is_lme) {
-        ASSERT(pml4te != NULL);
-        ASSERT(pdpte != NULL);
-        ASSERT(pml4te->pae_lme_entry.bits.present);
-        ASSERT(pdpte->pae_lme_entry.bits.present);
+        assert(pml4te != NULL);
+        assert(pdpte != NULL);
+        assert(pml4te->pae_lme_entry.bits.present);
+        assert(pdpte->pae_lme_entry.bits.present);
         if (!pml4te->pae_lme_entry.bits.writable ||
             !pdpte->pae_lme_entry.bits.writable)
-            return FALSE;
+            return false;
     }
 
     if (pw_is_1gb_page_pdpte(pdpte))
-        return TRUE;
+        return true;
 
-    ASSERT(pde != NULL);
-    ASSERT(pde->non_pae_entry.bits.present);
+    assert(pde != NULL);
+    assert(pde->non_pae_entry.bits.present);
     // Doesn't matter which entry "non_pae" or "pae_lme" is checked
     if (!pde->non_pae_entry.bits.writable)
-        return FALSE;
+        return false;
 
     if (pw_is_big_page_pde(pde, is_lme, is_pae, is_pse))
-        return TRUE;
+        return true;
 
-    ASSERT(pte != NULL);
-    ASSERT(pte->non_pae_entry.bits.present);
+    assert(pte != NULL);
+    assert(pte->non_pae_entry.bits.present);
 
     // Doesn't matter which entry "non_pae" or "pae_lme" is checked
     return pte->non_pae_entry.bits.writable;
@@ -347,29 +347,29 @@ static bool pw_is_user_access_permitted(
         PW_PAGE_ENTRY *pte, bool is_lme, bool is_pae, bool is_pse)
 {
     if (is_lme) {
-        ASSERT(pml4te != NULL);
-        ASSERT(pdpte != NULL);
-        ASSERT(pml4te->pae_lme_entry.bits.present);
-        ASSERT(pdpte->pae_lme_entry.bits.present);
+        assert(pml4te != NULL);
+        assert(pdpte != NULL);
+        assert(pml4te->pae_lme_entry.bits.present);
+        assert(pdpte->pae_lme_entry.bits.present);
         if (!pml4te->pae_lme_entry.bits.user ||
             !pdpte->pae_lme_entry.bits.user)
-            return FALSE;
+            return false;
     }
 
     if (pw_is_1gb_page_pdpte(pdpte))
-        return TRUE;
+        return true;
 
-    ASSERT(pde != NULL);
-    ASSERT(pde->non_pae_entry.bits.present);
+    assert(pde != NULL);
+    assert(pde->non_pae_entry.bits.present);
     // Doesn't matter which entry "non_pae" or "pae_lme" is checked
     if (!pde->non_pae_entry.bits.user)
-        return FALSE;
+        return false;
 
     if (pw_is_big_page_pde(pde, is_lme, is_pae, is_pse))
-        return TRUE;
+        return true;
 
-    ASSERT(pte != NULL);
-    ASSERT(pte->non_pae_entry.bits.present);
+    assert(pte != NULL);
+    assert(pte->non_pae_entry.bits.present);
 
     // Doesn't matter which entry "non_pae" or "pae_lme" is checked
     return (pte->non_pae_entry.bits.user);
@@ -380,36 +380,36 @@ static bool pw_is_fetch_access_permitted(
         PW_PAGE_ENTRY *pte, bool is_lme, bool is_pae, bool is_pse)
 {
     if (is_lme) {
-        ASSERT(pml4te != NULL);
-        ASSERT(pdpte != NULL);
-        ASSERT(pml4te->pae_lme_entry.bits.present);
-        ASSERT(pdpte->pae_lme_entry.bits.present);
+        assert(pml4te != NULL);
+        assert(pdpte != NULL);
+        assert(pml4te->pae_lme_entry.bits.present);
+        assert(pdpte->pae_lme_entry.bits.present);
 
         if (pml4te->pae_lme_entry.bits.exb_or_res ||
             pdpte->pae_lme_entry.bits.exb_or_res)
-            return FALSE;
+            return false;
     }
 
     if (pw_is_1gb_page_pdpte(pdpte))
-        return TRUE;
+        return true;
 
-    ASSERT(pde != NULL);
-    ASSERT(pde->pae_lme_entry.bits.present);
+    assert(pde != NULL);
+    assert(pde->pae_lme_entry.bits.present);
     if (pde->pae_lme_entry.bits.exb_or_res)
-        return FALSE;
+        return false;
 
     if (pw_is_big_page_pde(pde, is_lme, is_pae, is_pse))
-        return TRUE;
+        return true;
 
-    ASSERT(pte != NULL);
-    ASSERT(pte->pae_lme_entry.bits.present);
+    assert(pte != NULL);
+    assert(pte->pae_lme_entry.bits.present);
 
     return !pte->pae_lme_entry.bits.exb_or_res;
 }
 
 static uint64 pw_retrieve_phys_addr(PW_PAGE_ENTRY *entry, bool is_pae)
 {
-    ASSERT(entry->non_pae_entry.bits.present);
+    assert(entry->non_pae_entry.bits.present);
     if (is_pae) {
         uint32 addr_low = entry->pae_lme_entry.bits.addr_base_low
                           << PW_TABLE_SHIFT;
@@ -460,9 +460,9 @@ static void pw_update_ad_bits_in_entry(PW_PAGE_ENTRY *native_entry,
                                        PW_PAGE_ENTRY *old_native_value,
                                        PW_PAGE_ENTRY *new_native_value)
 {
-    ASSERT(native_entry != NULL);
-    ASSERT(old_native_value->non_pae_entry.bits.present);
-    ASSERT(new_native_value->non_pae_entry.bits.present);
+    assert(native_entry != NULL);
+    assert(old_native_value->non_pae_entry.bits.present);
+    assert(new_native_value->non_pae_entry.bits.present);
 
     if (old_native_value->non_pae_entry.val !=
         new_native_value->non_pae_entry.val) {
@@ -492,10 +492,10 @@ static void pw_update_ad_bits(
         PW_PAGE_ENTRY pml4te_before_update;
         PW_PAGE_ENTRY pdpte_before_update;
 
-        ASSERT(guest_space_pml4te != NULL);
-        ASSERT(pml4te != NULL);
-        ASSERT(guest_space_pdpte != NULL);
-        ASSERT(pdpte != NULL);
+        assert(guest_space_pml4te != NULL);
+        assert(pml4te != NULL);
+        assert(guest_space_pdpte != NULL);
+        assert(pdpte != NULL);
 
         pml4te_before_update = *pml4te;
         pml4te->pae_lme_entry.bits.accessed = 1;
@@ -515,8 +515,8 @@ static void pw_update_ad_bits(
     if (pw_is_1gb_page_pdpte(pdpte))
         return;
 
-    ASSERT(guest_space_pde != NULL);
-    ASSERT(pde != NULL);
+    assert(guest_space_pde != NULL);
+    assert(pde != NULL);
 
     pde_before_update = *pde;
     // Doesn't matter which field "non_pae" or "pae_lme" is used
@@ -538,8 +538,8 @@ static void pw_update_ad_bits(
 
     pw_update_ad_bits_in_entry(guest_space_pde, &pde_before_update, pde);
 
-    ASSERT(guest_space_pte != NULL);
-    ASSERT(pte != NULL);
+    assert(guest_space_pte != NULL);
+    assert(pte != NULL);
 
     pte_before_update = *pte;
     // Doesn't matter which field "non_pae" or "pae_lme" is used
@@ -606,7 +606,7 @@ uint32 pw_perform_page_walk(
     is_user  = access & TF_USER;
 #ifndef CONFIG_HAX_EPT2
 #if (!defined(__MACH__) && !defined(_WIN64))
-    is_kernel = (virt_addr >= KERNEL_BASE) ? TRUE : FALSE;
+    is_kernel = (virt_addr >= KERNEL_BASE) ? true : false;
 #endif
 #endif // !CONFIG_HAX_EPT2
 
@@ -694,9 +694,9 @@ uint32 pw_perform_page_walk(
         *order = PG_ORDER_1G;
         // Retrieve address of the big page in guest space
         big_page_addr = pw_retrieve_big_page_phys_addr(&pdpte_val, is_pae,
-                                                       TRUE);
+                                                       true);
         // Retrieve offset in page
-        offset_in_big_page = pw_get_big_page_offset(virt_addr, is_pae, TRUE);
+        offset_in_big_page = pw_get_big_page_offset(virt_addr, is_pae, true);
         // Calculate full guest accessed physical address
         gpa = big_page_addr + offset_in_big_page;
 
@@ -768,9 +768,9 @@ uint32 pw_perform_page_walk(
         *order = is_pae ? PG_ORDER_2M : PG_ORDER_4M;
 
         // Retrieve address of the big page in guest space
-        big_page_addr = pw_retrieve_big_page_phys_addr(&pde_val, is_pae, FALSE);
+        big_page_addr = pw_retrieve_big_page_phys_addr(&pde_val, is_pae, false);
         // Retrieve offset in page
-        offset_in_big_page = pw_get_big_page_offset(virt_addr, is_pae, FALSE);
+        offset_in_big_page = pw_get_big_page_offset(virt_addr, is_pae, false);
         // Calculate full guest accessed physical address
         gpa = big_page_addr + offset_in_big_page;
 

@@ -84,7 +84,7 @@ static void vcpu_ack_intr(struct vcpu_t *vcpu, uint8 vector)
     uint8 offset = vector % 32;
     uint8 nr_word = vector / 32;
 
-    ASSERT(intr_pending[nr_word] & (1 << offset));
+    assert(intr_pending[nr_word] & (1 << offset));
 
     intr_pending[nr_word] &= ~(1 << offset);
     --vcpu->nr_pending_intrs;
