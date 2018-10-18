@@ -174,7 +174,7 @@ void cpu_exit_vmx(void *arg);
 
 void cpu_pmu_init(void *arg);
 
-void cpu_init_feature_cache();
+void cpu_init_feature_cache(void);
 bool cpu_has_feature(uint32_t feature);
 
 void hax_panic_log(struct vcpu_t *vcpu);

@@ -42,7 +42,7 @@ extern void ASMCALL asm_rdtsc(struct qword_val *qv);
 #else  // !_M_IX86
 extern uint64 ASMCALL asm_rdmsr(uint32 reg);
 extern void ASMCALL asm_wrmsr(uint32 reg, uint64_t val);
-extern uint64 ASMCALL asm_rdtsc();
+extern uint64 ASMCALL asm_rdtsc(void);
 #endif  // _M_IX86
 
 uint64 ia32_rdmsr(uint32 reg)
