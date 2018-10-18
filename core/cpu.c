@@ -49,7 +49,7 @@ static int cpu_vmexit_handler(struct vcpu_t *vcpu, exit_reason_t exit_reason,
 
 static int cpu_emt64_enable(void)
 {
-    uint32 effer;
+    uint32_t effer;
 
     effer = ia32_rdmsr(IA32_EFER);
     return effer & 0x400;
@@ -57,7 +57,7 @@ static int cpu_emt64_enable(void)
 
 static int cpu_nx_enable(void)
 {
-    uint32 effer;
+    uint32_t effer;
 
     effer = ia32_rdmsr(IA32_EFER);
     return effer & 0x800;
@@ -80,7 +80,7 @@ void cpu_init_vmx(void *arg)
 {
     struct info_t vmx_info;
     struct per_cpu_data *cpu_data;
-    uint32 fc_msr;
+    uint32_t fc_msr;
     vmcs_t *vmxon;
     int nx_enable = 0, vt_enable = 0;
 
@@ -162,7 +162,7 @@ void cpu_init_vmx(void *arg)
     if (vmx_info._vmcs_region_length > PAGE_SIZE)
         hax_log("HAX: VMCS of %d bytes not supported by this Hypervisor. "
                 "Max supported %u bytes\n",
-                vmx_info._vmcs_region_length, (uint32)PAGE_SIZE);
+                vmx_info._vmcs_region_length, (uint32_t)PAGE_SIZE);
     vmxon = (vmcs_t *)hax_page_va(cpu_data->vmxon_page);
     vmxon->_revision_id = vmx_info._vmcs_revision_id;
 
@@ -283,7 +283,7 @@ static int cpu_vmexit_handler(struct vcpu_t *vcpu, exit_reason_t exit_reason,
     return ret;
 }
 /*Remove this function. It only for debug*/
-/*void dump_cs_ds(uint16 cs, uint16 ds)
+/*void dump_cs_ds(uint16_t cs, uint16_t ds)
 {
     struct system_desc_t desc;
     struct seg_desc_t *seg_desc;
@@ -405,7 +405,7 @@ int cpu_vmx_execute(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     int ret;
     preempt_flag flags;
     struct vcpu_state_t *state = vcpu->state;
-    uint32 vmcs_err = 0;
+    uint32_t vmcs_err = 0;
 
     while (1) {
         exit_reason_t exit_reason;
@@ -431,7 +431,7 @@ int cpu_vmx_execute(struct vcpu_t *vcpu, struct hax_tunnel *htun)
          * values by vmx hardware.
          */
         {
-            uint32 temp= vmread(vcpu, GUEST_CS_AR);
+            uint32_t temp= vmread(vcpu, GUEST_CS_AR);
 
             if( (temp & 0xf) == 0xa) {
                 temp = temp +1;
@@ -442,7 +442,7 @@ int cpu_vmx_execute(struct vcpu_t *vcpu, struct hax_tunnel *htun)
          * let's hard-code it for now
          */
         {
-            uint32 temp = vmread(vcpu, GUEST_TR_AR);
+            uint32_t temp = vmread(vcpu, GUEST_TR_AR);
 
             temp = (temp & ~0xf) | 0xb;
             vmwrite(vcpu, GUEST_TR_AR, temp);
@@ -508,7 +508,7 @@ int cpu_vmx_execute(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     }
 }
 
-uint8 is_vmcs_loaded(struct vcpu_t *vcpu)
+uint8_t is_vmcs_loaded(struct vcpu_t *vcpu)
 {
     return (vcpu && vcpu->is_vmcs_loaded);
 }
@@ -517,16 +517,16 @@ int debug_vmcs_count = 0;
 
 void restore_host_cr4_vmxe(struct per_cpu_data *cpu_data);
 
-uint32 log_host_cr4_vmxe = 0;
-uint64 log_host_cr4 = 0;
+uint32_t log_host_cr4_vmxe = 0;
+uint64_t log_host_cr4 = 0;
 vmx_result_t log_vmxon_res = 0;
-uint64 log_vmxon_addr = 0;
-uint32 log_vmxon_err_type1 = 0;
-uint32 log_vmxon_err_type2 = 0;
-uint32 log_vmxon_err_type3 = 0;
-uint32 log_vmclear_err = 0;
-uint32 log_vmptrld_err = 0;
-uint32 log_vmxoff_no = 0;
+uint64_t log_vmxon_addr = 0;
+uint32_t log_vmxon_err_type1 = 0;
+uint32_t log_vmxon_err_type2 = 0;
+uint32_t log_vmxon_err_type3 = 0;
+uint32_t log_vmclear_err = 0;
+uint32_t log_vmptrld_err = 0;
+uint32_t log_vmxoff_no = 0;
 vmx_result_t log_vmxoff_res = 0;
 
 void hax_clear_panic_log(struct vcpu_t *vcpu)
@@ -561,7 +561,7 @@ void hax_panic_log(struct vcpu_t *vcpu)
     hax_error("log_vmxoff_res %x\n", log_vmxoff_res);
 }
 
-uint32 load_vmcs(struct vcpu_t *vcpu, preempt_flag *flags)
+uint32_t load_vmcs(struct vcpu_t *vcpu, preempt_flag *flags)
 {
     struct per_cpu_data *cpu_data;
     paddr_t vmcs_phy;
@@ -628,7 +628,7 @@ void restore_host_cr4_vmxe(struct per_cpu_data *cpu_data)
     }
 }
 
-uint32 put_vmcs(struct vcpu_t *vcpu, preempt_flag *flags)
+uint32_t put_vmcs(struct vcpu_t *vcpu, preempt_flag *flags)
 {
     struct per_cpu_data *cpu_data = current_cpu_data();
     paddr_t vmcs_phy;
@@ -745,7 +745,7 @@ vmx_result_t cpu_vmxroot_leave(void)
 vmx_result_t cpu_vmxroot_enter(void)
 {
     struct per_cpu_data *cpu_data = current_cpu_data();
-    uint64 fc_msr;
+    uint64_t fc_msr;
     paddr_t vmxon_addr;
     vmx_result_t result = VMX_SUCCEED;
 
@@ -816,8 +816,8 @@ vmx_result_t cpu_vmxroot_enter(void)
 
         if (fatal) {
             hax_error("VMXON failed for region 0x%llx (result=0x%x, vmxe=%x)\n",
-                      hax_page_pa(cpu_data->vmxon_page), (uint32)result,
-                      (uint32)cpu_data->host_cr4_vmxe);
+                      hax_page_pa(cpu_data->vmxon_page), (uint32_t)result,
+                      (uint32_t)cpu_data->host_cr4_vmxe);
             restore_host_cr4_vmxe(cpu_data);
             if (result == VMX_FAIL_INVALID) {
                 log_vmxon_err_type1 = 1;

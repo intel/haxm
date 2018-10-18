@@ -49,7 +49,7 @@ extern "C" {
 //          |start_uva| and |size| is not valid.
 // -ENOMEM: Memory allocation error.
 // -EFAULT: Host OS failing to create the memory descriptor.
-int hax_pin_user_pages(uint64 start_uva, uint64 size,
+int hax_pin_user_pages(uint64_t start_uva, uint64_t size,
                        hax_memdesc_user *memdesc);
 
 // Frees all host page frames previously pinned by hax_pin_user_pages().
@@ -67,7 +67,7 @@ int hax_unpin_user_pages(hax_memdesc_user *memdesc);
 // |uva_offset|: The offset, in bytes, of the virtual page (or any byte within
 //               it) in the UVA range described by |memdesc|.
 // Returns INVALID_PFN on error.
-uint64 hax_get_pfn_user(hax_memdesc_user *memdesc, uint64 uva_offset);
+uint64_t hax_get_pfn_user(hax_memdesc_user *memdesc, uint64_t uva_offset);
 
 // Maps the given subrange of the UVA range described by the given
 // |hax_memdesc_user| into KVA space, stores the mapping in the given buffer,
@@ -80,8 +80,8 @@ uint64 hax_get_pfn_user(hax_memdesc_user *memdesc, uint64 uva_offset);
 // |size|: The size of the UVA subrange, in bytes. Should be page-aligned.
 // |kmap|: A buffer to store a host-specific KVA mapping descriptor.
 // Returns NULL on error.
-void * hax_map_user_pages(hax_memdesc_user *memdesc, uint64 uva_offset,
-                          uint64 size, hax_kmap_user *kmap);
+void * hax_map_user_pages(hax_memdesc_user *memdesc, uint64_t uva_offset,
+                          uint64_t size, hax_kmap_user *kmap);
 
 // Destroys the given KVA mapping previously created by hax_map_user_pages().
 // Returns 0 on success, or one of the following error codes:
@@ -97,7 +97,7 @@ int hax_unmap_user_pages(hax_kmap_user *kmap);
 // Returns 0 on success, or one of the following error codes:
 // -EINVAL: Invalid input, e.g. |memdesc| is NULL.
 // -ENOMEM: Memory allocation error.
-int hax_alloc_page_frame(uint8 flags, hax_memdesc_phys *memdesc);
+int hax_alloc_page_frame(uint8_t flags, hax_memdesc_phys *memdesc);
 
 // Indicates that the allocated page frame should be initialized with zeroes
 #define HAX_PAGE_ALLOC_ZEROED   0x01
@@ -114,7 +114,7 @@ int hax_free_page_frame(hax_memdesc_phys *memdesc);
 // Returns the PFN of the host page frame described by the given
 // |hax_memdesc_phys|, which was previously populated by hax_alloc_page_frame().
 // Returns INVALID_PFN on error.
-uint64 hax_get_pfn_phys(hax_memdesc_phys *memdesc);
+uint64_t hax_get_pfn_phys(hax_memdesc_phys *memdesc);
 
 // Returns the KVA of the host page frame described by the given
 // |hax_memdesc_phys|, which was previously populated by hax_alloc_page_frame().
@@ -128,7 +128,7 @@ void * hax_get_kva_phys(hax_memdesc_phys *memdesc);
 // |pfn|: pfn: The PFN to map.
 // |kmap|: A buffer to store a host-specific KVA mapping descriptor.
 // Returns NULL on error.
-void * hax_map_page_frame(uint64 pfn, hax_kmap_phys *kmap);
+void * hax_map_page_frame(uint64_t pfn, hax_kmap_phys *kmap);
 
 // Destroys the given KVA mapping previously created by hax_map_page_frame().
 // Returns 0 on success (including the case where |kmap| is neither NULL nor a

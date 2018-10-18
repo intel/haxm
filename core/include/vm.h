@@ -48,8 +48,8 @@
 #define HVA_MAP_ARRAY_SIZE             0x800000
 
 struct hax_p2m_entry {
-    uint64 hva;
-    uint64 hpa;
+    uint64_t hva;
+    uint64_t hpa;
 };
 
 #define VM_SPARE_RAMSIZE       0x5800000
@@ -65,11 +65,11 @@ struct vm_t {
     uint32_t features;
     int vm_id;
 #define VPID_SEED_BITS 64
-    uint8 vpid_seed[VPID_SEED_BITS / 8];
+    uint8_t vpid_seed[VPID_SEED_BITS / 8];
     int fd;
     hax_list_head hvm_list;
     hax_list_head vcpu_list;
-    uint16 bsp_vcpu_id;
+    uint16_t bsp_vcpu_id;
     void *vm_host;
     struct hax_ept *ept;
     void *p2m_map[MAX_GMEM_G];
@@ -91,11 +91,11 @@ struct vm_t {
 };
 
 struct hva_entry {
-    uint64 gpfn;
-    uint64 hva;
+    uint64_t gpfn;
+    uint64_t hva;
     paddr_t gcr3;
     bool is_kern;
-    uint8 level;
+    uint8_t level;
 };
 
 typedef struct vm_t hax_vm_t;
@@ -123,21 +123,21 @@ enum run_flag {
 #define gpfn_in_g(gpfn) ((gpfn) & 0x3ffff)
 #define GPFN_MAP_ARRAY_SIZE (1 << 22)
 
-uint64 hax_gpfn_to_hpa(struct vm_t *vm, uint64 gpfn);
+uint64_t hax_gpfn_to_hpa(struct vm_t *vm, uint64_t gpfn);
 
 #ifndef CONFIG_HAX_EPT2
 #if (!defined(__MACH__) && !defined(_WIN64))
-void * hax_map_gpfn(struct vm_t *vm, uint64 gpfn, bool flag, paddr_t cr3_cur,
-                    uint8 level);
-void hax_unmap_gpfn(struct vm_t *vm, void *va, uint64 gpfn);
+void * hax_map_gpfn(struct vm_t *vm, uint64_t gpfn, bool flag, paddr_t cr3_cur,
+                    uint8_t level);
+void hax_unmap_gpfn(struct vm_t *vm, void *va, uint64_t gpfn);
 #else
-void * hax_map_gpfn(struct vm_t *vm, uint64 gpfn);
+void * hax_map_gpfn(struct vm_t *vm, uint64_t gpfn);
 void hax_unmap_gpfn(void *va);
 #endif
 #endif // !CONFIG_HAX_EPT2
 
-int hax_core_set_p2m(struct vm_t *vm, uint64 gpfn, uint64 hpfn, uint64 hva,
-                     uint8 flags);
+int hax_core_set_p2m(struct vm_t *vm, uint64_t gpfn, uint64_t hpfn, uint64_t hva,
+                     uint8_t flags);
 struct vm_t *hax_create_vm(int *vm_id);
 int hax_teardown_vm(struct vm_t *vm);
 
@@ -146,6 +146,6 @@ void hax_teardown_vcpus(struct vm_t *vm);
 int hax_destroy_host_interface(void);
 int hax_vm_set_qemuversion(struct vm_t *vm, struct hax_qemu_version *ver);
 
-uint64 vm_get_eptp(struct vm_t *vm);
+uint64_t vm_get_eptp(struct vm_t *vm);
 
 #endif // HAX_CORE_VM_H_

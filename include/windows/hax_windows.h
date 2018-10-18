@@ -170,7 +170,7 @@ static bool hax_test_bit(int bit, uint64_t *memory)
 }
 
 /* Why it's a bool? Strange */
-static bool hax_cmpxchg32(uint32 old_val, uint32 new_val, volatile uint32 *addr)
+static bool hax_cmpxchg32(uint32_t old_val, uint32_t new_val, volatile uint32_t *addr)
 {
     long ret;
 
@@ -182,7 +182,7 @@ static bool hax_cmpxchg32(uint32 old_val, uint32 new_val, volatile uint32 *addr)
         return FALSE;
 }
 
-static bool hax_cmpxchg64(uint64 old_val, uint64 new_val, volatile uint64 *addr)
+static bool hax_cmpxchg64(uint64_t old_val, uint64_t new_val, volatile uint64_t *addr)
 {
     LONGLONG ret;
 

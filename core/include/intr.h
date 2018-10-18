@@ -42,17 +42,17 @@
 
 #define is_extern_interrupt(vec) (vec > 31)
 
-void hax_set_pending_intr(struct vcpu_t *vcpu, uint8 vector);
+void hax_set_pending_intr(struct vcpu_t *vcpu, uint8_t vector);
 uint hax_intr_is_blocked(struct vcpu_t *vcpu);
 void hax_handle_idt_vectoring(struct vcpu_t *vcpu);
 void vcpu_inject_intr(struct vcpu_t *vcpu, struct hax_tunnel *htun);
-void hax_inject_exception(struct vcpu_t *vcpu, uint8 vector, uint32 error_code);
+void hax_inject_exception(struct vcpu_t *vcpu, uint8_t vector, uint32_t error_code);
 /*
  * Get highest pending interrupt vector
  * Return HAX_INVALID_INTR_VECTOR when no pending
  */
 #define HAX_INVALID_INTR_VECTOR 0x100
-uint32 vcpu_get_pending_intrs(struct vcpu_t *vcpu);
+uint32_t vcpu_get_pending_intrs(struct vcpu_t *vcpu);
 static int hax_valid_vector(uint32_t vector)
 {
     return (vector <= 0xff);

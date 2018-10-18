@@ -31,51 +31,51 @@
 #include "include/ia32.h"
 
 struct qword_val {
-    uint32 low;
-    uint32 high;
+    uint32_t low;
+    uint32_t high;
 };
 
 #ifdef _M_IX86
-extern void ASMCALL asm_rdmsr(uint32 reg, struct qword_val *qv);
-extern void ASMCALL asm_wrmsr(uint32 reg, struct qword_val *qv);
+extern void ASMCALL asm_rdmsr(uint32_t reg, struct qword_val *qv);
+extern void ASMCALL asm_wrmsr(uint32_t reg, struct qword_val *qv);
 extern void ASMCALL asm_rdtsc(struct qword_val *qv);
 #else  // !_M_IX86
-extern uint64 ASMCALL asm_rdmsr(uint32 reg);
-extern void ASMCALL asm_wrmsr(uint32 reg, uint64_t val);
-extern uint64 ASMCALL asm_rdtsc(void);
+extern uint64_t ASMCALL asm_rdmsr(uint32_t reg);
+extern void ASMCALL asm_wrmsr(uint32_t reg, uint64_t val);
+extern uint64_t ASMCALL asm_rdtsc(void);
 #endif  // _M_IX86
 
-uint64 ia32_rdmsr(uint32 reg)
+uint64_t ia32_rdmsr(uint32_t reg)
 {
 #ifdef _M_IX86
     struct qword_val val = { 0 };
 
     asm_rdmsr(reg, &val);
-    return ((uint64)(val.low) | (uint64)(val.high) << 32);
+    return ((uint64_t)(val.low) | (uint64_t)(val.high) << 32);
 #else
     return asm_rdmsr(reg);
 #endif
 }
 
-void ia32_wrmsr(uint32 reg, uint64 val)
+void ia32_wrmsr(uint32_t reg, uint64_t val)
 {
 #ifdef _M_IX86
     struct qword_val tmp = { 0 };
 
-    tmp.high = (uint32)(val >> 32);
-    tmp.low = (uint32)val;
+    tmp.high = (uint32_t)(val >> 32);
+    tmp.low = (uint32_t)val;
     asm_wrmsr(reg, &tmp);
 #else
     asm_wrmsr(reg, val);
 #endif
 }
 
-uint64 rdtsc(void)
+uint64_t rdtsc(void)
 {
 #ifdef _M_IX86
     struct qword_val val = { 0 };
     asm_rdtsc(&val);
-    return ((uint64)(val.low) | (uint64)(val.high) << 32);
+    return ((uint64_t)(val.low) | (uint64_t)(val.high) << 32);
 #else
     return asm_rdtsc();
 #endif
@@ -96,18 +96,18 @@ void fxrstor(mword *addr)
     asm_fxrstor(addr);
 }
 
-void btr(uint8 *addr, uint bit)
+void btr(uint8_t *addr, uint bit)
 {
     // asm_btr() may not be able to handle bit offsets greater than 0xff. For
     // absolute safety, ensure that the bit offset is less than 8.
-    uint8 *base = addr + bit / 8;
+    uint8_t *base = addr + bit / 8;
     uint offset = bit % 8;
     asm_btr(base, offset);
 }
 
-void bts(uint8 *addr, uint bit)
+void bts(uint8_t *addr, uint bit)
 {
-    uint8 *base = addr + bit / 8;
+    uint8_t *base = addr + bit / 8;
     uint offset = bit % 8;
     asm_bts(base, offset);
 }

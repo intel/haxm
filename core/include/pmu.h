@@ -41,32 +41,32 @@
  */
 struct cpu_pmu_info {
     union {
-        uint32 cpuid_eax;
+        uint32_t cpuid_eax;
         struct {
             // Version ID of architectural performance monitoring (APM)
-            uint32 apm_version        : 8;
+            uint32_t apm_version        : 8;
             // Number of general-purpose performance monitoring counters
-            uint32 apm_general_count  : 8;
+            uint32_t apm_general_count  : 8;
             // Bit width of general-purpose performance monitoring counters
-            uint32 apm_general_bitlen : 8;
+            uint32_t apm_general_bitlen : 8;
             // Length of EBX bit vector
-            uint32 apm_event_count    : 8;
+            uint32_t apm_event_count    : 8;
         };
     };
     union {
-        uint32 cpuid_ebx;
+        uint32_t cpuid_ebx;
         // Bit vector to enumerate APM events
-        uint32 apm_event_unavailability;
+        uint32_t apm_event_unavailability;
     };
     union {
-        uint32 cpuid_edx;
+        uint32_t cpuid_edx;
         struct {
             // Number of fixed-function performance monitoring counters
-            uint32 apm_fixed_count  : 5;
+            uint32_t apm_fixed_count  : 5;
             // Bit width of fixed-function performance monitoring counters
-            uint32 apm_fixed_bitlen : 8;
+            uint32_t apm_fixed_bitlen : 8;
             // Reserved
-            uint32                  : 19;
+            uint32_t                  : 19;
         };
     };
 } PACKED;

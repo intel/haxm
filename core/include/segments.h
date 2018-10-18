@@ -42,25 +42,25 @@
 struct seg_desc_t {
     union {
         struct {
-            uint64 _limit0      : 16;
-            uint64 _base0       : 24;
-            uint64 _type        : 4;
-            uint64 _s           : 1;
-            uint64 _dpl         : 2;
-            uint64 _present     : 1;
-            uint64 _limit1      : 4;
-            uint64 _avl         : 1;
-            uint64 _longmode    : 1;
-            uint64 _d           : 1;
-            uint64 _granularity : 1;
-            uint64 _base1       : 8;
+            uint64_t _limit0      : 16;
+            uint64_t _base0       : 24;
+            uint64_t _type        : 4;
+            uint64_t _s           : 1;
+            uint64_t _dpl         : 2;
+            uint64_t _present     : 1;
+            uint64_t _limit1      : 4;
+            uint64_t _avl         : 1;
+            uint64_t _longmode    : 1;
+            uint64_t _d           : 1;
+            uint64_t _granularity : 1;
+            uint64_t _base1       : 8;
         } PACKED;
-        uint64 _raw;
+        uint64_t _raw;
     };
 };
 
 struct PACKED system_desc_t {
-    uint16 _limit;
+    uint16_t _limit;
     HAX_VADDR_T _base;
 };
 
@@ -71,12 +71,12 @@ struct PACKED system_desc_t {
 typedef struct system_desc_t system_desc_t;
 
 /*
- * This is to pass to VMCS, it should return uint64 on long or compatible mode
- * and return uint32 on pure 32-bit mode.
+ * This is to pass to VMCS, it should return uint64_t on long or compatible mode
+ * and return uint32_t on pure 32-bit mode.
  * TODO: Fix it in 32-bit environment
  */
 
-static inline uint64 get_kernel_gdtr_base_4vmcs(void)
+static inline uint64_t get_kernel_gdtr_base_4vmcs(void)
 {
     system_desc_t sys_desc;
 
@@ -85,7 +85,7 @@ static inline uint64 get_kernel_gdtr_base_4vmcs(void)
 }
 
 /*
- * In compatible mode, we need to return uint32.
+ * In compatible mode, we need to return uint32_t.
  * Good luck for us is Mac has dual map for this.
  */
 
@@ -97,7 +97,7 @@ static inline mword get_kernel_gdtr_base(void)
     return sys_desc._base;
 }
 
-static inline uint64 get_kernel_idtr_base(void)
+static inline uint64_t get_kernel_idtr_base(void)
 {
     system_desc_t sys_desc;
 
@@ -105,11 +105,11 @@ static inline uint64 get_kernel_idtr_base(void)
     return sys_desc._base;
 }
 
-static inline uint64 get_kernel_ldtr_base(void)
+static inline uint64_t get_kernel_ldtr_base(void)
 {
-    uint16 ldt_sector = 0;
+    uint16_t ldt_sector = 0;
     mword gdtr_base = 0;
-    uint64 desc_base;
+    uint64_t desc_base;
     struct seg_desc_t *seg_desc;
 
     gdtr_base = get_kernel_gdtr_base();
@@ -129,10 +129,10 @@ static inline uint64 get_kernel_ldtr_base(void)
     return desc_base;
 }
 
-static inline uint64 get_tr_desc_base(uint16 selector)
+static inline uint64_t get_tr_desc_base(uint16_t selector)
 {
     mword gdtr_base;
-    uint64 desc_base;
+    uint64_t desc_base;
     struct seg_desc_t *seg_desc;
 
     gdtr_base = get_kernel_gdtr_base();
@@ -151,7 +151,7 @@ static inline uint64 get_tr_desc_base(uint16 selector)
     return desc_base;
 }
 
-static inline uint32 get_kernel_fs_gs_base(uint16 selector)
+static inline uint32_t get_kernel_fs_gs_base(uint16_t selector)
 {
     mword gdtr_base;
     mword desc_base;
@@ -163,9 +163,9 @@ static inline uint32 get_kernel_fs_gs_base(uint16 selector)
     return desc_base;
 }
 
-static inline uint64 get_kernel_tr_base(void)
+static inline uint64_t get_kernel_tr_base(void)
 {
-    uint16 selector = get_kernel_tr_selector();
+    uint16_t selector = get_kernel_tr_selector();
     return get_tr_desc_base(selector);
 }
 

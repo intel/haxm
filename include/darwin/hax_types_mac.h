@@ -59,17 +59,7 @@ typedef lck_rw_t hax_rw_lock;
 
 typedef SInt32 hax_atomic_t;
 
-// Signed Types
-typedef signed char         int8;
-typedef signed short        int16;
-typedef signed int          int32;
-typedef signed long long    int64;
-
 // Unsigned Types
-typedef unsigned char       uint8;
-typedef unsigned short      uint16;
-typedef unsigned int        uint32;
-typedef unsigned long long  uint64;
 typedef unsigned long       ulong;
 
 /* Return the value before add */

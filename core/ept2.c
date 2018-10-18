@@ -35,8 +35,8 @@
 #include "../include/hax_host_mem.h"
 
 void ept_handle_mapping_removed(hax_gpa_space_listener *listener,
-                                uint64 start_gfn, uint64 npages, uint64 uva,
-                                uint8 flags)
+                                uint64_t start_gfn, uint64_t npages, uint64_t uva,
+                                uint8_t flags)
 {
     bool is_rom = flags & HAX_MEMSLOT_READONLY;
     hax_ept_tree *tree;
@@ -51,9 +51,9 @@ void ept_handle_mapping_removed(hax_gpa_space_listener *listener,
 }
 
 void ept_handle_mapping_changed(hax_gpa_space_listener *listener,
-                                uint64 start_gfn, uint64 npages,
-                                uint64 old_uva, uint8 old_flags,
-                                uint64 new_uva, uint8 new_flags)
+                                uint64_t start_gfn, uint64_t npages,
+                                uint64_t old_uva, uint8_t old_flags,
+                                uint64_t new_uva, uint8_t new_flags)
 {
     bool was_rom = old_flags & HAX_MEMSLOT_READONLY;
     bool is_rom = new_flags & HAX_MEMSLOT_READONLY;
@@ -70,18 +70,18 @@ void ept_handle_mapping_changed(hax_gpa_space_listener *listener,
 }
 
 int ept_handle_access_violation(hax_gpa_space *gpa_space, hax_ept_tree *tree,
-                                exit_qualification_t qual, uint64 gpa,
-                                uint64 *fault_gfn)
+                                exit_qualification_t qual, uint64_t gpa,
+                                uint64_t *fault_gfn)
 {
     uint combined_perm;
-    uint64 gfn;
+    uint64_t gfn;
     hax_memslot *slot;
     bool is_rom;
     hax_ramblock *block;
     hax_chunk *chunk;
-    uint64 offset_within_slot, offset_within_block, offset_within_chunk;
-    uint64 chunk_offset_low, chunk_offset_high, slot_offset_high;
-    uint64 start_gpa, size;
+    uint64_t offset_within_slot, offset_within_block, offset_within_chunk;
+    uint64_t chunk_offset_low, chunk_offset_high, slot_offset_high;
+    uint64_t start_gpa, size;
     int ret;
 
     // Extract bits 5..3 from Exit Qualification
@@ -174,7 +174,7 @@ typedef struct epte_fixer_bundle {
     int error_count;
 } epte_fixer_bundle;
 
-static void fix_epte(hax_ept_tree *tree, uint64 gfn, int level, hax_epte *epte,
+static void fix_epte(hax_ept_tree *tree, uint64_t gfn, int level, hax_epte *epte,
                      void *opaque)
 {
     hax_epte old_epte, new_epte;
@@ -202,8 +202,8 @@ static void fix_epte(hax_ept_tree *tree, uint64 gfn, int level, hax_epte *epte,
         // should be zeroed out (i.e. not present)
         new_epte.value = 0;
     } else {
-        uint64 w_bit = HAX_EPT_PERM_RWX ^ HAX_EPT_PERM_RX;
-        uint64 preserved_bits;
+        uint64_t w_bit = HAX_EPT_PERM_RWX ^ HAX_EPT_PERM_RX;
+        uint64_t preserved_bits;
 
         // Set bits 2..0 (permissions)
         new_epte.value |= HAX_EPT_PERM_RWX;
@@ -258,9 +258,9 @@ static void fix_epte(hax_ept_tree *tree, uint64 gfn, int level, hax_epte *epte,
 // fix any misconfigured EPT entries in the EPT misconfiguration handler, and
 // log more information for further debugging.
 int ept_handle_misconfiguration(hax_gpa_space *gpa_space, hax_ept_tree *tree,
-                                uint64 gpa)
+                                uint64_t gpa)
 {
-    uint64 gfn;
+    uint64_t gfn;
     epte_fixer_bundle bundle = { NULL, 0, 0 };
 
     gfn = gpa >> PG_ORDER_4K;

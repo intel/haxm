@@ -39,8 +39,8 @@ struct vm_t;
 extern "C" {
 #endif
 
-int vcpu_set_msr(struct vcpu_t *vcpu, uint64 index, uint64 value);
-int vcpu_get_msr(struct vcpu_t *vcpu, uint64 index, uint64 *value);
+int vcpu_set_msr(struct vcpu_t *vcpu, uint64_t index, uint64_t value);
+int vcpu_get_msr(struct vcpu_t *vcpu, uint64_t index, uint64_t *value);
 int vcpu_put_fpu(struct vcpu_t *vcpu, struct fx_layout *fl);
 int vcpu_get_fpu(struct vcpu_t *vcpu, struct fx_layout *fl);
 int vcpu_set_regs(struct vcpu_t *vcpu, struct vcpu_state_t *vs);
@@ -73,7 +73,7 @@ struct vcpu_t * vcpu_create(struct vm_t *vm, void *vm_host, int vcpu_id);
 int hax_vcpu_core_open(struct vcpu_t *vcpu);
 int vcpu_teardown(struct vcpu_t *vcpu);
 int vcpu_execute(struct vcpu_t *vcpu);
-int vcpu_interrupt(struct vcpu_t *vcpu, uint8 vector);
+int vcpu_interrupt(struct vcpu_t *vcpu, uint8_t vector);
 
 /*
  * Find a vcpu with corresponding id, |refer| decides whether a reference count

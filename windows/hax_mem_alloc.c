@@ -143,7 +143,7 @@ struct hax_page * hax_alloc_pages(int order, uint32_t flags, bool vmap)
     if (!ppage->kva)
         goto error;
     ppage->pmdl = pmdl;
-    ppage->pa = ((uint64)(MmGetMdlPfnArray(pmdl)[0])) << 12;
+    ppage->pa = ((uint64_t)(MmGetMdlPfnArray(pmdl)[0])) << 12;
 #else
     /*
      * According to WDK, MmAllocateContiguousMemory always returns page-aligned

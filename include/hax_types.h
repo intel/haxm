@@ -194,12 +194,12 @@ typedef enum component_index_t component_index_t;
 #endif
 
 /* Common typedef for all platform */
-typedef uint64 hax_pa_t;
-typedef uint64 hax_pfn_t;
-typedef uint64 paddr_t;
-typedef uint64 vaddr_t;
+typedef uint64_t hax_pa_t;
+typedef uint64_t hax_pfn_t;
+typedef uint64_t paddr_t;
+typedef uint64_t vaddr_t;
 
-extern int32 hax_page_size;
+extern int32_t hax_page_size;
 
 #ifdef _M_IX86
 #define ASMCALL __cdecl

@@ -33,7 +33,7 @@
 #include "../include/hax_host_mem.h"
 #include "include/paging.h"
 
-int chunk_alloc(uint64 base_uva, uint64 size, hax_chunk **chunk)
+int chunk_alloc(uint64_t base_uva, uint64_t size, hax_chunk **chunk)
 {
     hax_chunk *chk;
     int ret;

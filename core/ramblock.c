@@ -33,33 +33,33 @@
 
 #define ramblock_info  hax_info
 
-static inline uint64 ramblock_count_chunks(hax_ramblock *block)
+static inline uint64_t ramblock_count_chunks(hax_ramblock *block)
 {
     // Assuming block != NULL && block->size != 0
     return (block->size - 1) / HAX_CHUNK_SIZE + 1;
 }
 
-static inline uint64 ramblock_count_bitmap_size(uint64 nchunks)
+static inline uint64_t ramblock_count_bitmap_size(uint64_t nchunks)
 {
-    uint64 chunks_bitmap_size;
+    uint64_t chunks_bitmap_size;
 
     chunks_bitmap_size = (nchunks + 7) / 8;
     // add more 8 bytes to chunks_bitmap_size to avoid memory out of bounds
     // when accessing the tail of chunks_bitmap by pointer type other than
-    // "uint8 *". This fix the BSOD happened in hax_test_and_set_bit() when it
+    // "uint8_t *". This fix the BSOD happened in hax_test_and_set_bit() when it
     // accesses the tail of chunks_bitmap.
     chunks_bitmap_size += 8;
 
     return chunks_bitmap_size;
 }
 
-static hax_ramblock * ramblock_alloc(uint64 base_uva, uint64 size)
+static hax_ramblock * ramblock_alloc(uint64_t base_uva, uint64_t size)
 {
     hax_ramblock *block;
-    uint64 nchunks;
+    uint64_t nchunks;
     hax_chunk **chunks;
-    uint64 chunks_bitmap_size;
-    uint8 *chunks_bitmap;
+    uint64_t chunks_bitmap_size;
+    uint8_t *chunks_bitmap;
 
     block = (hax_ramblock *) hax_vmalloc(sizeof(*block), 0);
     if (!block) {
@@ -82,7 +82,7 @@ static hax_ramblock * ramblock_alloc(uint64 base_uva, uint64 size)
     block->chunks = chunks;
 
     chunks_bitmap_size = ramblock_count_bitmap_size(nchunks);
-    chunks_bitmap = (uint8 *) hax_vmalloc(chunks_bitmap_size, 0);
+    chunks_bitmap = (uint8_t *) hax_vmalloc(chunks_bitmap_size, 0);
     if (!chunks_bitmap) {
         hax_error("%s: Failed to allocate chunks bitmap: nchunks=0x%llx,"
                   " chunks_bitmap_size=0x%llx, size=0x%llx\n", __func__,
@@ -101,8 +101,8 @@ static hax_ramblock * ramblock_alloc(uint64 base_uva, uint64 size)
 static void ramblock_free_chunks(hax_ramblock *block, bool destroy)
 {
     hax_chunk **chunks;
-    uint64 nchunks, chunks_bitmap_size, i;
-    uint64 nbytes_used = 0;
+    uint64_t nchunks, chunks_bitmap_size, i;
+    uint64_t nbytes_used = 0;
 
     assert(block != NULL);
     // Assuming block->chunks != NULL due to a previous ramblock_alloc() call
@@ -130,7 +130,7 @@ static void ramblock_free_chunks(hax_ramblock *block, bool destroy)
         // But if they are carried out in this order, between 1) and 2), another
         // thread may call ramblock_get_chunk() and get a bad pointer. So
         // reverse the order to avoid that.
-        if (hax_test_and_clear_bit((int) i, (uint64 *) block->chunks_bitmap)) {
+        if (hax_test_and_clear_bit((int) i, (uint64_t *) block->chunks_bitmap)) {
             // Bit i of chunks_bitmap was already clear
             hax_warning("%s: chunks[%llu] existed but its bit in chunks_bitmap"
                         " was not set: size=0x%llx, block.size=0x%llx\n",
@@ -223,7 +223,7 @@ void ramblock_dump_list(hax_list_head *list)
 }
 
 // TODO: parameter 'start' is ignored for now
-hax_ramblock * ramblock_find(hax_list_head *list, uint64 uva,
+hax_ramblock * ramblock_find(hax_list_head *list, uint64_t uva,
                              hax_list_node *start)
 {
     hax_ramblock *ramblock;
@@ -247,7 +247,7 @@ hax_ramblock * ramblock_find(hax_list_head *list, uint64 uva,
 }
 
 // TODO: parameter 'start' is ignored for now
-int ramblock_add(hax_list_head *list, uint64 base_uva, uint64 size,
+int ramblock_add(hax_list_head *list, uint64_t base_uva, uint64_t size,
                  hax_list_node *start, hax_ramblock **block)
 {
     hax_ramblock *ramblock, *ramblock2;
@@ -306,10 +306,10 @@ add_finished:
     return 0;
 }
 
-hax_chunk * ramblock_get_chunk(hax_ramblock *block, uint64 uva_offset,
+hax_chunk * ramblock_get_chunk(hax_ramblock *block, uint64_t uva_offset,
                                bool alloc)
 {
-    uint64 chunk_index;
+    uint64_t chunk_index;
 
     if (!block) {
         hax_error("%s: block == NULL\n", __func__);
@@ -330,13 +330,13 @@ hax_chunk * ramblock_get_chunk(hax_ramblock *block, uint64 uva_offset,
     //  block->size == 4GB && HAX_CHUNK_SIZE == 4KB
     // the number of chunks (2^20) will still be much less than INT_MAX
     if (!hax_test_and_set_bit((int) chunk_index,
-                              (uint64 *) block->chunks_bitmap)) {
+                              (uint64_t *) block->chunks_bitmap)) {
         // The bit corresponding to this chunk was not set
-        uint64 uva_offset_low = chunk_index << HAX_CHUNK_SHIFT;
-        uint64 uva_offset_high = (chunk_index + 1) << HAX_CHUNK_SHIFT;
-        uint64 chunk_base_uva = block->base_uva + uva_offset_low;
+        uint64_t uva_offset_low = chunk_index << HAX_CHUNK_SHIFT;
+        uint64_t uva_offset_high = (chunk_index + 1) << HAX_CHUNK_SHIFT;
+        uint64_t chunk_base_uva = block->base_uva + uva_offset_low;
         // The last chunk may be smaller than HAX_CHUNK_SIZE
-        uint64 chunk_size = uva_offset_high > block->size ?
+        uint64_t chunk_size = uva_offset_high > block->size ?
                             block->size % HAX_CHUNK_SIZE :
                             HAX_CHUNK_SIZE;
         hax_chunk *chunk;
@@ -350,7 +350,7 @@ hax_chunk * ramblock_get_chunk(hax_ramblock *block, uint64 uva_offset,
             // No need to test the bit here (which should be set), but there is
             // no such API as hax_clear_bit()
             was_clear = hax_test_and_clear_bit((int) chunk_index,
-                                               (uint64 *) block->chunks_bitmap);
+                                               (uint64_t *) block->chunks_bitmap);
             hax_error("%s: Failed to allocate chunk: ret=%d, index=%llu,"
                       " base_uva=0x%llx, size=0x%llx, was_clear=%d\n", __func__,
                       ret, chunk_index, chunk_base_uva, chunk_size, was_clear);
@@ -367,7 +367,7 @@ hax_chunk * ramblock_get_chunk(hax_ramblock *block, uint64 uva_offset,
 
         while (!block->chunks[chunk_index]) {
             if (!hax_test_bit((int) chunk_index,
-                              (uint64 *) block->chunks_bitmap)) {
+                              (uint64_t *) block->chunks_bitmap)) {
                 // The other thread has reset the bit, indicating the chunk
                 // could not be allocated/pinned
                 hax_error("%s: Another thread tried to allocate this chunk"

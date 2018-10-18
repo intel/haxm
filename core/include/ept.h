@@ -47,18 +47,18 @@
 
 typedef struct epte {
     union {
-        uint64 val;
+        uint64_t val;
         struct {
-            uint64 perm       : 3;
-            uint64 emt        : 3;
-            uint64 ignore_pat : 1;
-            uint64 large_page : 1;
-            uint64 accessed   : 1;
-            uint64 dirty      : 1;
-            uint64 dont_use   : 2;
-            uint64 addr       : 45;
-            uint64 rsvd       : 5;
-            uint64 avail1     : 2;
+            uint64_t perm       : 3;
+            uint64_t emt        : 3;
+            uint64_t ignore_pat : 1;
+            uint64_t large_page : 1;
+            uint64_t accessed   : 1;
+            uint64_t dirty      : 1;
+            uint64_t dont_use   : 2;
+            uint64_t addr       : 45;
+            uint64_t rsvd       : 5;
+            uint64_t avail1     : 2;
         };
     };
 } epte_t;
@@ -133,18 +133,18 @@ static inline uint ept_get_pte_idx(paddr_t gpa)
 
 typedef struct eptp {
     union {
-        uint64 val;
+        uint64_t val;
         struct {
-            uint64 emt    :  3;
-            uint64 gaw    :  3;
-            uint64 rsvd1  :  6;
-            uint64 asr    : 48;
-            uint64 rsvd2  :  4;
+            uint64_t emt    :  3;
+            uint64_t gaw    :  3;
+            uint64_t rsvd1  :  6;
+            uint64_t asr    : 48;
+            uint64_t rsvd2  :  4;
         };
     };
 } eptp_t;
 
-#define INVALID_EPTP ~(uint64)0
+#define INVALID_EPTP ~(uint64_t)0
 
 struct hax_ept {
     bool is_enabled;
@@ -161,36 +161,36 @@ static void construct_eptp(eptp_t *entry, paddr_t hpa, uint emt)
     entry->gaw = EPT_DEFAULT_GAW;
 };
 
-#define ept_cap_rwX             ((uint64)1 << 0)
-#define ept_cap_rWx             ((uint64)1 << 1)
-#define ept_cap_rWX             ((uint64)1 << 2)
-#define ept_cap_gaw21           ((uint64)1 << 3)
-#define ept_cap_gaw30           ((uint64)1 << 4)
-#define ept_cap_gaw39           ((uint64)1 << 5)
-#define ept_cap_gaw48           ((uint64)1 << 6)
-#define ept_cap_gaw57           ((uint64)1 << 7)
+#define ept_cap_rwX             ((uint64_t)1 << 0)
+#define ept_cap_rWx             ((uint64_t)1 << 1)
+#define ept_cap_rWX             ((uint64_t)1 << 2)
+#define ept_cap_gaw21           ((uint64_t)1 << 3)
+#define ept_cap_gaw30           ((uint64_t)1 << 4)
+#define ept_cap_gaw39           ((uint64_t)1 << 5)
+#define ept_cap_gaw48           ((uint64_t)1 << 6)
+#define ept_cap_gaw57           ((uint64_t)1 << 7)
 
-#define ept_cap_UC              ((uint64)1 << 8)
-#define ept_cap_WC              ((uint64)1 << 9)
-#define ept_cap_WT              ((uint64)1 << 12)
-#define ept_cap_WP              ((uint64)1 << 13)
-#define ept_cap_WB              ((uint64)1 << 14)
+#define ept_cap_UC              ((uint64_t)1 << 8)
+#define ept_cap_WC              ((uint64_t)1 << 9)
+#define ept_cap_WT              ((uint64_t)1 << 12)
+#define ept_cap_WP              ((uint64_t)1 << 13)
+#define ept_cap_WB              ((uint64_t)1 << 14)
 
-#define ept_cap_sp2M            ((uint64)1 << 16)
-#define ept_cap_sp1G            ((uint64)1 << 17)
-#define ept_cap_sp512G          ((uint64)1 << 18)
-#define ept_cap_sp256T          ((uint64)1 << 19)
+#define ept_cap_sp2M            ((uint64_t)1 << 16)
+#define ept_cap_sp1G            ((uint64_t)1 << 17)
+#define ept_cap_sp512G          ((uint64_t)1 << 18)
+#define ept_cap_sp256T          ((uint64_t)1 << 19)
 
-#define ept_cap_invept          ((uint64)1 << 20)
-#define ept_cap_invept_ia       ((uint64)1 << 24)
-#define ept_cap_invept_cw       ((uint64)1 << 25)
-#define ept_cap_invept_ac       ((uint64)1 << 26)
+#define ept_cap_invept          ((uint64_t)1 << 20)
+#define ept_cap_invept_ia       ((uint64_t)1 << 24)
+#define ept_cap_invept_cw       ((uint64_t)1 << 25)
+#define ept_cap_invept_ac       ((uint64_t)1 << 26)
 
-#define ept_cap_invvpid         ((uint64)1 << 32)
-#define ept_cap_invvpid_ia      ((uint64)1 << 40)
-#define ept_cap_invvpid_cw      ((uint64)1 << 41)
-#define ept_cap_invvpid_ac      ((uint64)1 << 42)
-#define ept_cap_invvpid_cwpg    ((uint64)1 << 43)
+#define ept_cap_invvpid         ((uint64_t)1 << 32)
+#define ept_cap_invvpid_ia      ((uint64_t)1 << 40)
+#define ept_cap_invvpid_cw      ((uint64_t)1 << 41)
+#define ept_cap_invvpid_ac      ((uint64_t)1 << 42)
+#define ept_cap_invvpid_cwpg    ((uint64_t)1 << 43)
 
 #define EPT_UNSUPPORTED_FEATURES \
         (ept_cap_sp2M | ept_cap_sp1G | ept_cap_sp512G | ept_cap_sp256T)
@@ -201,11 +201,11 @@ static void construct_eptp(eptp_t *entry, paddr_t hpa, uint emt)
 bool ept_init(hax_vm_t *hax_vm);
 void ept_free(hax_vm_t *hax_vm);
 
-uint64 vcpu_get_eptp(struct vcpu_t *vcpu);
+uint64_t vcpu_get_eptp(struct vcpu_t *vcpu);
 bool ept_set_pte(hax_vm_t *hax_vm, paddr_t gpa, paddr_t hpa, uint emt,
                  uint mem_type, bool *is_modified);
 void invept(hax_vm_t *hax_vm, uint type);
-bool ept_set_caps(uint64 caps);
+bool ept_set_caps(uint64_t caps);
 
 /* Deprecated API due to low performance */
 bool ept_translate(struct vcpu_t *vcpu, paddr_t gpa, uint order, paddr_t *hpa);

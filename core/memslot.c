@@ -49,16 +49,16 @@ enum route {
     MAPPING_INVALID
 };
 
-typedef int (*MEMSLOT_PROCESS)(hax_memslot *, hax_memslot *, uint8 *);
+typedef int (*MEMSLOT_PROCESS)(hax_memslot *, hax_memslot *, uint8_t *);
 
 typedef struct memslot_mapping {
-    uint8 callback;
-    uint64 start_gfn;
-    uint64 npages;
-    uint64 old_uva;
-    uint32 old_flags;
-    uint64 new_uva;
-    uint32 new_flags;
+    uint8_t callback;
+    uint64_t start_gfn;
+    uint64_t npages;
+    uint64_t old_uva;
+    uint32_t old_flags;
+    uint64_t new_uva;
+    uint32_t new_flags;
 } memslot_mapping;
 
 static void memslot_init(hax_memslot *dest, hax_memslot *src);
@@ -72,22 +72,22 @@ static void memslot_union(hax_memslot *dest, hax_memslot *src);
 static void memslot_overlap_front(hax_memslot *dest, hax_memslot *src);
 static void memslot_overlap_rear(hax_memslot *dest, hax_memslot *src);
 static hax_memslot * memslot_append_rest(hax_memslot *dest, hax_memslot *src);
-static bool memslot_is_valid(uint32 flags);
+static bool memslot_is_valid(uint32_t flags);
 static bool memslot_is_same_type(hax_memslot *dest, hax_memslot *src);
 static bool memslot_is_inner(hax_memslot *dest, hax_memslot *src,
                              hax_gpa_space *gpa_space);
 static int memslot_process_start_diff_type(hax_memslot *dest, hax_memslot *src,
-                                           uint8 *state);
+                                           uint8_t *state);
 static int memslot_process_start_same_type(hax_memslot *dest, hax_memslot *src,
-                                           uint8 *state);
+                                           uint8_t *state);
 static int memslot_process_start_invalid(hax_memslot *dest, hax_memslot *src,
-                                         uint8 *state);
+                                         uint8_t *state);
 static int memslot_process_end_diff_type(hax_memslot *dest, hax_memslot *src,
-                                         uint8 *state);
+                                         uint8_t *state);
 static int memslot_process_end_same_type(hax_memslot *dest, hax_memslot *src,
-                                         uint8 *state);
+                                         uint8_t *state);
 static int memslot_process_end_invalid(hax_memslot *dest, hax_memslot *src,
-                                       uint8 *state);
+                                       uint8_t *state);
 static int memslot_list_enqueue(hax_list_head *memslot_list, hax_memslot *dest);
 static void memslot_list_clear(hax_list_head *memslot_list);
 static void mapping_broadcast(hax_list_head *listener_list,
@@ -153,8 +153,8 @@ void memslot_dump_list(hax_gpa_space *gpa_space)
     hax_info("memslot dump ends!\n");
 }
 
-int memslot_set_mapping(hax_gpa_space *gpa_space, uint64 start_gfn,
-                        uint64 npages, uint64 uva, uint32 flags)
+int memslot_set_mapping(hax_gpa_space *gpa_space, uint64_t start_gfn,
+                        uint64_t npages, uint64_t uva, uint32_t flags)
 {
     hax_memslot memslot, *src = NULL, *dest = &memslot, *m = NULL;
     hax_ramblock *block = NULL;
@@ -162,7 +162,7 @@ int memslot_set_mapping(hax_gpa_space *gpa_space, uint64 start_gfn,
     hax_list_head snapshot;
     int ret = 0;
     bool is_valid = false, is_found = false;
-    uint8 route = 0, state = 0;
+    uint8_t route = 0, state = 0;
 
     hax_info("%s: start_gfn=0x%llx, npages=0x%llx, uva=0x%llx, flags=0x%x\n",
              __func__, start_gfn, npages, uva, flags);
@@ -290,7 +290,7 @@ out:
     return ret;
 }
 
-hax_memslot * memslot_find(hax_gpa_space *gpa_space, uint64 gfn)
+hax_memslot * memslot_find(hax_gpa_space *gpa_space, uint64_t gfn)
 {
     hax_memslot *memslot = NULL;
 
@@ -409,7 +409,7 @@ static inline hax_memslot * memslot_append_rest(hax_memslot *dest,
     return rest;
 }
 
-static inline bool memslot_is_valid(uint32 flags)
+static inline bool memslot_is_valid(uint32_t flags)
 {
     return (flags & HAX_MEMSLOT_INVALID) != HAX_MEMSLOT_INVALID;
 }
@@ -471,7 +471,7 @@ static bool memslot_is_inner(hax_memslot *dest, hax_memslot *src,
 // Figure 1: Memory slot process start (primary node)
 
 static int memslot_process_start_diff_type(hax_memslot *dest, hax_memslot *src,
-                                           uint8 *state)
+                                           uint8_t *state)
 {
     int ret = 0;
 
@@ -529,7 +529,7 @@ out:
 }
 
 static int memslot_process_start_same_type(hax_memslot *dest, hax_memslot *src,
-                                           uint8 *state)
+                                           uint8_t *state)
 {
     int ret = 0;
 
@@ -555,7 +555,7 @@ out:
 }
 
 static int memslot_process_start_invalid(hax_memslot *dest, hax_memslot *src,
-                                         uint8 *state)
+                                         uint8_t *state)
 {
     int ret = 0;
 
@@ -616,7 +616,7 @@ out:
 //   function memslot_is_inner).
 
 static int memslot_process_end_diff_type(hax_memslot *dest, hax_memslot *src,
-                                         uint8 *state)
+                                         uint8_t *state)
 {
     int ret = 0;
 
@@ -647,7 +647,7 @@ out:
 }
 
 static int memslot_process_end_same_type(hax_memslot *dest, hax_memslot *src,
-                                         uint8 *state)
+                                         uint8_t *state)
 {
     hax_memslot *prev = NULL;
 
@@ -670,7 +670,7 @@ static int memslot_process_end_same_type(hax_memslot *dest, hax_memslot *src,
 }
 
 static int memslot_process_end_invalid(hax_memslot *dest, hax_memslot *src,
-                                       uint8 *state)
+                                       uint8_t *state)
 {
     if (dest->base_gfn + dest->npages == src->base_gfn)
         // [1]

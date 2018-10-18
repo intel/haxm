@@ -213,65 +213,65 @@ typedef enum vmx_error_t {
 
 // Exit qualification 64-bit OK
 union exit_qualification_t {
-    uint64 raw;
-    uint64 address;
+    uint64_t raw;
+    uint64_t address;
     struct {
-        uint32 size        : 3;
-        uint32 direction   : 1;
-        uint32 string      : 1;
-        uint32 rep         : 1;
-        uint32 encoding    : 1;
-        uint32 rsv1        : 9;
-        uint32 port        : 16;
+        uint32_t size        : 3;
+        uint32_t direction   : 1;
+        uint32_t string      : 1;
+        uint32_t rep         : 1;
+        uint32_t encoding    : 1;
+        uint32_t rsv1        : 9;
+        uint32_t port        : 16;
     } io;
     struct {
-        uint32 creg        : 4;
-        uint32 type        : 2;
-        uint32 rsv2        : 2;
-        uint32 gpr         : 4;
-        uint32 rsv3        : 4;
-        uint32 lmsw_source : 16;
+        uint32_t creg        : 4;
+        uint32_t type        : 2;
+        uint32_t rsv2        : 2;
+        uint32_t gpr         : 4;
+        uint32_t rsv3        : 4;
+        uint32_t lmsw_source : 16;
     } cr;
     struct {
-        uint32 dreg        : 3;
-        uint32 rsv4        : 1;
-        uint32 direction   : 1;
-        uint32 rsv5        : 3;
-        uint32 gpr         : 4;
-        uint32 rsv6        : 20;
+        uint32_t dreg        : 3;
+        uint32_t rsv4        : 1;
+        uint32_t direction   : 1;
+        uint32_t rsv5        : 3;
+        uint32_t gpr         : 4;
+        uint32_t rsv6        : 20;
     } dr;
     struct {
-        uint32 selector    : 16;
-        uint32 rsv7        : 14;
-        uint32 source      : 2;
+        uint32_t selector    : 16;
+        uint32_t rsv7        : 14;
+        uint32_t source      : 2;
     } task_switch;
     struct {
-        uint32 offset      : 12;
-        uint32 access      : 3;
+        uint32_t offset      : 12;
+        uint32_t access      : 3;
     } vapic;
     struct {
-        uint8 vector;
+        uint8_t vector;
     } vapic_eoi;
     struct {
-        uint32 r           : 1;
-        uint32 w           : 1;
-        uint32 x           : 1;
-        uint32 _r          : 1;
-        uint32 _w          : 1;
-        uint32 _x          : 1;
-        uint32 res1        : 1;
-        uint32 gla1        : 1;
-        uint32 gla2        : 1;
+        uint32_t r           : 1;
+        uint32_t w           : 1;
+        uint32_t x           : 1;
+        uint32_t _r          : 1;
+        uint32_t _w          : 1;
+        uint32_t _x          : 1;
+        uint32_t res1        : 1;
+        uint32_t gla1        : 1;
+        uint32_t gla2        : 1;
         /*
          * According to latest IA SDM (September 2016), Table 27-7, these 3 bits
          * (11:9) are no longer reserved. They are meaningful if advanced
          * VM-exit information for EPT violations is supported by the processor,
          * which is the case with Kaby Lake.
          */
-        uint32 res2        : 3;  /* bits 11:9 */
-        uint32 nmi_block   : 1;
-        uint32 res3        : 19;
-        uint32 res4        : 32;
+        uint32_t res2        : 3;  /* bits 11:9 */
+        uint32_t nmi_block   : 1;
+        uint32_t res3        : 19;
+        uint32_t res4        : 32;
     } ept;
 };
 
@@ -279,14 +279,14 @@ typedef union exit_qualification_t exit_qualification_t;
 
 // Exit reason
 union exit_reason_t {
-    uint32 raw;
+    uint32_t raw;
     struct {
-        uint32 basic_reason : 16;
-        uint32 rsv          : 12;
-        uint32 pending_mtf  : 1;
-        uint32 vmexit_root  : 1;
-        uint32 vmexit_fail  : 1;
-        uint32 vmenter_fail : 1;
+        uint32_t basic_reason : 16;
+        uint32_t rsv          : 12;
+        uint32_t pending_mtf  : 1;
+        uint32_t vmexit_root  : 1;
+        uint32_t vmexit_fail  : 1;
+        uint32_t vmenter_fail : 1;
     };
 };
 
@@ -294,20 +294,20 @@ typedef union exit_reason_t exit_reason_t;
 
 // Instruction Information Layout (see spec: 8.6)
 union instruction_info_t {
-    uint32 raw;
+    uint32_t raw;
     struct {
-        uint32 scaling      : 2;
-        uint32              : 1;
-        uint32 register1    : 4;
-        uint32 addrsize     : 3;
-        uint32 memreg       : 1;
-        uint32              : 4;
-        uint32 segment      : 3;
-        uint32 indexreg     : 4;
-        uint32 indexinvalid : 1;
-        uint32 basereg      : 4;
-        uint32 baseinvalid  : 1;
-        uint32 register2    : 4;
+        uint32_t scaling      : 2;
+        uint32_t              : 1;
+        uint32_t register1    : 4;
+        uint32_t addrsize     : 3;
+        uint32_t memreg       : 1;
+        uint32_t              : 4;
+        uint32_t segment      : 3;
+        uint32_t indexreg     : 4;
+        uint32_t indexinvalid : 1;
+        uint32_t basereg      : 4;
+        uint32_t baseinvalid  : 1;
+        uint32_t register2    : 4;
     };
 };
 
@@ -315,14 +315,14 @@ typedef union instruction_info_t instruction_info_t;
 
 // 64-bit OK
 union interruption_info_t {
-    uint32 raw;
+    uint32_t raw;
     struct {
-        uint32 vector             : 8;
-        uint32 type               : 3;
-        uint32 deliver_error_code : 1;
-        uint32 nmi_unmasking      : 1;
-        uint32 reserved           : 18;
-        uint32 valid              : 1;
+        uint32_t vector             : 8;
+        uint32_t type               : 3;
+        uint32_t deliver_error_code : 1;
+        uint32_t nmi_unmasking      : 1;
+        uint32_t reserved           : 18;
+        uint32_t valid              : 1;
     };
 };
 
@@ -338,7 +338,7 @@ enum {
 
 typedef union interruption_info_t interruption_info_t;
 
-void get_interruption_info_t(interruption_info_t *info, uint8 v, uint8 t);
+void get_interruption_info_t(interruption_info_t *info, uint8_t v, uint8_t t);
 
 enum {
     GAS_ACTIVE      = 0,
@@ -355,87 +355,87 @@ enum {
 // 64-bit OK
 struct PACKED info_t {
     union {                          // 0: Basic Information
-        uint64         _basic_info;
+        uint64_t         _basic_info;
         struct {
-            uint32     _vmcs_revision_id;
+            uint32_t     _vmcs_revision_id;
             struct {
-                uint32 _vmcs_region_length : 16;
-                uint32 _phys_limit_32bit   : 1;
-                uint32 _par_mon_supported  : 1;
-                uint32 _mem_types          : 4;
-                uint32 _reserved1          : 10;
+                uint32_t _vmcs_region_length : 16;
+                uint32_t _phys_limit_32bit   : 1;
+                uint32_t _par_mon_supported  : 1;
+                uint32_t _mem_types          : 4;
+                uint32_t _reserved1          : 10;
             };
         };
     };
 
     union {
-        uint64         pin_ctls;
+        uint64_t         pin_ctls;
         struct {
-            uint32     pin_ctls_0;   // 1: Pin-Based VM-Execution Controls
-            uint32     pin_ctls_1;
+            uint32_t     pin_ctls_0;   // 1: Pin-Based VM-Execution Controls
+            uint32_t     pin_ctls_1;
         };
     };
 
     union {
-        uint64         pcpu_ctls;
+        uint64_t         pcpu_ctls;
         struct {
-            uint32     pcpu_ctls_0;  // 2: Processor-Based VM-Execution Controls
-            uint32     pcpu_ctls_1;
+            uint32_t     pcpu_ctls_0;  // 2: Processor-Based VM-Execution Controls
+            uint32_t     pcpu_ctls_1;
         };
     };
 
     union {
-        uint64         exit_ctls;
+        uint64_t         exit_ctls;
         struct {
-            uint32     exit_ctls_0;  // 3: Allowed VM-Exit Controls
-            uint32     exit_ctls_1;
+            uint32_t     exit_ctls_0;  // 3: Allowed VM-Exit Controls
+            uint32_t     exit_ctls_1;
         };
     };
 
     union {
-        uint64         entry_ctls;
+        uint64_t         entry_ctls;
         struct {
-            uint32     entry_ctls_0; // 4: Allowed VM-Entry Controls
-            uint32     entry_ctls_1;
+            uint32_t     entry_ctls_0; // 4: Allowed VM-Entry Controls
+            uint32_t     entry_ctls_1;
         };
     };
 
     union {                          // 5: Miscellaneous Data
-        uint64         _miscellaneous;
+        uint64_t         _miscellaneous;
         struct {
             struct {
-                uint32 _tsc_comparator_len : 6;
-                uint32 _reserved2          : 2;
-                uint32 _max_sleep_state    : 8;
-                uint32 _max_cr3_targets    : 9;
-                uint32 _reserved3          : 7;
+                uint32_t _tsc_comparator_len : 6;
+                uint32_t _reserved2          : 2;
+                uint32_t _max_sleep_state    : 8;
+                uint32_t _max_cr3_targets    : 9;
+                uint32_t _reserved3          : 7;
             };
-            uint32     _mseg_revision_id;
+            uint32_t     _mseg_revision_id;
         };
     };
 
-    uint64             _cr0_fixed_0; // 6: VMX-Fixed Bits in CR0
-    uint64             _cr0_fixed_1; // 7: VMX-Fixed Bits in CR0
-    uint64             _cr4_fixed_0; // 8: VMX-Fixed Bits in CR4
-    uint64             _cr4_fixed_1; // 9: VMX-Fixed Bits in CR4
+    uint64_t             _cr0_fixed_0; // 6: VMX-Fixed Bits in CR0
+    uint64_t             _cr0_fixed_1; // 7: VMX-Fixed Bits in CR0
+    uint64_t             _cr4_fixed_0; // 8: VMX-Fixed Bits in CR4
+    uint64_t             _cr4_fixed_1; // 9: VMX-Fixed Bits in CR4
 
     union {                          // 10: VMCS Enumeration
-        uint64         _vmcs_enumeration;
+        uint64_t         _vmcs_enumeration;
         struct {
-                uint32                     : 1;
-                uint32 _max_vmcs_idx       : 9;
+                uint32_t                     : 1;
+                uint32_t _max_vmcs_idx       : 9;
         };
     };
 
     union {
-        uint64         scpu_ctls;
+        uint64_t         scpu_ctls;
         struct {
-            uint32     scpu_ctls_0;  // 2: Processor-Based VM-Execution Controls
-            uint32     scpu_ctls_1;
+            uint32_t     scpu_ctls_0;  // 2: Processor-Based VM-Execution Controls
+            uint32_t     scpu_ctls_1;
         };
     };
 
-    uint64             _ept_cap;
+    uint64_t             _ept_cap;
 };
 
 #ifdef __WINNT__
@@ -445,19 +445,19 @@ struct PACKED info_t {
 typedef struct PACKED info_t info_t;
 // 64-bit OK
 struct mseg_header_t {
-    uint32 mseg_revision_id;
-    uint32 smm_monitor_features;
-    uint32 gdtr_limit;
-    uint32 gdtr_base;
-    uint32 cs;
-    uint32 eip;
-    uint32 esp;
-    uint32 cr3;
+    uint32_t mseg_revision_id;
+    uint32_t smm_monitor_features;
+    uint32_t gdtr_limit;
+    uint32_t gdtr_base;
+    uint32_t cs;
+    uint32_t eip;
+    uint32_t esp;
+    uint32_t cr3;
 };
 
 union vmcs_t {
-    uint32 _revision_id;
-    uint8 _raw8[IA32_VMX_VMCS_SIZE];
+    uint32_t _revision_id;
+    uint8_t _raw8[IA32_VMX_VMCS_SIZE];
 };
 
 typedef union vmcs_t vmcs_t;
@@ -475,8 +475,8 @@ typedef enum encode_t encode_t;
 #define ENCODE_SHIFT    13
 
 struct invept_desc {
-    uint64 eptp;
-    uint64 rsvd;
+    uint64_t eptp;
+    uint64_t rsvd;
 };
 
 struct vcpu_state_t;
@@ -488,17 +488,17 @@ vmx_result_t ASMCALL asm_vmptrld(const paddr_t *addr_in);
 vmx_result_t ASMCALL asm_vmxon(const paddr_t *addr_in);
 vmx_result_t ASMCALL asm_vmxoff(void);
 vmx_result_t ASMCALL asm_vmptrst(paddr_t *addr_out);
-vmx_result_t ASMCALL asm_vmxrun(struct vcpu_state_t *state, uint16 launch);
+vmx_result_t ASMCALL asm_vmxrun(struct vcpu_state_t *state, uint16_t launch);
 
 mword ASMCALL vmx_get_rip(void);
 
-mword ASMCALL asm_vmread(uint32 component);
-void ASMCALL asm_vmwrite(uint32 component, mword val);
+mword ASMCALL asm_vmread(uint32_t component);
+void ASMCALL asm_vmwrite(uint32_t component, mword val);
 
-uint64 vmread(struct vcpu_t *vcpu, component_index_t component);
-uint64 vmread_dump(struct vcpu_t *vcpu, unsigned enc, char *name);
+uint64_t vmread(struct vcpu_t *vcpu, component_index_t component);
+uint64_t vmread_dump(struct vcpu_t *vcpu, unsigned enc, char *name);
 void vmx_vmwrite(struct vcpu_t *vcpu, const char *name,
-                 component_index_t component, uint64 source_val);
+                 component_index_t component, uint64_t source_val);
 
 #define vmwrite(vcpu, x, y) vmx_vmwrite(vcpu, #x, x, y)
 

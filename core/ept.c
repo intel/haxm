@@ -43,11 +43,11 @@
 #include "include/paging.h"
 #include "include/vtlb.h"
 
-static uint64 ept_capabilities;
+static uint64_t ept_capabilities;
 
 #define EPT_BASIC_CAPS  (ept_cap_WB | ept_cap_invept_ac)
 
-bool ept_set_caps(uint64 caps)
+bool ept_set_caps(uint64_t caps)
 {
     if ((caps & EPT_BASIC_CAPS) != EPT_BASIC_CAPS) {
         hax_warning("Broken host EPT support detected (caps=0x%llx)\n", caps);
@@ -68,11 +68,11 @@ bool ept_set_caps(uint64 caps)
     return 1;
 }
 
-static bool ept_has_cap(uint64 cap)
+static bool ept_has_cap(uint64_t cap)
 {
     assert(ept_capabilities != 0);
-    // Avoid implicit conversion from uint64 to bool, because the latter may be
-    // typedef'ed as uint8 (see hax_types_windows.h)
+    // Avoid implicit conversion from uint64_t to bool, because the latter may be
+    // typedef'ed as uint8_t (see hax_types_windows.h)
     return (ept_capabilities & cap) != 0;
 }
 
@@ -82,7 +82,7 @@ static epte_t * ept_get_pde(struct hax_ept *ept, paddr_t gpa)
     epte_t *e;
     uint which_g = gpa >> 30;
     // PML4 and PDPTE level needs 2 pages
-    uint64 offset = (2 + which_g) * PAGE_SIZE_4K;
+    uint64_t offset = (2 + which_g) * PAGE_SIZE_4K;
     // Need Xiantao's check
     unsigned char *ept_addr = hax_page_va(ept->ept_root_page);
 
@@ -342,11 +342,11 @@ static void invept_smpfunc(struct invept_bundle *bundle)
 
 void invept(hax_vm_t *hax_vm, uint type)
 {
-    uint64 eptp_value = vm_get_eptp(hax_vm);
+    uint64_t eptp_value = vm_get_eptp(hax_vm);
     struct invept_desc desc = { eptp_value, 0 };
     struct invept_bundle bundle;
     int cpu_id;
-    uint32 res;
+    uint32_t res;
 
     if (!ept_has_cap(ept_cap_invept)) {
         hax_warning("INVEPT was not called due to missing host support"
@@ -394,17 +394,17 @@ void invept(hax_vm_t *hax_vm, uint type)
             continue;
         }
 
-        res = (uint32)cpu_data->vmxon_res;
+        res = (uint32_t)cpu_data->vmxon_res;
         if (res != VMX_SUCCEED) {
             hax_error("[Processor #%d] INVEPT was not called, because VMXON"
                       " failed (err=0x%x)\n", cpu_id, res);
         } else {
-            res = (uint32)cpu_data->invept_res;
+            res = (uint32_t)cpu_data->invept_res;
             if (res != VMX_SUCCEED) {
                 hax_error("[Processor #%d] INVEPT failed (err=0x%x)\n", cpu_id,
                           res);
             }
-            res = (uint32)cpu_data->vmxoff_res;
+            res = (uint32_t)cpu_data->vmxoff_res;
             if (res != VMX_SUCCEED) {
                 hax_error("[Processor #%d] INVEPT was called, but VMXOFF failed"
                           " (err=0x%x)\n", cpu_id, res);
@@ -413,7 +413,7 @@ void invept(hax_vm_t *hax_vm, uint type)
     }
 }
 
-uint64 vcpu_get_eptp(struct vcpu_t *vcpu)
+uint64_t vcpu_get_eptp(struct vcpu_t *vcpu)
 {
     struct hax_ept *ept = vcpu->vm->ept;
 

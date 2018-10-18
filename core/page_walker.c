@@ -40,7 +40,7 @@
 typedef union PW_PAGE_ENTRY_U {
     union {
         struct {
-            uint32 present          : 1,
+            uint32_t present          : 1,
                    writable         : 1,
                    user             : 1,
                    pwt              : 1,
@@ -52,11 +52,11 @@ typedef union PW_PAGE_ENTRY_U {
                    available        : 3,
                    addr_base        : 20;
         } bits;
-        uint32 val;
+        uint32_t val;
     } non_pae_entry;
     union {
         struct {
-            uint32 present          : 1,
+            uint32_t present          : 1,
                    writable         : 1,
                    user             : 1,
                    pwt              : 1,
@@ -67,36 +67,36 @@ typedef union PW_PAGE_ENTRY_U {
                    global           : 1,
                    available        : 3,
                    addr_base_low    : 20;
-            uint32 addr_base_high   : 20,
+            uint32_t addr_base_high   : 20,
                    avl_or_res       : 11,
                    exb_or_res       : 1;
         } bits;
-        uint64 val;
+        uint64_t val;
     } pae_lme_entry;
 } PW_PAGE_ENTRY;
 
 typedef union PW_PFEC_U {
     struct {
-        uint32 present              : 1,
+        uint32_t present              : 1,
                is_write             : 1,
                is_user              : 1,
                is_reserved          : 1,
                is_fetch             : 1,
                reserved             : 27;
-        uint32 reserved_high;
+        uint32_t reserved_high;
     } bits;
-    uint64 val;
+    uint64_t val;
 } PW_PFEC;
 
 #define PW_NUM_OF_TABLE_ENTRIES_IN_PAE_MODE 512
 #define PW_NUM_OF_TABLE_ENTRIES_IN_NON_PAE_MODE 1024
-#define PW_INVALID_INDEX ((uint32)(~(0)));
+#define PW_INVALID_INDEX ((uint32_t)(~(0)));
 #define PW_PAE_ENTRY_INCREMENT 8
 #define PW_NON_PAE_ENTRY_INCREMENT 4
 #define PW_PDPTE_INDEX_MASK_IN_32_BIT_ADDR 0xc0000000
 #define PW_PDPTE_INDEX_SHIFT 30
-#define PW_PDPTE_INDEX_MASK_IN_64_BIT_ADDR ((uint64)0x0000007fc0000000)
-#define PW_PML4TE_INDEX_MASK ((uint64)0x0000ff8000000000)
+#define PW_PDPTE_INDEX_MASK_IN_64_BIT_ADDR ((uint64_t)0x0000007fc0000000)
+#define PW_PML4TE_INDEX_MASK ((uint64_t)0x0000ff8000000000)
 #define PW_PML4TE_INDEX_SHIFT 39
 #define PW_PDE_INDEX_MASK_IN_PAE_MODE 0x3fe00000
 #define PW_PDE_INDEX_SHIFT_IN_PAE_MODE 21
@@ -108,13 +108,13 @@ typedef union PW_PFEC_U {
 #define PW_PDPT_ALIGNMENT 32
 #define PW_TABLE_SHIFT 12
 #define PW_HIGH_ADDRESS_SHIFT 32
-#define PW_2M_PAE_PDE_RESERVED_BITS_IN_ENTRY_LOW_MASK ((uint32)0x1fe000)
-#define PW_4M_NON_PAE_PDE_RESERVED_BITS_IN_ENTRY_LOW_MASK ((uint32)0x3fe000)
-#define PW_1G_PAE_PDPTE_RESERVED_BITS_IN_ENTRY_LOW_MASK ((uint32)0x3fffe000)
+#define PW_2M_PAE_PDE_RESERVED_BITS_IN_ENTRY_LOW_MASK ((uint32_t)0x1fe000)
+#define PW_4M_NON_PAE_PDE_RESERVED_BITS_IN_ENTRY_LOW_MASK ((uint32_t)0x3fe000)
+#define PW_1G_PAE_PDPTE_RESERVED_BITS_IN_ENTRY_LOW_MASK ((uint32_t)0x3fffe000)
 
-uint32 pw_reserved_bits_high_mask;
+uint32_t pw_reserved_bits_high_mask;
 
-static inline uint64 pw_retrieve_table_from_cr3(uint64 cr3, bool is_pae,
+static inline uint64_t pw_retrieve_table_from_cr3(uint64_t cr3, bool is_pae,
                                                 bool is_lme)
 {
     if (!is_pae || is_lme)
@@ -123,23 +123,23 @@ static inline uint64 pw_retrieve_table_from_cr3(uint64 cr3, bool is_pae,
     return ALIGN_BACKWARD(cr3, PW_PDPT_ALIGNMENT);
 }
 
-static void pw_retrieve_indices(IN uint64 virtual_address, IN bool is_pae,
-                                IN bool is_lme, OUT uint32 *pml4te_index,
-                                OUT uint32 *pdpte_index, OUT uint32 *pde_index,
-                                OUT uint32 *pte_index)
+static void pw_retrieve_indices(IN uint64_t virtual_address, IN bool is_pae,
+                                IN bool is_lme, OUT uint32_t *pml4te_index,
+                                OUT uint32_t *pdpte_index, OUT uint32_t *pde_index,
+                                OUT uint32_t *pte_index)
 {
-    uint32 virtual_address_low_32_bit = (uint32)virtual_address;
+    uint32_t virtual_address_low_32_bit = (uint32_t)virtual_address;
 
     if (is_pae) {
         if (is_lme) {
-            uint64 pml4te_index_tmp = (virtual_address & PW_PML4TE_INDEX_MASK)
+            uint64_t pml4te_index_tmp = (virtual_address & PW_PML4TE_INDEX_MASK)
                                       >> PW_PML4TE_INDEX_SHIFT;
-            uint64 pdpte_index_tmp =
+            uint64_t pdpte_index_tmp =
                     (virtual_address & PW_PDPTE_INDEX_MASK_IN_64_BIT_ADDR)
                     >> PW_PDPTE_INDEX_SHIFT;
 
-            *pml4te_index = (uint32)pml4te_index_tmp;
-            *pdpte_index = (uint32)pdpte_index_tmp;
+            *pml4te_index = (uint32_t)pml4te_index_tmp;
+            *pdpte_index = (uint32_t)pdpte_index_tmp;
         } else {
             *pml4te_index = PW_INVALID_INDEX;
             *pdpte_index = (virtual_address_low_32_bit &
@@ -168,14 +168,14 @@ static void pw_retrieve_indices(IN uint64 virtual_address, IN bool is_pae,
 }
 
 static PW_PAGE_ENTRY * pw_retrieve_table_entry(
-        struct vcpu_t *vcpu, void *table_hva, uint32 entry_index, bool is_pae)
+        struct vcpu_t *vcpu, void *table_hva, uint32_t entry_index, bool is_pae)
 {
-    uint64 entry_hva;
+    uint64_t entry_hva;
 
     if (is_pae) {
-        entry_hva = (uint64)table_hva + entry_index * PW_PAE_ENTRY_INCREMENT;
+        entry_hva = (uint64_t)table_hva + entry_index * PW_PAE_ENTRY_INCREMENT;
     } else {
-        entry_hva = (uint64)table_hva
+        entry_hva = (uint64_t)table_hva
                     + entry_index * PW_NON_PAE_ENTRY_INCREMENT;
     }
 
@@ -186,9 +186,9 @@ static void pw_read_entry_value(
         PW_PAGE_ENTRY *fill_to, PW_PAGE_ENTRY *fill_from, bool is_pae)
 {
     if (is_pae) {
-        volatile uint64 *original_value_ptr = (volatile uint64 *)fill_from;
-        uint64 value1 = *original_value_ptr;
-        uint64 value2 = *original_value_ptr;
+        volatile uint64_t *original_value_ptr = (volatile uint64_t *)fill_from;
+        uint64_t value1 = *original_value_ptr;
+        uint64_t value2 = *original_value_ptr;
 
         while (value1 != value2) {
             value1 = value2;
@@ -407,26 +407,26 @@ static bool pw_is_fetch_access_permitted(
     return !pte->pae_lme_entry.bits.exb_or_res;
 }
 
-static uint64 pw_retrieve_phys_addr(PW_PAGE_ENTRY *entry, bool is_pae)
+static uint64_t pw_retrieve_phys_addr(PW_PAGE_ENTRY *entry, bool is_pae)
 {
     assert(entry->non_pae_entry.bits.present);
     if (is_pae) {
-        uint32 addr_low = entry->pae_lme_entry.bits.addr_base_low
+        uint32_t addr_low = entry->pae_lme_entry.bits.addr_base_low
                           << PW_TABLE_SHIFT;
-        uint32 addr_high = entry->pae_lme_entry.bits.addr_base_high;
-        return ((uint64)addr_high << PW_HIGH_ADDRESS_SHIFT) | addr_low;
+        uint32_t addr_high = entry->pae_lme_entry.bits.addr_base_high;
+        return ((uint64_t)addr_high << PW_HIGH_ADDRESS_SHIFT) | addr_low;
     }
 
-    // Must convert the uint32 bit-field to uint64 before the shift. Otherwise,
+    // Must convert the uint32_t bit-field to uint64_t before the shift. Otherwise,
     // on Mac the shift result will be sign-extended to 64 bits (Clang bug?),
     // yielding invalid GPAs such as 0xffffffff801c8000.
-    return (uint64)entry->non_pae_entry.bits.addr_base << PW_TABLE_SHIFT;
+    return (uint64_t)entry->non_pae_entry.bits.addr_base << PW_TABLE_SHIFT;
 }
 
-static uint64 pw_retrieve_big_page_phys_addr(PW_PAGE_ENTRY *entry, bool is_pae,
+static uint64_t pw_retrieve_big_page_phys_addr(PW_PAGE_ENTRY *entry, bool is_pae,
                                              bool is_1gb)
 {
-    uint64 base = pw_retrieve_phys_addr(entry, is_pae);
+    uint64_t base = pw_retrieve_phys_addr(entry, is_pae);
 
     // Clean offset bits
     if (is_pae) {
@@ -440,20 +440,20 @@ static uint64 pw_retrieve_big_page_phys_addr(PW_PAGE_ENTRY *entry, bool is_pae,
     return ALIGN_BACKWARD(base, PAGE_SIZE_4M);
 }
 
-static uint32 pw_get_big_page_offset(uint64 virtual_address, bool is_pae,
+static uint32_t pw_get_big_page_offset(uint64_t virtual_address, bool is_pae,
                                      bool is_1gb)
 {
     if (is_pae) {
         if (is_1gb) {
             // Take only 30 LSBs
-            return (uint32)(virtual_address & PAGE_1GB_MASK);
+            return (uint32_t)(virtual_address & PAGE_1GB_MASK);
         }
         // Take only 21 LSBs
-        return (uint32)(virtual_address & PAGE_2MB_MASK);
+        return (uint32_t)(virtual_address & PAGE_2MB_MASK);
     }
 
     // Take 22 LSBs
-    return (uint32)(virtual_address & PAGE_4MB_MASK);
+    return (uint32_t)(virtual_address & PAGE_4MB_MASK);
 }
 
 static void pw_update_ad_bits_in_entry(PW_PAGE_ENTRY *native_entry,
@@ -468,8 +468,8 @@ static void pw_update_ad_bits_in_entry(PW_PAGE_ENTRY *native_entry,
         new_native_value->non_pae_entry.val) {
         hax_cmpxchg64(old_native_value->non_pae_entry.val,
                       new_native_value->non_pae_entry.val,
-                      (volatile uint64 *)native_entry);
-        // hw_interlocked_compare_exchange((INT32 volatile *)native_entry,
+                      (volatile uint64_t *)native_entry);
+        // hw_interlocked_compare_exchange((int32_t volatile *)native_entry,
         //                                 old_native_value->non_pae_entry.val,
         //                                 new_native_value->non_pae_entry.val);
         // The result is not checked. If the cmpxchg has failed, it means that
@@ -560,24 +560,24 @@ static void pw_update_ad_bits(
     pw_update_ad_bits_in_entry(guest_space_pte, &pte_before_update, pte);
 }
 
-uint32 pw_perform_page_walk(
-        IN struct vcpu_t *vcpu, IN uint64 virt_addr, IN uint32 access,
-        OUT uint64 *gpa_out, OUT uint *order, IN bool set_ad_bits,
+uint32_t pw_perform_page_walk(
+        IN struct vcpu_t *vcpu, IN uint64_t virt_addr, IN uint32_t access,
+        OUT uint64_t *gpa_out, OUT uint *order, IN bool set_ad_bits,
         IN bool is_fetch)
 {
-    uint32 retval = TF_OK;
-    uint64 efer_value = vcpu->state->_efer;
+    uint32_t retval = TF_OK;
+    uint64_t efer_value = vcpu->state->_efer;
     bool is_nxe = ((efer_value & IA32_EFER_XD) != 0);
     bool is_lme = ((efer_value & IA32_EFER_LME) != 0);
-    uint64 cr0 = vcpu->state->_cr0;
-    uint64 cr3 = vcpu->state->_cr3;
-    uint64 cr4 = vcpu->state->_cr4;
+    uint64_t cr0 = vcpu->state->_cr0;
+    uint64_t cr3 = vcpu->state->_cr3;
+    uint64_t cr4 = vcpu->state->_cr4;
     bool is_wp = ((cr0 & CR0_WP) != 0);
     bool is_pae = ((cr4 & CR4_PAE) != 0);
     bool is_pse = ((cr4 & CR4_PSE) != 0);
 
-    uint64 gpa = PW_INVALID_GPA;
-    uint64 first_table;
+    uint64_t gpa = PW_INVALID_GPA;
+    uint64_t first_table;
 
     PW_PAGE_ENTRY *pml4te_ptr, *pdpte_ptr, *pde_ptr, *pte_ptr = NULL;
     PW_PAGE_ENTRY pml4te_val, pdpte_val, pde_val, pte_val;
@@ -585,8 +585,8 @@ uint32 pw_perform_page_walk(
 #ifdef CONFIG_HAX_EPT2
     hax_kmap_user pml4t_kmap, pdpt_kmap, pd_kmap, pt_kmap;
 #endif // CONFIG_HAX_EPT2
-    uint64 pml4t_gpa, pdpt_gpa, pd_gpa, pt_gpa;
-    uint32 pml4te_index, pdpte_index, pde_index, pte_index;
+    uint64_t pml4t_gpa, pdpt_gpa, pd_gpa, pt_gpa;
+    uint32_t pml4te_index, pdpte_index, pde_index, pte_index;
     bool is_write, is_user;
 #ifndef CONFIG_HAX_EPT2
 #if (!defined(__MACH__) && !defined(_WIN64))
@@ -688,8 +688,8 @@ uint32 pw_perform_page_walk(
 
     // 1GB page size
     if (pw_is_1gb_page_pdpte(&pdpte_val)) {
-        uint64 big_page_addr;
-        uint32 offset_in_big_page;
+        uint64_t big_page_addr;
+        uint32_t offset_in_big_page;
 
         *order = PG_ORDER_1G;
         // Retrieve address of the big page in guest space
@@ -762,8 +762,8 @@ uint32 pw_perform_page_walk(
 
     // 2MB, 4MB page size
     if (pw_is_big_page_pde(&pde_val, is_lme, is_pae, is_pse)) {
-        uint64 big_page_addr;
-        uint32 offset_in_big_page = 0;
+        uint64_t big_page_addr;
+        uint32_t offset_in_big_page = 0;
 
         *order = is_pae ? PG_ORDER_2M : PG_ORDER_4M;
 

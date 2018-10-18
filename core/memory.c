@@ -38,7 +38,7 @@
 #endif  // CONFIG_HAX_EPT2
 
 #ifdef CONFIG_HAX_EPT2
-static int handle_alloc_ram(struct vm_t *vm, uint64 start_uva, uint64 size)
+static int handle_alloc_ram(struct vm_t *vm, uint64_t start_uva, uint64_t size)
 {
     int ret;
     hax_ramblock *block;
@@ -232,12 +232,12 @@ static struct hax_vcpu_mem *get_pmem_range(struct vm_t *vm, uint64_t va)
 }
 
 #ifdef CONFIG_HAX_EPT2
-static int handle_set_ram(struct vm_t *vm, uint64 start_gpa, uint64 size,
-                          uint64 start_uva, uint32 flags)
+static int handle_set_ram(struct vm_t *vm, uint64_t start_gpa, uint64_t size,
+                          uint64_t start_uva, uint32_t flags)
 {
     bool unmap = flags & HAX_RAM_INFO_INVALID;
     hax_gpa_space *gpa_space;
-    uint64 start_gfn, npages;
+    uint64_t start_gfn, npages;
     int ret;
     hax_ept_tree *ept_tree;
 
@@ -272,7 +272,7 @@ static int handle_set_ram(struct vm_t *vm, uint64 start_gpa, uint64 size,
     memslot_dump_list(gpa_space);
 
     ept_tree = &vm->ept_tree;
-    if (!hax_test_and_clear_bit(0, (uint64 *)&ept_tree->invept_pending)) {
+    if (!hax_test_and_clear_bit(0, (uint64_t *)&ept_tree->invept_pending)) {
         // INVEPT pending flag was set
         hax_info("%s: Invoking INVEPT for VM #%d\n", __func__, vm->vm_id);
         invept(vm, EPT_INVEPT_SINGLE_CONTEXT);
