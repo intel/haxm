@@ -550,7 +550,7 @@ static uint32_t vcpu_mmu_walk(struct vcpu_t *vcpu, vaddr_t va, uint32_t access,
     pte32_t *pte, old_pte;
     paddr_t gpt_base;
 #ifndef CONFIG_HAX_EPT2
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
     paddr_t g_cr3 = 0;
     bool is_kernel = false;
     int old_gpt_base;
@@ -566,7 +566,7 @@ static uint32_t vcpu_mmu_walk(struct vcpu_t *vcpu, vaddr_t va, uint32_t access,
     // assert((mmu->guest_mode) == PM_2LVL);
 
 #ifndef CONFIG_HAX_EPT2
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
     is_kernel = (va >= KERNEL_BASE) ? true : false;
 #endif
 #endif // !CONFIG_HAX_EPT2
@@ -576,7 +576,7 @@ retry:
     gpt_base = vcpu->state->_cr3 & pte32_get_cr3_mask();
 
 #ifndef CONFIG_HAX_EPT2
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
        g_cr3 = gpt_base;
 #endif
 #endif // !CONFIG_HAX_EPT2
@@ -590,7 +590,7 @@ retry:
                                     gpt_base >> PG_ORDER_4K, &pte_kmap,
                                     &writable);
 #else // !CONFIG_HAX_EPT2
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
         pte_va = hax_map_gpfn(vcpu->vm, gpt_base >> 12, is_kernel, g_cr3, lvl);
 #else
         pte_va = hax_map_gpfn(vcpu->vm, gpt_base >> 12);
@@ -609,7 +609,7 @@ retry:
 #ifdef CONFIG_HAX_EPT2
             gpa_space_unmap_page(&vcpu->vm->gpa_space, &pte_kmap);
 #else // !CONFIG_HAX_EPT2
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
             hax_unmap_gpfn(vcpu->vm, pte_va, gpt_base >> 12);
 #else
             hax_unmap_gpfn(pte_va);
@@ -623,7 +623,7 @@ retry:
 #ifdef CONFIG_HAX_EPT2
             gpa_space_unmap_page(&vcpu->vm->gpa_space, &pte_kmap);
 #else // !CONFIG_HAX_EPT2
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
             hax_unmap_gpfn(vcpu->vm, pte_va, gpt_base >> 12);
 #else
             hax_unmap_gpfn(pte_va);
@@ -647,7 +647,7 @@ retry:
 #ifdef CONFIG_HAX_EPT2
                     gpa_space_unmap_page(&vcpu->vm->gpa_space, &pte_kmap);
 #else // !CONFIG_HAX_EPT2
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
                     hax_unmap_gpfn(vcpu->vm, pte_va, gpt_base >> 12);
 #else
                     hax_unmap_gpfn(pte_va);
@@ -657,7 +657,7 @@ retry:
                 }
             }
 #ifndef CONFIG_HAX_EPT2
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
             old_gpt_base = gpt_base;
 #endif
 #endif // !CONFIG_HAX_EPT2
@@ -665,11 +665,11 @@ retry:
 #ifdef CONFIG_HAX_EPT2
             gpa_space_unmap_page(&vcpu->vm->gpa_space, &pte_kmap);
 #else // !CONFIG_HAX_EPT2
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
             hax_unmap_gpfn(vcpu->vm, pte_va, old_gpt_base >> 12);
 #endif
 
-#if (defined(__MACH__) || defined(_WIN64))
+#ifdef HAX_ARCH_X86_64
         hax_unmap_gpfn(pte_va);
 #endif // CONFIG_HAX_EPT2
 #endif
@@ -686,7 +686,7 @@ retry:
 #ifdef CONFIG_HAX_EPT2
                 gpa_space_unmap_page(&vcpu->vm->gpa_space, &pte_kmap);
 #else // !CONFIG_HAX_EPT2
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
                 hax_unmap_gpfn(vcpu->vm, pte_va, gpt_base >> 12);
 #else
                 hax_unmap_gpfn(pte_va);
@@ -704,7 +704,7 @@ retry:
 #ifdef CONFIG_HAX_EPT2
                     gpa_space_unmap_page(&vcpu->vm->gpa_space, &pte_kmap);
 #else // !CONFIG_HAX_EPT2
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
                     hax_unmap_gpfn(vcpu->vm, pte_va, gpt_base >> 12);
 #else
                     hax_unmap_gpfn(pte_va);
@@ -765,11 +765,11 @@ retry:
 #ifdef CONFIG_HAX_EPT2
             gpa_space_unmap_page(&vcpu->vm->gpa_space, &pte_kmap);
 #else // !CONFIG_HAX_EPT2
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
             hax_unmap_gpfn(vcpu->vm, pte_va, gpt_base >> 12);
 #endif
 
-#if (defined(__MACH__) || defined(_WIN64))
+#ifdef HAX_ARCH_X86_64
             hax_unmap_gpfn(pte_va);
 #endif
 #endif // CONFIG_HAX_EPT2
@@ -940,7 +940,7 @@ uint32_t vcpu_read_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr, void *dst,
     int len2;
 #else // !CONFIG_HAX_EPT2
     void *hva, *hva_base;
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
     bool is_kernel = false;
     paddr_t g_cr3 = 0;
 #endif
@@ -949,7 +949,7 @@ uint32_t vcpu_read_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr, void *dst,
     assert(flag == 0 || flag == 2);
 
 #ifndef CONFIG_HAX_EPT2
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
     is_kernel = addr >= KERNEL_BASE;
     g_cr3 = vcpu->state->_cr3 & pte32_get_cr3_mask();
 #endif
@@ -987,7 +987,7 @@ uint32_t vcpu_read_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr, void *dst,
             len = (uint64_t)len2;
         }
 #else // !CONFIG_HAX_EPT2
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
         hva_base = hax_map_gpfn(vcpu->vm, gpa >> 12, is_kernel, g_cr3, 0);
 #else
         hva_base = hax_map_gpfn(vcpu->vm, gpa >> 12);
@@ -998,7 +998,7 @@ uint32_t vcpu_read_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr, void *dst,
         } else {
             hax_panic_vcpu(vcpu, "BUG_ON during the call:%s\n", __FUNCTION__);
         }
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
         hax_unmap_gpfn(vcpu->vm, hva_base, gpa >> 12);
 #else
         hax_unmap_gpfn(hva_base);
@@ -1033,7 +1033,7 @@ uint32_t vcpu_write_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr,
     int len2;
 #else // !CONFIG_HAX_EPT2
     void *hva, *hva_base;
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
     bool is_kernel = false;
     paddr_t g_cr3 = 0;
 #endif
@@ -1041,7 +1041,7 @@ uint32_t vcpu_write_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr,
     assert(flag == 0 || flag == 1);
 
 #ifndef CONFIG_HAX_EPT2
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
     is_kernel = addr >= KERNEL_BASE;
     g_cr3 = vcpu->state->_cr3 & pte32_get_cr3_mask();
 #endif
@@ -1079,7 +1079,7 @@ uint32_t vcpu_write_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr,
             len = len2;
         }
 #else // !CONFIG_HAX_EPT2
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
         hva_base = hax_map_gpfn(vcpu->vm, gpa >> 12, is_kernel, g_cr3, 0);
 #else
         hva_base = hax_map_gpfn(vcpu->vm, gpa >> 12);
@@ -1090,7 +1090,7 @@ uint32_t vcpu_write_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr,
         } else {
             hax_panic_vcpu(vcpu, "BUG_ON during the call:%s\n", __FUNCTION__);
         }
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
         hax_unmap_gpfn(vcpu->vm, hva_base, gpa >> 12);
 #else
         hax_unmap_gpfn(hva_base);

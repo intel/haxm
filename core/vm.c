@@ -39,7 +39,7 @@
 static uint8_t vm_mid_bits = 0;
 #define VM_MID_BIT 8
 
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
 static void gpfn_to_hva_recycle_total(struct vm_t *vm, uint64_t cr3_cur,
                                       int flag);
 #endif
@@ -122,7 +122,7 @@ struct vm_t * hax_create_vm(int *vm_id)
     hvm->vm_id = id;
     memset(hvm->vpid_seed, 0, sizeof(hvm->vpid_seed));
 
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
     hvm->hva_list = hax_vmalloc(((HVA_MAP_ARRAY_SIZE / 4096) *
                                 sizeof(struct hva_entry)), HAX_MEM_NONPAGE);
     if (!hvm->hva_list)
@@ -183,7 +183,7 @@ fail2:
 fail1:
     ept_free(hvm);
 fail0:
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
     hax_vfree(hvm->hva_list_1,
               ((HVA_MAP_ARRAY_SIZE / 4096) * sizeof(struct hva_entry)));
 
@@ -229,7 +229,7 @@ int hax_teardown_vm(struct vm_t *vm)
         hax_log("Try to teardown non-empty vm\n");
         return -1;
     }
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
     if (vm->hva_list) {
         gpfn_to_hva_recycle_total(vm, 0, true);
         hax_vfree(vm->hva_list,
@@ -422,7 +422,7 @@ uint64_t hax_gpfn_to_hpa(struct vm_t *vm, uint64_t gpfn)
 #endif // CONFIG_HAX_EPT2
 }
 
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
 static void gpfn_to_hva_recycle_total(struct vm_t *vm, uint64_t cr3_cur, int flag)
 {
     int i = 0;
@@ -537,10 +537,10 @@ static int gpfn_to_hva_recycle(struct vm_t *vm, uint64_t cr3_cur, int flag)
 #endif
 
 #ifndef CONFIG_HAX_EPT2
-#if (defined(__MACH__) || defined(_WIN64))
+#ifdef HAX_ARCH_X86_64
 void * hax_map_gpfn(struct vm_t *vm, uint64_t gpfn)
 {
-#if defined(__MACH__) || defined(_WIN64)
+#ifdef HAX_ARCH_X86_64
     return hax_gpfn_to_hva(vm, gpfn);
 #else
     uint64_t hpa;
@@ -551,16 +551,16 @@ void * hax_map_gpfn(struct vm_t *vm, uint64_t gpfn)
 
 void hax_unmap_gpfn(void *va)
 {
-#if defined(__MACH__) || defined(_WIN64)
+#ifdef HAX_ARCH_X86_64
 #else
     hax_vunmap(va, 4096);
 #endif
 }
-#else // !(defined(__MACH__) || defined(_WIN64))
+#else // !HAX_ARCH_X86_64
 void * hax_map_gpfn(struct vm_t *vm, uint64_t gpfn, bool flag, paddr_t gcr3,
                     uint8_t level)
 {
-#if defined(__MACH__) || defined(_WIN64)
+#ifdef HAX_ARCH_X86_64
     return hax_gpfn_to_hva(vm, gpfn);
 #else
     struct hax_p2m_entry *entry;
@@ -613,7 +613,7 @@ retry:
 
 void hax_unmap_gpfn(struct vm_t *vm, void *va, uint64_t gpfn)
 {
-#if defined(__MACH__) || defined(_WIN64)
+#ifdef HAX_ARCH_X86_64
 #else
     struct hax_p2m_entry *entry;
 
@@ -628,7 +628,7 @@ void hax_unmap_gpfn(struct vm_t *vm, void *va, uint64_t gpfn)
     }
 #endif
 }
-#endif // (defined(__MACH__) || defined(_WIN64))
+#endif // HAX_ARCH_X86_64
 #endif // !CONFIG_HAX_EPT2
 
 int hax_core_set_p2m(struct vm_t *vm, uint64_t gpfn, uint64_t hpfn, uint64_t hva,

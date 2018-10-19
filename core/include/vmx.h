@@ -502,7 +502,7 @@ enum {
     GAS_CSTATE      = 4
 };
 
-#ifdef __WINNT__
+#ifdef HAX_COMPILER_MSVC
 #pragma pack(push, 1)
 #endif
 
@@ -592,7 +592,7 @@ struct PACKED info_t {
     uint64_t             _ept_cap;
 };
 
-#ifdef __WINNT__
+#ifdef HAX_COMPILER_MSVC
 #pragma pack(pop)
 #endif
 
@@ -670,7 +670,7 @@ void vmx_vmwrite(struct vcpu_t *vcpu, const char *name,
         ((val).base  = vmread(vcpu, GUEST_##desc##_BASE),          \
          (val).limit = vmread(vcpu, GUEST_##desc##_LIMIT))
 
-#if defined(__WINNT__)
+#if defined(HAX_PLATFORM_WINDOWS)
 #define VMWRITE_SEG(vcpu, seg, val) {                              \
             uint32_t tmp_ar = val.ar;                              \
             if (tmp_ar == 0)                                       \
@@ -681,7 +681,7 @@ void vmx_vmwrite(struct vcpu_t *vcpu, const char *name,
             vmwrite(vcpu, GUEST_##seg##_AR, tmp_ar);               \
         }
 
-#elif defined(__MACH__)
+#elif defined(HAX_PLATFORM_DARWIN)
 #define VMWRITE_SEG(vcpu, seg, val) ({                             \
             uint32_t tmp_ar = val.ar;                              \
             if (tmp_ar == 0)                                       \

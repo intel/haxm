@@ -1228,7 +1228,7 @@ static void fill_common_vmcs(struct vcpu_t *vcpu)
                 EXIT_CONTROL_SAVE_DEBUG_CONTROLS;
 #endif
 
-#ifdef __i386__
+#ifdef HAX_ARCH_X86_32
     if (is_compatible()) {
         exit_ctls = EXIT_CONTROL_HOST_ADDR_SPACE_SIZE | EXIT_CONTROL_LOAD_EFER |
                     EXIT_CONTROL_SAVE_DEBUG_CONTROLS;
@@ -1776,11 +1776,11 @@ static int vcpu_prepare_pae_pdpt(struct vcpu_t *vcpu)
 #else // !CONFIG_HAX_EPT2
     uint64_t gpfn = (cr3 & 0xfffff000) >> PG_ORDER_4K;
     uint8_t *buf, *pdpt;
-#if (defined(__MACH__) || defined(_WIN64))
+#ifdef HAX_ARCH_X86_64
     buf = hax_map_gpfn(vcpu->vm, gpfn);
-#else  // !defined(__MACH__) && !defined(_WIN64), i.e. Win32
+#else  // !HAX_ARCH_X86_64, i.e. HAX_ARCH_X86_32
     buf = hax_map_gpfn(vcpu->vm, gpfn, false, cr3 & 0xfffff000, 1);
-#endif  // defined(__MACH__) || defined(_WIN64)
+#endif  // HAX_ARCH_X86_64
     if (!buf) {
         hax_error("%s: Failed to map guest page frame containing PAE PDPT:"
                   " cr3=0x%llx\n",  __func__, cr3);
@@ -1788,11 +1788,11 @@ static int vcpu_prepare_pae_pdpt(struct vcpu_t *vcpu)
     }
     pdpt = buf + (cr3 & 0xfe0);
     memcpy_s(vcpu->pae_pdptes, pdpt_size, pdpt, pdpt_size);
-#if (defined(__MACH__) || defined(_WIN64))
+#ifdef HAX_ARCH_X86_64
     hax_unmap_gpfn(buf);
-#else  // !defined(__MACH__) && !defined(_WIN64), i.e. Win32
+#else  // !HAX_ARCH_X86_64, i.e. HAX_ARCH_X86_32
     hax_unmap_gpfn(vcpu->vm, buf, gpfn);
-#endif  // defined(__MACH__) || defined(_WIN64)
+#endif  // HAX_ARCH_X86_64
     return 0;
 #endif  // CONFIG_HAX_EPT2
 }

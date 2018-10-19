@@ -78,7 +78,7 @@ struct vm_t {
     hax_ept_tree ept_tree;
     hax_gpa_space_listener gpa_space_listener;
 #endif  // CONFIG_HAX_EPT2
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
     uint64_t hva_limit;
     uint64_t hva_index;
     uint64_t hva_index_1;
@@ -126,7 +126,7 @@ enum run_flag {
 uint64_t hax_gpfn_to_hpa(struct vm_t *vm, uint64_t gpfn);
 
 #ifndef CONFIG_HAX_EPT2
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
 void * hax_map_gpfn(struct vm_t *vm, uint64_t gpfn, bool flag, paddr_t cr3_cur,
                     uint8_t level);
 void hax_unmap_gpfn(struct vm_t *vm, void *va, uint64_t gpfn);

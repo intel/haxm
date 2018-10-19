@@ -36,37 +36,42 @@
 #if defined(__i386__) || defined(_M_IX86)
 #define HAX_ARCH_X86_32
 #define ASMCALL __cdecl
-#endif
 // x86 (64-bit)
-#if defined(__x86_64__) || defined(_M_X64)
+#elif defined(__x86_64__) || defined(_M_X64)
 #define HAX_ARCH_X86_64
 #define ASMCALL
+#else
+#error "Unsupported architecture"
 #endif
 
 /* Detect compiler */
 // Clang
-#ifdef __clang__
+#if defined(__clang__)
 #define HAX_COMPILER_CLANG
 #define PACKED     __attribute__ ((packed))
 #define ALIGNED(x) __attribute__ ((aligned(x)))
-#endif
 // MSVC
-#ifdef _MSC_VER
+#elif defined(_MSC_VER)
 #define HAX_COMPILER_MSVC
-#define PACKED
+// FIXME: MSVC doesn't have a simple equivalent for PACKED.
+//        Instead, The corresponding #pragma directives are added manually.
+#define PACKED     
 #define ALIGNED(x) __declspec(align(x))
+#else
+#error "Unsupported compiler"
 #endif
 
 /* Detect platform */
 // MacOS
-#ifdef __MACH__
+#if defined(__MACH__)
 #define HAX_PLATFORM_DARWIN
 #include "darwin/hax_types_mac.h"
-#endif
 // Windows
-#ifdef __WINNT__
+#elif defined(__WINNT__)
 #define HAX_PLATFORM_WINDOWS
 #include "windows/hax_types_windows.h"
+#else
+#error "Unsupported platform"
 #endif
 
 #define HAX_PAGE_SIZE  4096

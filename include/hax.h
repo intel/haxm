@@ -265,11 +265,10 @@ int hax_em64t_enabled(void);
 #define HAX_LOGD        1
 #define HAX_LOG_DEFAULT 3
 
-#ifdef __MACH__
+#ifdef HAX_PLATFORM_DARWIN
 #include "darwin/hax_mac.h"
 #endif
-
-#ifdef __WINNT__
+#ifdef HAX_PLATFORM_WINDOWS
 #include "windows/hax_windows.h"
 #endif
 

@@ -589,7 +589,7 @@ uint32_t pw_perform_page_walk(
     uint32_t pml4te_index, pdpte_index, pde_index, pte_index;
     bool is_write, is_user;
 #ifndef CONFIG_HAX_EPT2
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
     bool is_kernel;
 #endif
 #endif // !CONFIG_HAX_EPT2
@@ -605,7 +605,7 @@ uint32_t pw_perform_page_walk(
     is_write = access & TF_WRITE;
     is_user  = access & TF_USER;
 #ifndef CONFIG_HAX_EPT2
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
     is_kernel = (virt_addr >= KERNEL_BASE) ? true : false;
 #endif
 #endif // !CONFIG_HAX_EPT2
@@ -623,7 +623,7 @@ uint32_t pw_perform_page_walk(
                                            pml4t_gpa >> PG_ORDER_4K,
                                            &pml4t_kmap, NULL);
 #else // !CONFIG_HAX_EPT2
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
             pml4t_hva = hax_map_gpfn(vcpu->vm, pml4t_gpa >> 12, is_kernel, cr3,
                                      1);
 #else
@@ -659,7 +659,7 @@ uint32_t pw_perform_page_walk(
                                       pdpt_gpa >> PG_ORDER_4K,
                                       &pdpt_kmap, NULL);
 #else // !CONFIG_HAX_EPT2
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
         pdpt_hva = hax_map_gpfn(vcpu->vm, pdpt_gpa >> 12, is_kernel, cr3, 1);
 #else
         pdpt_hva = hax_map_gpfn(vcpu->vm, pdpt_gpa >> 12);
@@ -734,7 +734,7 @@ uint32_t pw_perform_page_walk(
     pd_hva = gpa_space_map_page(&vcpu->vm->gpa_space, pd_gpa >> PG_ORDER_4K,
                                 &pd_kmap, NULL);
 #else // !CONFIG_HAX_EPT2
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
     pd_hva = hax_map_gpfn(vcpu->vm, pd_gpa >> 12, is_kernel, cr3, 2);
 #else
     pd_hva = hax_map_gpfn(vcpu->vm, pd_gpa >> 12);
@@ -812,7 +812,7 @@ uint32_t pw_perform_page_walk(
     pt_hva = gpa_space_map_page(&vcpu->vm->gpa_space, pt_gpa >> 12, &pt_kmap,
                                 NULL);
 #else // !CONFIG_HAX_EPT2
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
     pt_hva = hax_map_gpfn(vcpu->vm, pt_gpa >> 12, is_kernel, cr3, 1);
 #else
     pt_hva = hax_map_gpfn(vcpu->vm, pt_gpa >> 12);
@@ -881,7 +881,7 @@ out:
     if (pt_hva    != NULL)
         gpa_space_unmap_page(&vcpu->vm->gpa_space, &pt_kmap);
 #else // !CONFIG_HAX_EPT2
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
     if (pml4t_hva != NULL)
         hax_unmap_gpfn(vcpu->vm, pml4t_hva, pml4t_gpa >> 12);
     if (pdpt_hva  != NULL)

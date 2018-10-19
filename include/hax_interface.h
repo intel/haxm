@@ -39,11 +39,10 @@
 
 #include "hax_types.h"
 
-#ifdef __MACH__
+#ifdef HAX_PLATFORM_DARWIN
 #include "darwin/hax_interface_mac.h"
 #endif
-
-#ifdef __WINNT__
+#ifdef HAX_PLATFORM_WINDOWS
 #include "windows/hax_interface_windows.h"
 #endif
 

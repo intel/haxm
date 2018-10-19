@@ -329,14 +329,14 @@ int hax_vm_set_ram(struct vm_t *vm, struct hax_set_ram_info *info)
                  */
                 return -ENOMEM;
             }
-#if defined(__MACH__)
-#ifdef __x86_64__
+#if defined(HAX_PLATFORM_DARWIN)
+#ifdef HAX_ARCH_X86_64
             hva = (uint64_t)pmem->kva + (cur_va - pmem->uva);
 #else
             hva = (uint64_t)(uint32_t)pmem->kva + (cur_va - pmem->uva);
 #endif
-#else   // __MACH
-#if defined(_WIN64)
+#else   // !HAX_PLATFORM_DARWIN
+#ifdef HAX_ARCH_X86_64
             hva = (uint64_t)pmem->kva + (cur_va - pmem->uva);
 #else
             hva = 0;

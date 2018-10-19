@@ -728,7 +728,7 @@ vmx_result_t cpu_vmxroot_leave(void)
         }
     } else {
         log_vmxoff_no = 1;
-#ifdef __MACH__
+#ifdef HAX_PLATFORM_DARWIN
         hax_debug("Skipping VMXOFF because another VMM (VirtualBox or macOS"
                   " Hypervisor Framework) is running\n");
 #else
@@ -791,7 +791,7 @@ vmx_result_t cpu_vmxroot_enter(void)
     } else {
         bool fatal = true;
 
-#ifdef __MACH__
+#ifdef HAX_PLATFORM_DARWIN
         if ((result == VMX_FAIL_INVALID) && cpu_data->host_cr4_vmxe) {
             // On macOS, if VMXON fails with VMX_FAIL_INVALID and host CR4.VMXE
             // was already set, it is very likely that another VMM (VirtualBox
