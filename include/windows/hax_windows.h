@@ -56,10 +56,6 @@
 #define HAX_RAM_ENTRY_SIZE 0x2000000
 #endif
 
-#define page_size 4096
-#define page_shift 12
-#define page_mask 0xfff
-
 static inline hax_spinlock *hax_spinlock_alloc_init(void)
 {
     hax_spinlock *lock;

@@ -83,7 +83,7 @@ void * hax_vmap(hax_pa_t pa, uint32_t size)
     PHYSICAL_ADDRESS phys_addr;
     phys_addr.QuadPart = pa;
 
-    if ((pa & page_mask) + size > page_size) {
+    if ((pa & (PAGE_SIZE - 1)) + size > PAGE_SIZE) {
         hax_warning("hax_vmap can't handle cross-page case!\n");
         return NULL;
     }
@@ -105,7 +105,7 @@ struct hax_page * hax_alloc_pages(int order, uint32_t flags, bool vmap)
 {
     struct hax_page *ppage = NULL;
     PMDL pmdl = NULL;
-    uint64_t length = (1 << order) * page_size;
+    uint64_t length = (1 << order) * PAGE_SIZE;
     PHYSICAL_ADDRESS high_addr, low_addr, skip_bytes;
 #ifdef MDL_HAX_PAGE
     ULONG options;
@@ -206,17 +206,17 @@ hax_pfn_t hax_page2pfn(struct hax_page *page)
 {
     if (!page)
         return 0;
-    return page->pa >> page_shift;
+    return page->pa >> PAGE_SHIFT;
 }
 
 void hax_clear_page(struct hax_page *page)
 {
-    memset((void*)page->kva, 0, 1 << page_shift);
+    memset((void*)page->kva, 0, 1 << PAGE_SHIFT);
 }
 
 void hax_set_page(struct hax_page *page)
 {
-    memset((void*)page->kva, 0xff, 1 << page_shift);
+    memset((void*)page->kva, 0xff, 1 << PAGE_SHIFT);
 }
 
 /* Initialize memory allocation related structures */

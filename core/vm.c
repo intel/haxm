@@ -636,7 +636,7 @@ int hax_core_set_p2m(struct vm_t *vm, uint64_t gpfn, uint64_t hpfn, uint64_t hva
 {
     int ret;
 
-    ret = set_p2m_mapping(vm, gpfn, hva & ~PAGE_MASK, hpfn << 12);
+    ret = set_p2m_mapping(vm, gpfn, hva & ~HAX_PAGE_MASK, hpfn << 12);
     if (ret < 0) {
         hax_error("Failed to set p2m mapping, gpfn:%llx, hva:%llx, hpa:%llx,"
                   "ret:%d\n", gpfn, hva, hpfn << 12, ret);

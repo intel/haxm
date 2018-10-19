@@ -74,7 +74,7 @@ int hax_valid_uva(uint64_t uva, uint64_t size)
 {
     return 1;
     try {
-        ProbeForRead(&uva, size, page_size);
+        ProbeForRead(&uva, size, PAGE_SIZE);
     } except (EXCEPTION_EXECUTE_HANDLER) {
         return 0;
     }
@@ -193,7 +193,7 @@ uint64_t get_hpfn_from_pmem(struct hax_vcpu_mem *pmem, uint64_t va)
             if (kphys.QuadPart == 0)
                 hax_error("kva phys is 0\n");
             else
-                return kphys.QuadPart >> page_shift;
+                return kphys.QuadPart >> PAGE_SHIFT;
         } else {
             unsigned long long index = 0;
             PMDL pmdl = NULL;
@@ -201,12 +201,12 @@ uint64_t get_hpfn_from_pmem(struct hax_vcpu_mem *pmem, uint64_t va)
 
             pmdl = ((struct windows_vcpu_mem *)(pmem->hinfo))->pmdl;
             ppfnnum = MmGetMdlPfnArray(pmdl);
-            index = (va -(pmem->uva))/page_size;
+            index = (va - (pmem->uva)) / PAGE_SIZE;
             return ppfnnum[index];
         }
     }
 
-    return phys.QuadPart >> page_shift;
+    return phys.QuadPart >> PAGE_SHIFT;
 }
 
 uint64_t hax_get_memory_threshold(void)

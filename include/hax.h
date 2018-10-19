@@ -172,7 +172,7 @@ hax_pa_t hax_pa(void *va);
 void *hax_vmap(hax_pa_t pa, uint32_t size);
 static inline void * hax_vmap_pfn(hax_pfn_t pfn)
 {
-    return hax_vmap(pfn << PAGE_SHIFT, PAGE_SIZE);
+    return hax_vmap(pfn << HAX_PAGE_SHIFT, HAX_PAGE_SIZE);
 }
 
 /*
@@ -181,7 +181,7 @@ static inline void * hax_vmap_pfn(hax_pfn_t pfn)
 void hax_vunmap(void *va, uint32_t size);
 static inline void hax_vunmap_pfn(void *va)
 {
-    hax_vunmap((void*)((mword)va & ~PAGE_MASK), PAGE_SIZE);
+    hax_vunmap((void*)((mword)va & ~HAX_PAGE_MASK), HAX_PAGE_SIZE);
 }
 
 struct hax_page;

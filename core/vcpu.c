@@ -1984,7 +1984,7 @@ static bool is_mmio_address(struct vcpu_t *vcpu, paddr_t gpa)
 {
     paddr_t hpa;
     if (vtlb_active(vcpu)) {
-        hpa = hax_gpfn_to_hpa(vcpu->vm, gpa >> page_shift);
+        hpa = hax_gpfn_to_hpa(vcpu->vm, gpa >> HAX_PAGE_SHIFT);
         // hax_gpfn_to_hpa() assumes hpa == 0 is invalid
         return !hpa;
     } else {

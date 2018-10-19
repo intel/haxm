@@ -159,10 +159,10 @@ void cpu_init_vmx(void *arg)
     }
 #endif
 
-    if (vmx_info._vmcs_region_length > PAGE_SIZE)
+    if (vmx_info._vmcs_region_length > HAX_PAGE_SIZE)
         hax_log("HAX: VMCS of %d bytes not supported by this Hypervisor. "
                 "Max supported %u bytes\n",
-                vmx_info._vmcs_region_length, (uint32_t)PAGE_SIZE);
+                vmx_info._vmcs_region_length, (uint32_t)HAX_PAGE_SIZE);
     vmxon = (vmcs_t *)hax_page_va(cpu_data->vmxon_page);
     vmxon->_revision_id = vmx_info._vmcs_revision_id;
 

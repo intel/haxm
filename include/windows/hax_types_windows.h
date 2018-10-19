@@ -103,7 +103,6 @@ typedef struct {
 
 typedef FAST_MUTEX *hax_mutex;
 
-#define PAGE_MASK (((mword)0x1 << 12) - 1)
 /* In DDK, the InterlockedXXX using ULONG, which is in fact 32bit */
 typedef LONG hax_atomic_t;
 
