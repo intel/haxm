@@ -34,12 +34,6 @@
 //#include <ntddk.h>
 #include <ntifs.h>
 
-#ifdef _WIN64
-#define __x86_64__ 1
-#else
-#define __i386__ 1
-#endif
-
 #ifndef HAX_UNIFIED_BINARY
 
 /*

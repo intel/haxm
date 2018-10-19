@@ -35,7 +35,7 @@
 // TODO: Get rid of is_compatible(), and then delete the following #include
 #include "../../include/hax_interface.h"
 
-#ifdef __WINNT__
+#ifdef HAX_COMPILER_MSVC
 #pragma pack(push, 1)
 #endif
 
@@ -64,7 +64,7 @@ struct PACKED system_desc_t {
     HAX_VADDR_T _base;
 };
 
-#ifdef __WINNT__
+#ifdef HAX_COMPILER_MSVC
 #pragma pack(pop)
 #endif
 
@@ -116,7 +116,7 @@ static inline uint64_t get_kernel_ldtr_base(void)
     ldt_sector = get_kernel_ldt();
     seg_desc = (struct seg_desc_t *)(gdtr_base) + (ldt_sector >> 3);
     desc_base = (seg_desc->_base0 + (seg_desc->_base1 << 24)) & 0xffffffff;
-#ifdef __x86_64__
+#ifdef HAX_ARCH_X86_64
     /* Table 3-2. TSS descriptor has 16 bytes on ia32e */
     desc_base = ((((struct seg_desc_t *)(seg_desc + 1))->_raw) << 32)
                 + (desc_base & 0xffffffff);
@@ -138,7 +138,7 @@ static inline uint64_t get_tr_desc_base(uint16_t selector)
     gdtr_base = get_kernel_gdtr_base();
     seg_desc = (struct seg_desc_t *)(gdtr_base) + (selector >> 3);
     desc_base = (seg_desc->_base0 + (seg_desc->_base1 << 24)) & 0xffffffff;
-#ifdef __x86_64__
+#ifdef HAX_ARCH_X86_64
     /* Table 3-2. TSS descriptor has 16 bytes on ia32e */
     desc_base = ((((struct seg_desc_t *)(seg_desc + 1))->_raw) << 32)
                 + (desc_base & 0xffffffff);

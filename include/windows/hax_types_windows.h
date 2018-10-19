@@ -124,9 +124,6 @@ static hax_atomic_t hax_atomic_dec(volatile hax_atomic_t *atom)
     return InterlockedDecrement(atom) + 1;
 }
 
-#define ALIGNED(x) __declspec(align(x))
-#define PACKED
-
 #if defined(_X86_)
 typedef uint32_t mword;
 #endif

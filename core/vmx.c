@@ -47,7 +47,7 @@ static void _vmx_vmwrite_64(struct vcpu_t *vcpu, const char *name,
                             component_index_t component,
                             uint64_t source_val)
 {
-#ifdef _M_IX86
+#ifdef HAX_ARCH_X86_32
     asm_vmwrite(component, (uint32_t)source_val);
     asm_vmwrite(component + 1, (uint32_t)(source_val >> 32));
 #else
@@ -59,7 +59,7 @@ static void _vmx_vmwrite_natural(struct vcpu_t *vcpu, const char *name,
                                  component_index_t component,
                                  uint64_t source_val)
 {
-#ifdef _M_IX86
+#ifdef HAX_ARCH_X86_32
     asm_vmwrite(component, (uint32_t)source_val);
 #else
     asm_vmwrite(component, source_val);
@@ -144,7 +144,7 @@ static uint64_t vmx_vmread_64(struct vcpu_t *vcpu, component_index_t component)
     uint64_t val = 0;
 
     val = asm_vmread(component);
-#ifdef _M_IX86
+#ifdef HAX_ARCH_X86_32
     val |= ((uint64_t)(asm_vmread(component + 1)) << 32);
 #endif
     return val;

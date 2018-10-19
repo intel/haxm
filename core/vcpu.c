@@ -1057,7 +1057,7 @@ void vcpu_save_host_state(struct vcpu_t *vcpu)
         vmwrite(vcpu, HOST_EFER, hstate->_efer);
     }
 
-#ifdef __x86_64__
+#ifdef HAX_ARCH_X86_64
     vmwrite(vcpu, HOST_CS_SELECTOR, get_kernel_cs());
 #else
     if (is_compatible()) {  // compatible
@@ -1100,7 +1100,7 @@ void vcpu_save_host_state(struct vcpu_t *vcpu)
         vmwrite(vcpu, HOST_GS_SELECTOR, 0);
     } else {
         vmwrite(vcpu, HOST_GS_SELECTOR, gs);
-#ifdef __x86_64__
+#ifdef HAX_ARCH_X86_64
         // For ia32e mode, the MSR holds the base 3.4.4
         vmwrite(vcpu, HOST_GS_BASE, ia32_rdmsr(IA32_GS_BASE));
 #else
@@ -1121,7 +1121,7 @@ void vcpu_save_host_state(struct vcpu_t *vcpu)
         vmwrite(vcpu, HOST_FS_SELECTOR, 0);
     } else {
         vmwrite(vcpu, HOST_FS_SELECTOR, fs);
-#ifdef __x86_64__
+#ifdef HAX_ARCH_X86_64
         // For ia32e mode, the MSR holds the base 3.4.4
         vmwrite(vcpu, HOST_FS_BASE, ia32_rdmsr(IA32_FS_BASE));
 #else
@@ -1223,7 +1223,7 @@ static void fill_common_vmcs(struct vcpu_t *vcpu)
         }
     }
 
-#ifdef __x86_64__
+#ifdef HAX_ARCH_X86_64
     exit_ctls = EXIT_CONTROL_HOST_ADDR_SPACE_SIZE | EXIT_CONTROL_LOAD_EFER |
                 EXIT_CONTROL_SAVE_DEBUG_CONTROLS;
 #endif
@@ -1252,7 +1252,7 @@ static void fill_common_vmcs(struct vcpu_t *vcpu)
     vmwrite(vcpu, HOST_CR3, get_cr3());
     vmwrite(vcpu, HOST_CR4, get_cr4());
 
-#ifdef __x86_64__
+#ifdef HAX_ARCH_X86_64
     vmwrite(vcpu, HOST_CS_SELECTOR, get_kernel_cs());
 #else
     if (is_compatible()) {
@@ -1267,7 +1267,7 @@ static void fill_common_vmcs(struct vcpu_t *vcpu)
     vmwrite(vcpu, HOST_FS_SELECTOR, get_kernel_fs());
     vmwrite(vcpu, HOST_GS_SELECTOR, get_kernel_gs());
 
-#ifdef __x86_64__
+#ifdef HAX_ARCH_X86_64
     vmwrite(vcpu, HOST_FS_BASE, ia32_rdmsr(IA32_FS_BASE));
     vmwrite(vcpu, HOST_GS_BASE, ia32_rdmsr(IA32_GS_BASE));
 #else

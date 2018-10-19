@@ -130,9 +130,6 @@ typedef struct hax_kmap_phys {
 }
 #endif
 
-#define PACKED     __attribute__ ((packed))
-#define ALIGNED(x) __attribute__ ((aligned(x)))
-
 typedef ulong mword;
 typedef mword preempt_flag;
 typedef uint64_t cpumap_t;

@@ -229,11 +229,11 @@ typedef struct em_context_t {
 extern "C" {
 #endif
 
-#ifdef _M_IX86
+#ifdef HAX_ARCH_X86_32
 #define EMCALL __stdcall
-#else  // !_M_IX86
+#else  // !HAX_ARCH_X86_32
 #define EMCALL
-#endif  // _M_IX86
+#endif  // HAX_ARCH_X86_32
 
 em_status_t EMCALL em_decode_insn(struct em_context_t *ctxt,
                                   const uint8_t *insn);

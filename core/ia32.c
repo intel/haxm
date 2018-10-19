@@ -35,19 +35,19 @@ struct qword_val {
     uint32_t high;
 };
 
-#ifdef _M_IX86
+#ifdef HAX_ARCH_X86_32
 extern void ASMCALL asm_rdmsr(uint32_t reg, struct qword_val *qv);
 extern void ASMCALL asm_wrmsr(uint32_t reg, struct qword_val *qv);
 extern void ASMCALL asm_rdtsc(struct qword_val *qv);
-#else  // !_M_IX86
+#else  // !HAX_ARCH_X86_32
 extern uint64_t ASMCALL asm_rdmsr(uint32_t reg);
 extern void ASMCALL asm_wrmsr(uint32_t reg, uint64_t val);
 extern uint64_t ASMCALL asm_rdtsc(void);
-#endif  // _M_IX86
+#endif  // HAX_ARCH_X86_32
 
 uint64_t ia32_rdmsr(uint32_t reg)
 {
-#ifdef _M_IX86
+#ifdef HAX_ARCH_X86_32
     struct qword_val val = { 0 };
 
     asm_rdmsr(reg, &val);
@@ -59,7 +59,7 @@ uint64_t ia32_rdmsr(uint32_t reg)
 
 void ia32_wrmsr(uint32_t reg, uint64_t val)
 {
-#ifdef _M_IX86
+#ifdef HAX_ARCH_X86_32
     struct qword_val tmp = { 0 };
 
     tmp.high = (uint32_t)(val >> 32);
@@ -72,7 +72,7 @@ void ia32_wrmsr(uint32_t reg, uint64_t val)
 
 uint64_t rdtsc(void)
 {
-#ifdef _M_IX86
+#ifdef HAX_ARCH_X86_32
     struct qword_val val = { 0 };
     asm_rdtsc(&val);
     return ((uint64_t)(val.low) | (uint64_t)(val.high) << 32);
