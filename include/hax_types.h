@@ -197,7 +197,7 @@ typedef enum component_index_t component_index_t;
 #include "windows/hax_types_windows.h"
 #endif
 
-/* Common typedef for all platform */
+/* Common typedef for all platforms */
 typedef uint64_t hax_pa_t;
 typedef uint64_t hax_pfn_t;
 typedef uint64_t paddr_t;

@@ -211,12 +211,12 @@ hax_pfn_t hax_page2pfn(struct hax_page *page)
 
 void hax_clear_page(struct hax_page *page)
 {
-    memset((void*)page->kva, 0, 1 << PAGE_SHIFT);
+    memset((void*)page->kva, 0, PAGE_SIZE);
 }
 
 void hax_set_page(struct hax_page *page)
 {
-    memset((void*)page->kva, 0xff, 1 << PAGE_SHIFT);
+    memset((void*)page->kva, 0xff, PAGE_SIZE);
 }
 
 /* Initialize memory allocation related structures */

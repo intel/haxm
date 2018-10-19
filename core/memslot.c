@@ -37,6 +37,13 @@
 
 #define SAFE_CALL(f) if ((f) != NULL) (f)
 
+#ifndef min
+#define min(a, b) (((a) < (b)) ? (a) : (b)) 
+#endif
+#ifndef max
+#define max(a, b) (((a) > (b)) ? (a) : (b)) 
+#endif
+
 enum callback {
     MAPPING_ADDED = 1,
     MAPPING_REMOVED,

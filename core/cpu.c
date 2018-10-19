@@ -49,18 +49,18 @@ static int cpu_vmexit_handler(struct vcpu_t *vcpu, exit_reason_t exit_reason,
 
 static int cpu_emt64_enable(void)
 {
-    uint32_t effer;
+    uint32_t efer;
 
-    effer = ia32_rdmsr(IA32_EFER);
-    return effer & 0x400;
+    efer = ia32_rdmsr(IA32_EFER);
+    return efer & 0x400;
 }
 
 static int cpu_nx_enable(void)
 {
-    uint32_t effer;
+    uint32_t efer;
 
-    effer = ia32_rdmsr(IA32_EFER);
-    return effer & 0x800;
+    efer = ia32_rdmsr(IA32_EFER);
+    return efer & 0x800;
 }
 
 bool cpu_has_feature(uint32_t feature)
