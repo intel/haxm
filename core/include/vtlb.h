@@ -62,12 +62,12 @@ typedef enum mmu_mode {
     MMU_MODE_EPT = 2
 } mmu_mode_t;
 
-typedef uint32 pagemode_t;
+typedef uint32_t pagemode_t;
 
 typedef struct vtlb {
     vaddr_t va;
     paddr_t ha;
-    uint64 flags;
+    uint64_t flags;
     uint guest_order;
     uint order;
     uint access;
@@ -92,7 +92,7 @@ typedef struct hax_mmu {
     bool igo; /* Is global optimized */
 } hax_mmu_t;
 
-uint64 vtlb_get_cr3(struct vcpu_t *vcpu);
+uint64_t vtlb_get_cr3(struct vcpu_t *vcpu);
 
 void vcpu_invalidate_tlb(struct vcpu_t *vcpu, bool global);
 void vcpu_invalidate_tlb_addr(struct vcpu_t *vcpu, vaddr_t va);
@@ -103,12 +103,12 @@ void vcpu_vtlb_free(struct vcpu_t *vcpu);
 bool handle_vtlb(struct vcpu_t *vcpu);
 
 uint vcpu_translate(struct vcpu_t *vcpu, vaddr_t va, uint access, paddr_t *pa,
-                    uint64 *len, bool update);
+                    uint64_t *len, bool update);
 
-uint32 vcpu_read_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr, void *dst,
-                               uint32 dst_buflen, uint32 size, uint flag);
-uint32 vcpu_write_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr,
-                                uint32 dst_buflen, const void *src, uint32 size,
+uint32_t vcpu_read_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr, void *dst,
+                               uint32_t dst_buflen, uint32_t size, uint flag);
+uint32_t vcpu_write_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr,
+                                uint32_t dst_buflen, const void *src, uint32_t size,
                                 uint flag);
 
 #ifdef CONFIG_HAX_EPT2
@@ -126,7 +126,7 @@ uint32 vcpu_write_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr,
  * Returns 0 on success, or one of the following error codes:
  * -ENOMEM: Memory allocation/mapping error.
  */
-int mmio_fetch_instruction(struct vcpu_t *vcpu, uint64 gva, uint8 *buf,
+int mmio_fetch_instruction(struct vcpu_t *vcpu, uint64_t gva, uint8_t *buf,
                            int len);
 #endif  // CONFIG_HAX_EPT2
 

@@ -34,12 +34,6 @@
 //#include <ntddk.h>
 #include <ntifs.h>
 
-#ifdef _WIN64
-#define __x86_64__ 1
-#else
-#define __i386__ 1
-#endif
-
 #ifndef HAX_UNIFIED_BINARY
 
 /*
@@ -55,10 +49,6 @@
 #else /* HAX_UNIFIED_BINARY */
 #define HAX_RAM_ENTRY_SIZE 0x2000000
 #endif
-
-#define page_size 4096
-#define page_shift 12
-#define page_mask 0xfff
 
 static inline hax_spinlock *hax_spinlock_alloc_init(void)
 {
@@ -170,7 +160,7 @@ static bool hax_test_bit(int bit, uint64_t *memory)
 }
 
 /* Why it's a bool? Strange */
-static bool hax_cmpxchg32(uint32 old_val, uint32 new_val, volatile uint32 *addr)
+static bool hax_cmpxchg32(uint32_t old_val, uint32_t new_val, volatile uint32_t *addr)
 {
     long ret;
 
@@ -182,7 +172,7 @@ static bool hax_cmpxchg32(uint32 old_val, uint32 new_val, volatile uint32 *addr)
         return FALSE;
 }
 
-static bool hax_cmpxchg64(uint64 old_val, uint64 new_val, volatile uint64 *addr)
+static bool hax_cmpxchg64(uint64_t old_val, uint64_t new_val, volatile uint64_t *addr)
 {
     LONGLONG ret;
 

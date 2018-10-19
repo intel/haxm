@@ -32,13 +32,13 @@
 #define HAX_VCPU_STATE_H_
 
 union interruptibility_state_t {
-    uint32 raw;
+    uint32_t raw;
     struct {
-        uint32 sti_blocking   : 1;
-        uint32 movss_blocking : 1;
-        uint32 smi_blocking   : 1;
-        uint32 nmi_blocking   : 1;
-        uint32 reserved       : 28;
+        uint32_t sti_blocking   : 1;
+        uint32_t movss_blocking : 1;
+        uint32_t smi_blocking   : 1;
+        uint32_t nmi_blocking   : 1;
+        uint32_t reserved       : 28;
     };
     uint64_t pad;
 } PACKED;
@@ -47,111 +47,111 @@ typedef union interruptibility_state_t interruptibility_state_t;
 
 // Segment descriptor
 struct segment_desc_t {
-    uint16 selector;
-    uint16 _dummy;
-    uint32 limit;
-    uint64 base;
+    uint16_t selector;
+    uint16_t _dummy;
+    uint32_t limit;
+    uint64_t base;
     union {
         struct {
-            uint32 type             : 4;
-            uint32 desc             : 1;
-            uint32 dpl              : 2;
-            uint32 present          : 1;
-            uint32                  : 4;
-            uint32 available        : 1;
-            uint32 long_mode        : 1;
-            uint32 operand_size     : 1;
-            uint32 granularity      : 1;
-            uint32 null             : 1;
-            uint32                  : 15;
+            uint32_t type             : 4;
+            uint32_t desc             : 1;
+            uint32_t dpl              : 2;
+            uint32_t present          : 1;
+            uint32_t                  : 4;
+            uint32_t available        : 1;
+            uint32_t long_mode        : 1;
+            uint32_t operand_size     : 1;
+            uint32_t granularity      : 1;
+            uint32_t null             : 1;
+            uint32_t                  : 15;
         };
-        uint32 ar;
+        uint32_t ar;
     };
-    uint32 ipad;
+    uint32_t ipad;
 } PACKED;
 
 typedef struct segment_desc_t segment_desc_t;
 
 struct vcpu_state_t {
     union {
-        uint64 _regs[16];
+        uint64_t _regs[16];
         struct {
             union {
                 struct {
-                    uint8 _al,
-                          _ah;
+                    uint8_t _al,
+                            _ah;
                 };
-                uint16    _ax;
-                uint32    _eax;
-                uint64    _rax;
+                uint16_t    _ax;
+                uint32_t    _eax;
+                uint64_t    _rax;
             };
             union {
                 struct {
-                    uint8 _cl,
-                          _ch;
+                    uint8_t _cl,
+                            _ch;
                 };
-                uint16    _cx;
-                uint32    _ecx;
-                uint64    _rcx;
+                uint16_t    _cx;
+                uint32_t    _ecx;
+                uint64_t    _rcx;
             };
             union {
                 struct {
-                    uint8 _dl,
-                          _dh;
+                    uint8_t _dl,
+                            _dh;
                 };
-                uint16    _dx;
-                uint32    _edx;
-                uint64    _rdx;
+                uint16_t    _dx;
+                uint32_t    _edx;
+                uint64_t    _rdx;
             };
             union {
                 struct {
-                    uint8 _bl,
-                          _bh;
+                    uint8_t _bl,
+                            _bh;
                 };
-                uint16    _bx;
-                uint32    _ebx;
-                uint64    _rbx;
+                uint16_t    _bx;
+                uint32_t    _ebx;
+                uint64_t    _rbx;
             };
             union {
-                uint16    _sp;
-                uint32    _esp;
-                uint64    _rsp;
+                uint16_t    _sp;
+                uint32_t    _esp;
+                uint64_t    _rsp;
             };
             union {
-                uint16    _bp;
-                uint32    _ebp;
-                uint64    _rbp;
+                uint16_t    _bp;
+                uint32_t    _ebp;
+                uint64_t    _rbp;
             };
             union {
-                uint16    _si;
-                uint32    _esi;
-                uint64    _rsi;
+                uint16_t    _si;
+                uint32_t    _esi;
+                uint64_t    _rsi;
             };
             union {
-                uint16    _di;
-                uint32    _edi;
-                uint64    _rdi;
+                uint16_t    _di;
+                uint32_t    _edi;
+                uint64_t    _rdi;
             };
 
-            uint64 _r8;
-            uint64 _r9;
-            uint64 _r10;
-            uint64 _r11;
-            uint64 _r12;
-            uint64 _r13;
-            uint64 _r14;
-            uint64 _r15;
+            uint64_t _r8;
+            uint64_t _r9;
+            uint64_t _r10;
+            uint64_t _r11;
+            uint64_t _r12;
+            uint64_t _r13;
+            uint64_t _r14;
+            uint64_t _r15;
         };
     };
 
     union {
-        uint32 _eip;
-        uint64 _rip;
+        uint32_t _eip;
+        uint64_t _rip;
     };
 
     union {
-        uint32 _eflags;
-        uint64 _rflags;
+        uint32_t _eflags;
+        uint64_t _rflags;
     };
 
     segment_desc_t _cs;
@@ -166,27 +166,27 @@ struct vcpu_state_t {
     segment_desc_t _gdt;
     segment_desc_t _idt;
 
-    uint64 _cr0;
-    uint64 _cr2;
-    uint64 _cr3;
-    uint64 _cr4;
+    uint64_t _cr0;
+    uint64_t _cr2;
+    uint64_t _cr3;
+    uint64_t _cr4;
 
-    uint64 _dr0;
-    uint64 _dr1;
-    uint64 _dr2;
-    uint64 _dr3;
-    uint64 _dr6;
-    uint64 _dr7;
-    uint64 _pde;
+    uint64_t _dr0;
+    uint64_t _dr1;
+    uint64_t _dr2;
+    uint64_t _dr3;
+    uint64_t _dr6;
+    uint64_t _dr7;
+    uint64_t _pde;
 
-    uint32 _efer;
+    uint32_t _efer;
 
-    uint32 _sysenter_cs;
-    uint64 _sysenter_eip;
-    uint64 _sysenter_esp;
+    uint32_t _sysenter_cs;
+    uint64_t _sysenter_eip;
+    uint64_t _sysenter_esp;
 
-    uint32 _activity_state;
-    uint32 pad;
+    uint32_t _activity_state;
+    uint32_t pad;
     interruptibility_state_t _interruptibility_state;
 } PACKED;
 

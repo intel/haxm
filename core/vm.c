@@ -36,11 +36,11 @@
 #include "include/ept.h"
 #include "include/paging.h"
 
-static uint8 vm_mid_bits = 0;
+static uint8_t vm_mid_bits = 0;
 #define VM_MID_BIT 8
 
-#if (!defined(__MACH__) && !defined(_WIN64))
-static void gpfn_to_hva_recycle_total(struct vm_t *vm, uint64 cr3_cur,
+#ifdef HAX_ARCH_X86_32
+static void gpfn_to_hva_recycle_total(struct vm_t *vm, uint64_t cr3_cur,
                                       int flag);
 #endif
 
@@ -49,7 +49,7 @@ static int get_free_vm_mid(void)
     int i;
 
     for (i = 0; i < VM_MID_BIT; i++) {
-        if (!hax_test_and_set_bit(i, (uint64 *)&vm_mid_bits))
+        if (!hax_test_and_set_bit(i, (uint64_t *)&vm_mid_bits))
             return i;
     }
 
@@ -58,7 +58,7 @@ static int get_free_vm_mid(void)
 
 static void hax_put_vm_mid(int id)
 {
-    if (hax_test_and_clear_bit(id, (uint64 *)&vm_mid_bits))
+    if (hax_test_and_clear_bit(id, (uint64_t *)&vm_mid_bits))
         hax_warning("Clear a non-set vmid %x\n", id);
 }
 
@@ -78,9 +78,9 @@ int hax_vm_set_qemuversion(struct vm_t *vm, struct hax_qemu_version *ver)
     return 0;
 }
 
-uint64 vm_get_eptp(struct vm_t *vm)
+uint64_t vm_get_eptp(struct vm_t *vm)
 {
-    uint64 eptp_value;
+    uint64_t eptp_value;
 
 #ifdef CONFIG_HAX_EPT2
     eptp_value = vm->ept_tree.eptp.value;
@@ -122,7 +122,7 @@ struct vm_t * hax_create_vm(int *vm_id)
     hvm->vm_id = id;
     memset(hvm->vpid_seed, 0, sizeof(hvm->vpid_seed));
 
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
     hvm->hva_list = hax_vmalloc(((HVA_MAP_ARRAY_SIZE / 4096) *
                                 sizeof(struct hva_entry)), HAX_MEM_NONPAGE);
     if (!hvm->hva_list)
@@ -183,7 +183,7 @@ fail2:
 fail1:
     ept_free(hvm);
 fail0:
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
     hax_vfree(hvm->hva_list_1,
               ((HVA_MAP_ARRAY_SIZE / 4096) * sizeof(struct hva_entry)));
 
@@ -229,7 +229,7 @@ int hax_teardown_vm(struct vm_t *vm)
         hax_log("Try to teardown non-empty vm\n");
         return -1;
     }
-#if (!defined(__MACH__) && !defined(_WIN64))
+#ifdef HAX_ARCH_X86_32
     if (vm->hva_list) {
         gpfn_to_hva_recycle_total(vm, 0, true);
         hax_vfree(vm->hva_list,
@@ -351,10 +351,10 @@ int set_vm_host(struct vm_t *vm, void *vm_host)
     return 0;
 }
 
-static int set_p2m_mapping(struct vm_t *vm, uint64 gpfn, uint64 hva, uint64 hpa)
+static int set_p2m_mapping(struct vm_t *vm, uint64_t gpfn, uint64_t hva, uint64_t hpa)
 {
-    uint32 which_g = gpfn_to_g(gpfn);
-    uint32 index = gpfn_in_g(gpfn);
+    uint32_t which_g = gpfn_to_g(gpfn);
+    uint32_t index = gpfn_in_g(gpfn);
     struct hax_p2m_entry *p2m_base;
 
     if (which_g >= MAX_GMEM_G)
@@ -375,10 +375,10 @@ static int set_p2m_mapping(struct vm_t *vm, uint64 gpfn, uint64 hva, uint64 hpa)
     return 0;
 }
 
-static struct hax_p2m_entry * hax_get_p2m_entry(struct vm_t *vm, uint64 gpfn)
+static struct hax_p2m_entry * hax_get_p2m_entry(struct vm_t *vm, uint64_t gpfn)
 {
-    uint32 which_g = gpfn_to_g(gpfn);
-    uint32 index = gpfn_in_g(gpfn);
+    uint32_t which_g = gpfn_to_g(gpfn);
+    uint32_t index = gpfn_in_g(gpfn);
     struct hax_p2m_entry *p2m_base;
 
     if (!vm->p2m_map[which_g])
@@ -388,7 +388,7 @@ static struct hax_p2m_entry * hax_get_p2m_entry(struct vm_t *vm, uint64 gpfn)
 }
 
 /* FIXME: This call doesn't work for 32-bit Windows. */
-static void * hax_gpfn_to_hva(struct vm_t *vm, uint64 gpfn)
+static void * hax_gpfn_to_hva(struct vm_t *vm, uint64_t gpfn)
 {
     mword hva;
     struct hax_p2m_entry *entry;
@@ -400,10 +400,10 @@ static void * hax_gpfn_to_hva(struct vm_t *vm, uint64 gpfn)
     return (void *)hva;
 }
 
-uint64 hax_gpfn_to_hpa(struct vm_t *vm, uint64 gpfn)
+uint64_t hax_gpfn_to_hpa(struct vm_t *vm, uint64_t gpfn)
 {
 #ifdef CONFIG_HAX_EPT2
-    uint64 pfn;
+    uint64_t pfn;
 
     pfn = gpa_space_get_pfn(&vm->gpa_space, gpfn, NULL);
     if (INVALID_PFN == pfn) {
@@ -411,7 +411,7 @@ uint64 hax_gpfn_to_hpa(struct vm_t *vm, uint64 gpfn)
     }
     return pfn << PG_ORDER_4K;
 #else // !CONFIG_HAX_EPT2
-    uint64 hpa;
+    uint64_t hpa;
     struct hax_p2m_entry *entry;
 
     entry = hax_get_p2m_entry(vm, gpfn);
@@ -422,8 +422,8 @@ uint64 hax_gpfn_to_hpa(struct vm_t *vm, uint64 gpfn)
 #endif // CONFIG_HAX_EPT2
 }
 
-#if (!defined(__MACH__) && !defined(_WIN64))
-static void gpfn_to_hva_recycle_total(struct vm_t *vm, uint64 cr3_cur, int flag)
+#ifdef HAX_ARCH_X86_32
+static void gpfn_to_hva_recycle_total(struct vm_t *vm, uint64_t cr3_cur, int flag)
 {
     int i = 0;
     int top = 0;
@@ -503,7 +503,7 @@ static void gpfn_to_hva_recycle_total(struct vm_t *vm, uint64 cr3_cur, int flag)
     }
 }
 
-static int gpfn_to_hva_recycle(struct vm_t *vm, uint64 cr3_cur, int flag)
+static int gpfn_to_hva_recycle(struct vm_t *vm, uint64_t cr3_cur, int flag)
 {
     int i = 0, count = 0;
     int top = 0;
@@ -537,13 +537,13 @@ static int gpfn_to_hva_recycle(struct vm_t *vm, uint64 cr3_cur, int flag)
 #endif
 
 #ifndef CONFIG_HAX_EPT2
-#if (defined(__MACH__) || defined(_WIN64))
-void * hax_map_gpfn(struct vm_t *vm, uint64 gpfn)
+#ifdef HAX_ARCH_X86_64
+void * hax_map_gpfn(struct vm_t *vm, uint64_t gpfn)
 {
-#if defined(__MACH__) || defined(_WIN64)
+#ifdef HAX_ARCH_X86_64
     return hax_gpfn_to_hva(vm, gpfn);
 #else
-    uint64 hpa;
+    uint64_t hpa;
     hpa = hax_gpfn_to_hpa(vm, gpfn);
     return hax_vmap(hpa, 4096);
 #endif
@@ -551,20 +551,20 @@ void * hax_map_gpfn(struct vm_t *vm, uint64 gpfn)
 
 void hax_unmap_gpfn(void *va)
 {
-#if defined(__MACH__) || defined(_WIN64)
+#ifdef HAX_ARCH_X86_64
 #else
     hax_vunmap(va, 4096);
 #endif
 }
-#else // !(defined(__MACH__) || defined(_WIN64))
-void * hax_map_gpfn(struct vm_t *vm, uint64 gpfn, bool flag, paddr_t gcr3,
-                    uint8 level)
+#else // !HAX_ARCH_X86_64
+void * hax_map_gpfn(struct vm_t *vm, uint64_t gpfn, bool flag, paddr_t gcr3,
+                    uint8_t level)
 {
-#if defined(__MACH__) || defined(_WIN64)
+#ifdef HAX_ARCH_X86_64
     return hax_gpfn_to_hva(vm, gpfn);
 #else
     struct hax_p2m_entry *entry;
-    uint64 hpa = 0;
+    uint64_t hpa = 0;
     void *hva = NULL;
 
     entry = hax_get_p2m_entry(vm, gpfn);
@@ -577,7 +577,7 @@ retry:
         if (flag || (vm->hva_limit < HOST_VIRTUAL_ADDR_LIMIT)) {
             hva = hax_vmap(hpa, 4096);
             if (entry) {
-                entry->hva = (uint64)hva;
+                entry->hva = (uint64_t)hva;
             }
             vm->hva_limit += 4096;
             if ((vm->hva_limit > HOST_VIRTUAL_ADDR_RECYCLE) &&
@@ -586,14 +586,14 @@ retry:
                     vm->hva_index++;
                 }
                 vm->hva_list[vm->hva_index].gpfn = gpfn;
-                vm->hva_list[vm->hva_index].hva = (uint64)hva;
+                vm->hva_list[vm->hva_index].hva = (uint64_t)hva;
                 vm->hva_list[vm->hva_index].gcr3 = gcr3;
                 vm->hva_list[vm->hva_index].is_kern = flag;
                 vm->hva_list[vm->hva_index].level = level;
                 vm->hva_index++;
             } else {
                 vm->hva_list_1[vm->hva_index_1].gpfn = gpfn;
-                vm->hva_list_1[vm->hva_index_1].hva = (uint64)hva;
+                vm->hva_list_1[vm->hva_index_1].hva = (uint64_t)hva;
                 vm->hva_list_1[vm->hva_index_1].gcr3 = gcr3;
                 vm->hva_list_1[vm->hva_index_1].is_kern = flag;
                 vm->hva_list_1[vm->hva_index_1].level = level;
@@ -611,9 +611,9 @@ retry:
 #endif
 }
 
-void hax_unmap_gpfn(struct vm_t *vm, void *va, uint64 gpfn)
+void hax_unmap_gpfn(struct vm_t *vm, void *va, uint64_t gpfn)
 {
-#if defined(__MACH__) || defined(_WIN64)
+#ifdef HAX_ARCH_X86_64
 #else
     struct hax_p2m_entry *entry;
 
@@ -628,15 +628,15 @@ void hax_unmap_gpfn(struct vm_t *vm, void *va, uint64 gpfn)
     }
 #endif
 }
-#endif // (defined(__MACH__) || defined(_WIN64))
+#endif // HAX_ARCH_X86_64
 #endif // !CONFIG_HAX_EPT2
 
-int hax_core_set_p2m(struct vm_t *vm, uint64 gpfn, uint64 hpfn, uint64 hva,
-                     uint8 flags)
+int hax_core_set_p2m(struct vm_t *vm, uint64_t gpfn, uint64_t hpfn, uint64_t hva,
+                     uint8_t flags)
 {
     int ret;
 
-    ret = set_p2m_mapping(vm, gpfn, hva & ~PAGE_MASK, hpfn << 12);
+    ret = set_p2m_mapping(vm, gpfn, hva & ~HAX_PAGE_MASK, hpfn << 12);
     if (ret < 0) {
         hax_error("Failed to set p2m mapping, gpfn:%llx, hva:%llx, hpa:%llx,"
                   "ret:%d\n", gpfn, hva, hpfn << 12, ret);

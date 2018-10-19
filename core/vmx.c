@@ -45,11 +45,11 @@ static void _vmx_vmwrite(struct vcpu_t *vcpu, const char *name,
 
 static void _vmx_vmwrite_64(struct vcpu_t *vcpu, const char *name,
                             component_index_t component,
-                            uint64 source_val)
+                            uint64_t source_val)
 {
-#ifdef _M_IX86
-    asm_vmwrite(component, (uint32)source_val);
-    asm_vmwrite(component + 1, (uint32)(source_val >> 32));
+#ifdef HAX_ARCH_X86_32
+    asm_vmwrite(component, (uint32_t)source_val);
+    asm_vmwrite(component + 1, (uint32_t)(source_val >> 32));
 #else
     asm_vmwrite(component, source_val);
 #endif
@@ -57,10 +57,10 @@ static void _vmx_vmwrite_64(struct vcpu_t *vcpu, const char *name,
 
 static void _vmx_vmwrite_natural(struct vcpu_t *vcpu, const char *name,
                                  component_index_t component,
-                                 uint64 source_val)
+                                 uint64_t source_val)
 {
-#ifdef _M_IX86
-    asm_vmwrite(component, (uint32)source_val);
+#ifdef HAX_ARCH_X86_32
+    asm_vmwrite(component, (uint32_t)source_val);
 #else
     asm_vmwrite(component, source_val);
 #endif
@@ -68,9 +68,9 @@ static void _vmx_vmwrite_natural(struct vcpu_t *vcpu, const char *name,
 
 static void __vmx_vmwrite_common(struct vcpu_t *vcpu, const char *name,
                                  component_index_t component,
-                                 uint64 source_val)
+                                 uint64_t source_val)
 {
-    uint8 val = (component & 0x6000) >> 13;
+    uint8_t val = (component & 0x6000) >> 13;
     switch (val) {
         case ENCODE_16:
         case ENCODE_32: {
@@ -94,10 +94,10 @@ static void __vmx_vmwrite_common(struct vcpu_t *vcpu, const char *name,
 }
 
 void vmx_vmwrite(struct vcpu_t *vcpu, const char *name,
-                 component_index_t component, uint64 source_val)
+                 component_index_t component, uint64_t source_val)
 {
     preempt_flag flags;
-    uint8 loaded = 0;
+    uint8_t loaded = 0;
 
     if (!vcpu || is_vmcs_loaded(vcpu))
         loaded = 1;
@@ -122,39 +122,39 @@ void vmx_vmwrite(struct vcpu_t *vcpu, const char *name,
 }
 
 
-static uint64 vmx_vmread(struct vcpu_t *vcpu, component_index_t component)
+static uint64_t vmx_vmread(struct vcpu_t *vcpu, component_index_t component)
 {
-    uint64 val = 0;
+    uint64_t val = 0;
 
     val = asm_vmread(component);
     return val;
 }
 
-static uint64 vmx_vmread_natural(struct vcpu_t *vcpu,
+static uint64_t vmx_vmread_natural(struct vcpu_t *vcpu,
                                  component_index_t component)
 {
-    uint64 val = 0;
+    uint64_t val = 0;
 
     val = asm_vmread(component);
     return val;
 }
 
-static uint64 vmx_vmread_64(struct vcpu_t *vcpu, component_index_t component)
+static uint64_t vmx_vmread_64(struct vcpu_t *vcpu, component_index_t component)
 {
-    uint64 val = 0;
+    uint64_t val = 0;
 
     val = asm_vmread(component);
-#ifdef _M_IX86
-    val |= ((uint64)(asm_vmread(component + 1)) << 32);
+#ifdef HAX_ARCH_X86_32
+    val |= ((uint64_t)(asm_vmread(component + 1)) << 32);
 #endif
     return val;
 }
 
-static uint64 __vmread_common(struct vcpu_t *vcpu,
+static uint64_t __vmread_common(struct vcpu_t *vcpu,
                               component_index_t component)
 {
-    uint64 value = 0;
-    uint8 val = (component >> ENCODE_SHIFT) & ENCODE_MASK;
+    uint64_t value = 0;
+    uint8_t val = (component >> ENCODE_SHIFT) & ENCODE_MASK;
 
     switch(val) {
         case ENCODE_16:
@@ -178,11 +178,11 @@ static uint64 __vmread_common(struct vcpu_t *vcpu,
     return value;
 }
 
-uint64 vmread(struct vcpu_t *vcpu, component_index_t component)
+uint64_t vmread(struct vcpu_t *vcpu, component_index_t component)
 {
     preempt_flag flags;
-    uint64 val;
-    uint8 loaded = 0;
+    uint64_t val;
+    uint8_t loaded = 0;
 
     if (!vcpu || is_vmcs_loaded(vcpu))
         loaded = 1;
@@ -208,9 +208,9 @@ uint64 vmread(struct vcpu_t *vcpu, component_index_t component)
     return val;
 }
 
-uint64 vmread_dump(struct vcpu_t *vcpu, unsigned enc, char *name)
+uint64_t vmread_dump(struct vcpu_t *vcpu, unsigned enc, char *name)
 {
-    uint64 val;
+    uint64_t val;
 
     switch ((enc >> 13) & 0x3) {
         case 0:
@@ -243,7 +243,7 @@ void vmx_read_info(info_t *vmxinfo)
 
     vmxinfo->_basic_info = ia32_rdmsr(IA32_VMX_BASIC);
 
-    if (vmxinfo->_basic_info & ((uint64)1 << 55)) {
+    if (vmxinfo->_basic_info & ((uint64_t)1 << 55)) {
         vmxinfo->pin_ctls   = ia32_rdmsr(IA32_VMX_TRUE_PINBASED_CTLS);
         vmxinfo->pcpu_ctls  = ia32_rdmsr(IA32_VMX_TRUE_PROCBASED_CTLS);
         vmxinfo->exit_ctls  = ia32_rdmsr(IA32_VMX_TRUE_EXIT_CTLS);
@@ -287,7 +287,7 @@ void vmx_read_info(info_t *vmxinfo)
         vmxinfo->_ept_cap = 0;
 }
 
-void get_interruption_info_t(interruption_info_t *info, uint8 v, uint8 t)
+void get_interruption_info_t(interruption_info_t *info, uint8_t v, uint8_t t)
 {
     info->vector = v;
     info->type = t;

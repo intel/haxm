@@ -79,50 +79,50 @@ enum mtrr_msrs_t {
 };
 typedef enum mtrr_msrs_t mtrr_msrs_t;
 
-typedef uint64 mtrr_type_t;
+typedef uint64_t mtrr_type_t;
 
 union mtrr_cap_t {
-    uint64 raw;
+    uint64_t raw;
     struct {
-        uint64 num_var_range_regs : 8;
-        uint64 fix_support        : 1;
-        uint64 reserved1          : 1;
-        uint64 wc_type_support    : 1;
-        uint64 reserved2          : 53;
+        uint64_t num_var_range_regs : 8;
+        uint64_t fix_support        : 1;
+        uint64_t reserved1          : 1;
+        uint64_t wc_type_support    : 1;
+        uint64_t reserved2          : 53;
     };
 };
 typedef union mtrr_cap_t mtrr_cap_t;
 
 union mtrr_def_type_t {
-    uint64 raw;
+    uint64_t raw;
     struct {
-        uint64 type               : 8;
-        uint64 reserved1          : 2;
-        uint64 fixed_mtrr_enable  : 1;
-        uint64 var_mtrr_enable    : 1;
-        uint64 reserved2          : 52;
+        uint64_t type               : 8;
+        uint64_t reserved1          : 2;
+        uint64_t fixed_mtrr_enable  : 1;
+        uint64_t var_mtrr_enable    : 1;
+        uint64_t reserved2          : 52;
     };
 };
 typedef union mtrr_def_type_t mtrr_def_type_t;
 
 union mtrr_physbase_t {
-    uint64 raw;
+    uint64_t raw;
     struct {
-        uint64 type               : 8;
-        uint64 reserved1          : 4;
-        uint64 base               : 24;
-        uint64 reserved2          : 28;
+        uint64_t type               : 8;
+        uint64_t reserved1          : 4;
+        uint64_t base               : 24;
+        uint64_t reserved2          : 28;
     };
 };
 typedef union mtrr_physbase_t mtrr_physbase_t;
 
 union mtrr_physmask_t {
-    uint64 raw;
+    uint64_t raw;
     struct {
-        uint64 reserved1          : 11;
-        uint64 valid              : 1;
-        uint64 mask               : 24;
-        uint64 reserved2          : 28;
+        uint64_t reserved1          : 11;
+        uint64_t valid              : 1;
+        uint64_t mask               : 24;
+        uint64_t reserved2          : 28;
     };
 };
 typedef union mtrr_physmask_t mtrr_physmask_t;

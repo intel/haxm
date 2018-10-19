@@ -34,9 +34,9 @@
 #include "../include/hax.h"
 
 extern unsigned char **vmcs_names;
-extern uint32 vmcs_hash(uint32 enc);
+extern uint32_t vmcs_hash(uint32_t enc);
 
-static uint32 dump_vmcs_list[] = {
+static uint32_t dump_vmcs_list[] = {
     VMX_PIN_CONTROLS,
     VMX_PRIMARY_PROCESSOR_CONTROLS,
     VMX_SECONDARY_PROCESSOR_CONTROLS,
@@ -180,7 +180,7 @@ static uint32 dump_vmcs_list[] = {
     GUEST_ACTIVITY_STATE,
 };
 
-static int encode_type(uint32 encode)
+static int encode_type(uint32_t encode)
 {
     return (encode >> 13) & 0x3;
 }
@@ -198,10 +198,10 @@ unsigned char *get_vmcsname_entry(int num)
 
 void dump_vmcs(struct vcpu_t *vcpu)
 {
-    uint32 i, enc, n;
+    uint32_t i, enc, n;
     unsigned char *name;
 
-    uint32 *list = dump_vmcs_list;
+    uint32_t *list = dump_vmcs_list;
     n = ARRAY_ELEMENTS(dump_vmcs_list);
 
     for (i = 0; i < n; i++) {

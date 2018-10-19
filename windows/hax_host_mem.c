@@ -32,7 +32,7 @@
 #include "../include/hax.h"
 #include "../core/include/paging.h"
 
-int hax_pin_user_pages(uint64 start_uva, uint64 size, hax_memdesc_user *memdesc)
+int hax_pin_user_pages(uint64_t start_uva, uint64_t size, hax_memdesc_user *memdesc)
 {
     PMDL pmdl = NULL;
 
@@ -82,11 +82,11 @@ int hax_unpin_user_pages(hax_memdesc_user *memdesc)
     return 0;
 }
 
-uint64 hax_get_pfn_user(hax_memdesc_user *memdesc, uint64 uva_offset)
+uint64_t hax_get_pfn_user(hax_memdesc_user *memdesc, uint64_t uva_offset)
 {
     PMDL pmdl = NULL;
     PPFN_NUMBER ppfn = NULL;
-    uint64 len;
+    uint64_t len;
 
     if (!memdesc) {
         hax_error("%s: memdesc == NULL\n", __func__);
@@ -114,15 +114,15 @@ uint64 hax_get_pfn_user(hax_memdesc_user *memdesc, uint64 uva_offset)
         return INVALID_PFN;
     }
 
-    return (uint64)ppfn[uva_offset >> PG_ORDER_4K];
+    return (uint64_t)ppfn[uva_offset >> PG_ORDER_4K];
 }
 
-void * hax_map_user_pages(hax_memdesc_user *memdesc, uint64 uva_offset,
-                          uint64 size, hax_kmap_user *kmap)
+void * hax_map_user_pages(hax_memdesc_user *memdesc, uint64_t uva_offset,
+                          uint64_t size, hax_kmap_user *kmap)
 {
     ULONG base_size;
-    uint64 uva_offset_low, uva_offset_high;
-    uint64 base_uva, start_uva;
+    uint64_t uva_offset_low, uva_offset_high;
+    uint64_t base_uva, start_uva;
     PMDL pmdl;
     PVOID kva;
 
@@ -153,7 +153,7 @@ void * hax_map_user_pages(hax_memdesc_user *memdesc, uint64 uva_offset,
     }
 
     // Start of the underlying UVA range
-    base_uva = (uint64)MmGetMdlVirtualAddress(memdesc->pmdl);
+    base_uva = (uint64_t)MmGetMdlVirtualAddress(memdesc->pmdl);
     // Start of the UVA subrange
     start_uva = base_uva + uva_offset_low;
     // Recalculate the size of the UVA subrange
@@ -196,7 +196,7 @@ int hax_unmap_user_pages(hax_kmap_user *kmap)
     return 0;
 }
 
-int hax_alloc_page_frame(uint8 flags, hax_memdesc_phys *memdesc)
+int hax_alloc_page_frame(uint8_t flags, hax_memdesc_phys *memdesc)
 {
     PHYSICAL_ADDRESS low_addr, high_addr, skip_bytes;
     ULONG options;
@@ -212,7 +212,7 @@ int hax_alloc_page_frame(uint8 flags, hax_memdesc_phys *memdesc)
     }
 
     low_addr.QuadPart = 0;
-    high_addr.QuadPart = (int64)-1;
+    high_addr.QuadPart = (int64_t)-1;
     skip_bytes.QuadPart = 0;
     // TODO: MM_ALLOCATE_NO_WAIT?
     options = MM_ALLOCATE_FULLY_REQUIRED;
@@ -247,7 +247,7 @@ int hax_free_page_frame(hax_memdesc_phys *memdesc)
     return 0;
 }
 
-uint64 hax_get_pfn_phys(hax_memdesc_phys *memdesc)
+uint64_t hax_get_pfn_phys(hax_memdesc_phys *memdesc)
 {
     PPFN_NUMBER pfns;
 
@@ -289,7 +289,7 @@ void * hax_get_kva_phys(hax_memdesc_phys *memdesc)
     return kva;
 }
 
-void * hax_map_page_frame(uint64 pfn, hax_kmap_phys *kmap)
+void * hax_map_page_frame(uint64_t pfn, hax_kmap_phys *kmap)
 {
     PHYSICAL_ADDRESS addr;
     PVOID kva;

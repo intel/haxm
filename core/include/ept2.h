@@ -53,30 +53,30 @@
 #define HAX_EPT_MEMTYPE_WB 0x6
 
 typedef union hax_epte {
-    uint64 value;
+    uint64_t value;
     struct {
-        uint64 perm          : 3;   // bits 2..0
-        uint64 ept_mt        : 3;   // bits 5..3
-        uint64 ignore_pat_mt : 1;   // bit 6
-        uint64 is_large_page : 1;   // bit 7
-        uint64 accessed      : 1;   // bit 8
-        uint64 dirty         : 1;   // bit 9
-        uint64 ignored1      : 2;   // bits 11..10
-        uint64 pfn           : 40;  // bits 51..12
-        uint64 ignored2      : 11;  // bits 62..52
-        uint64 supress_ve    : 1;   // bit 63
+        uint64_t perm          : 3;   // bits 2..0
+        uint64_t ept_mt        : 3;   // bits 5..3
+        uint64_t ignore_pat_mt : 1;   // bit 6
+        uint64_t is_large_page : 1;   // bit 7
+        uint64_t accessed      : 1;   // bit 8
+        uint64_t dirty         : 1;   // bit 9
+        uint64_t ignored1      : 2;   // bits 11..10
+        uint64_t pfn           : 40;  // bits 51..12
+        uint64_t ignored2      : 11;  // bits 62..52
+        uint64_t supress_ve    : 1;   // bit 63
     };
 } hax_epte;
 
 typedef union hax_eptp {
-    uint64 value;
+    uint64_t value;
     struct {
-        uint64 ept_mt       : 3;   // bits 2..0
-        uint64 max_level    : 3;   // bits 5..3
-        uint64 track_access : 1;   // bit 6
-        uint64 reserved1    : 5;   // bits 11..7
-        uint64 pfn          : 40;  // bits 51..12
-        uint64 reserved2    : 12;  // bits 63..52
+        uint64_t ept_mt       : 3;   // bits 2..0
+        uint64_t max_level    : 3;   // bits 5..3
+        uint64_t track_access : 1;   // bit 6
+        uint64_t reserved1    : 5;   // bits 11..7
+        uint64_t pfn          : 40;  // bits 51..12
+        uint64_t reserved2    : 12;  // bits 63..52
     };
 } hax_eptp;
 
@@ -139,7 +139,7 @@ void ept_tree_unlock(hax_ept_tree *tree);
 // -EEXIST: The leaf |hax_epte| corresponding to |gfn| is already present, whose
 //          value is different from |value|.
 // -ENOMEM: Memory allocation/mapping error.
-int ept_tree_create_entry(hax_ept_tree *tree, uint64 gfn, hax_epte value);
+int ept_tree_create_entry(hax_ept_tree *tree, uint64_t gfn, hax_epte value);
 
 // Creates leaf |hax_epte|s that map the given GFN range, using PFNs obtained
 // from the given |hax_chunk| and the given mapping properties. Also creates any
@@ -162,9 +162,9 @@ int ept_tree_create_entry(hax_ept_tree *tree, uint64 gfn, hax_epte value);
 // -EEXIST: Any of the leaf |hax_epte|s corresponding to the GFN range is
 //          already present and different from what would be created.
 // -ENOMEM: Memory allocation/mapping error.
-int ept_tree_create_entries(hax_ept_tree *tree, uint64 start_gfn, uint64 npages,
-                            hax_chunk *chunk, uint64 offset_within_chunk,
-                            uint8 flags);
+int ept_tree_create_entries(hax_ept_tree *tree, uint64_t start_gfn, uint64_t npages,
+                            hax_chunk *chunk, uint64_t offset_within_chunk,
+                            uint8_t flags);
 
 // Invalidates all leaf |hax_epte|s corresponding to the given GFN range, i.e.
 // marks them as not present. Also sets the |invept_pending| flag of the
@@ -178,13 +178,13 @@ int ept_tree_create_entries(hax_ept_tree *tree, uint64 start_gfn, uint64 npages,
 // to not present), or one of the following error codes:
 // -EINVAL: Invalid input, e.g. |tree| is NULL.
 // -ENOMEM: Memory mapping error.
-int ept_tree_invalidate_entries(hax_ept_tree *tree, uint64 start_gfn,
-                                uint64 npages);
+int ept_tree_invalidate_entries(hax_ept_tree *tree, uint64_t start_gfn,
+                                uint64_t npages);
 
 // Returns the leaf |hax_epte| that maps the given GFN. If the leaf |hax_epte|
 // does not exist, returns an all-zero |hax_epte|.
 // Returns an invalid |hax_epte| on error.
-hax_epte ept_tree_get_entry(hax_ept_tree *tree, uint64 gfn);
+hax_epte ept_tree_get_entry(hax_ept_tree *tree, uint64_t gfn);
 
 // A visitor callback invoked by ept_tree_walk() on each |hax_epte| visited
 // along the walk.
@@ -194,7 +194,7 @@ hax_epte ept_tree_get_entry(hax_ept_tree *tree, uint64 gfn);
 //          |HAX_EPT_LEVEL_*| constants.
 // |epte|: The |hax_epte| to visit.
 // |opaque|: Additional data provided by the caller of ept_tree_walk().
-typedef void (*epte_visitor)(hax_ept_tree *tree, uint64 gfn, int level,
+typedef void (*epte_visitor)(hax_ept_tree *tree, uint64_t gfn, int level,
                              hax_epte *epte, void *opaque);
 
 // Walks the given |hax_ept_tree| from the root as if the given GFN were being
@@ -206,7 +206,7 @@ typedef void (*epte_visitor)(hax_ept_tree *tree, uint64 gfn, int level,
 // |visit_epte|: The callback to be invoked on each |hax_epte| visited. Should
 //               not be NULL.
 // |opaque|: An arbitrary pointer passed as-is to |visit_current_epte|.
-void ept_tree_walk(hax_ept_tree *tree, uint64 gfn, epte_visitor visit_epte,
+void ept_tree_walk(hax_ept_tree *tree, uint64_t gfn, epte_visitor visit_epte,
                    void *opaque);
 
 // Handles a guest memory mapping change from RAM/ROM to MMIO. Used as a
@@ -218,8 +218,8 @@ void ept_tree_walk(hax_ept_tree *tree, uint64 gfn, epte_visitor visit_epte,
 // |flags|: The old mapping properties for the GFN range, e.g. whether it was
 //          mapped as read-only.
 void ept_handle_mapping_removed(hax_gpa_space_listener *listener,
-                                uint64 start_gfn, uint64 npages, uint64 uva,
-                                uint8 flags);
+                                uint64_t start_gfn, uint64_t npages, uint64_t uva,
+                                uint8_t flags);
 
 // Handles a guest memory mapping change from RAM/ROM to RAM/ROM. Used as a
 // |hax_gpa_space_listener| callback.
@@ -233,9 +233,9 @@ void ept_handle_mapping_removed(hax_gpa_space_listener *listener,
 // |new_flags|: The new mapping properties for the GFN range, e.g. whether it is
 //              mapped as read-only.
 void ept_handle_mapping_changed(hax_gpa_space_listener *listener,
-                                uint64 start_gfn, uint64 npages,
-                                uint64 old_uva, uint8 old_flags,
-                                uint64 new_uva, uint8 new_flags);
+                                uint64_t start_gfn, uint64_t npages,
+                                uint64_t old_uva, uint8_t old_flags,
+                                uint64_t new_uva, uint8_t new_flags);
 
 // Handles an EPT violation due to a guest RAM/ROM access.
 // |gpa_space|: The |hax_gpa_space| of the guest.
@@ -249,8 +249,8 @@ void ept_handle_mapping_changed(hax_gpa_space_listener *listener,
 //          present, but the access violates the permissions it allows.
 // -ENOMEM: Memory allocation/mapping error.
 int ept_handle_access_violation(hax_gpa_space *gpa_space, hax_ept_tree *tree,
-                                exit_qualification_t qual, uint64 gpa,
-                                uint64 *fault_gfn);
+                                exit_qualification_t qual, uint64_t gpa,
+                                uint64_t *fault_gfn);
 
 // Handles an EPT misconfiguration caught by hardware while it tries to
 // translate a GPA.
@@ -260,6 +260,6 @@ int ept_handle_access_violation(hax_gpa_space *gpa_space, hax_ept_tree *tree,
 // Returns the number of misconfigured |hax_epte|s that have been identified and
 // fixed, or a negative number if any misconfigured |hax_epte| cannot be fixed.
 int ept_handle_misconfiguration(hax_gpa_space *gpa_space, hax_ept_tree *tree,
-                                uint64 gpa);
+                                uint64_t gpa);
 
 #endif  // HAX_CORE_EPT2_H_

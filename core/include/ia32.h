@@ -58,51 +58,51 @@ void ASMCALL set_dr3(mword val);
 void ASMCALL set_dr6(mword val);
 void ASMCALL set_dr7(mword val);
 
-uint16 ASMCALL get_kernel_cs(void);
-uint16 ASMCALL get_kernel_ds(void);
-uint16 ASMCALL get_kernel_es(void);
-uint16 ASMCALL get_kernel_ss(void);
-uint16 ASMCALL get_kernel_gs(void);
-uint16 ASMCALL get_kernel_fs(void);
+uint16_t ASMCALL get_kernel_cs(void);
+uint16_t ASMCALL get_kernel_ds(void);
+uint16_t ASMCALL get_kernel_es(void);
+uint16_t ASMCALL get_kernel_ss(void);
+uint16_t ASMCALL get_kernel_gs(void);
+uint16_t ASMCALL get_kernel_fs(void);
 
-void ASMCALL set_kernel_ds(uint16 val);
-void ASMCALL set_kernel_es(uint16 val);
-void ASMCALL set_kernel_gs(uint16 val);
-void ASMCALL set_kernel_fs(uint16 val);
+void ASMCALL set_kernel_ds(uint16_t val);
+void ASMCALL set_kernel_es(uint16_t val);
+void ASMCALL set_kernel_gs(uint16_t val);
+void ASMCALL set_kernel_fs(uint16_t val);
 
-void ASMCALL asm_btr(uint8 *addr, uint bit);
-void ASMCALL asm_bts(uint8 *addr, uint bit);
+void ASMCALL asm_btr(uint8_t *addr, uint bit);
+void ASMCALL asm_bts(uint8_t *addr, uint bit);
 void ASMCALL asm_fxinit(void);
 void ASMCALL asm_fxsave(mword *addr);
 void ASMCALL asm_fxrstor(mword *addr);
 void ASMCALL asm_cpuid(union cpuid_args_t *state);
 
 void ASMCALL __nmi(void);
-uint32 ASMCALL __fls(uint32 bit32);
+uint32_t ASMCALL __fls(uint32_t bit32);
 
-uint64 ia32_rdmsr(uint32 reg);
-void ia32_wrmsr(uint32 reg, uint64 val);
+uint64_t ia32_rdmsr(uint32_t reg);
+void ia32_wrmsr(uint32_t reg, uint64_t val);
 
-uint64 rdtsc(void);
+uint64_t rdtsc(void);
 
 void fxinit(void);
 void fxsave(mword *addr);
 void fxrstor(mword *addr);
 
-void btr(uint8 *addr, uint bit);
-void bts(uint8 *addr, uint bit);
+void btr(uint8_t *addr, uint bit);
+void bts(uint8_t *addr, uint bit);
 
 void ASMCALL asm_enable_irq(void);
 void ASMCALL asm_disable_irq(void);
 
-uint64 ASMCALL get_kernel_rflags(void);
-uint16 ASMCALL get_kernel_tr_selector(void);
+uint64_t ASMCALL get_kernel_rflags(void);
+uint16_t ASMCALL get_kernel_tr_selector(void);
 
 void ASMCALL set_kernel_gdt(struct system_desc_t *sys_desc);
 void ASMCALL set_kernel_idt(struct system_desc_t *sys_desc);
-void ASMCALL set_kernel_ldt(uint16 sel);
+void ASMCALL set_kernel_ldt(uint16_t sel);
 void ASMCALL get_kernel_gdt(struct system_desc_t *sys_desc);
 void ASMCALL get_kernel_idt(struct system_desc_t *sys_desc);
-uint16 ASMCALL get_kernel_ldt(void);
+uint16_t ASMCALL get_kernel_ldt(void);
 
 #endif  // HAX_CORE_IA32_H_

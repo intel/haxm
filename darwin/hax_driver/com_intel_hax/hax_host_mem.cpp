@@ -36,7 +36,7 @@
 #include "../../../include/hax.h"
 #include "../../../core/include/paging.h"
 
-extern "C" int hax_pin_user_pages(uint64 start_uva, uint64 size,
+extern "C" int hax_pin_user_pages(uint64_t start_uva, uint64_t size,
                                   hax_memdesc_user *memdesc)
 {
     IOOptionBits options;
@@ -94,7 +94,7 @@ extern "C" int hax_unpin_user_pages(hax_memdesc_user *memdesc)
     return 0;
 }
 
-extern "C" uint64 hax_get_pfn_user(hax_memdesc_user *memdesc, uint64 uva_offset)
+extern "C" uint64_t hax_get_pfn_user(hax_memdesc_user *memdesc, uint64_t uva_offset)
 {
     addr64_t hpa;
 
@@ -117,11 +117,11 @@ extern "C" uint64 hax_get_pfn_user(hax_memdesc_user *memdesc, uint64 uva_offset)
 }
 
 extern "C" void * hax_map_user_pages(hax_memdesc_user *memdesc,
-                                     uint64 uva_offset, uint64 size,
+                                     uint64_t uva_offset, uint64_t size,
                                      hax_kmap_user *kmap)
 {
     IOByteCount base_size;
-    uint64 uva_offset_low, uva_offset_high;
+    uint64_t uva_offset_low, uva_offset_high;
     IOMemoryMap *mm;
 
     if (!memdesc) {
@@ -179,7 +179,7 @@ extern "C" int hax_unmap_user_pages(hax_kmap_user *kmap)
     return 0;
 }
 
-extern "C" int hax_alloc_page_frame(uint8 flags, hax_memdesc_phys *memdesc)
+extern "C" int hax_alloc_page_frame(uint8_t flags, hax_memdesc_phys *memdesc)
 {
     IOOptionBits options;
     IOBufferMemoryDescriptor *bmd;
@@ -235,7 +235,7 @@ extern "C" int hax_free_page_frame(hax_memdesc_phys *memdesc)
     return 0;
 }
 
-extern "C" uint64 hax_get_pfn_phys(hax_memdesc_phys *memdesc)
+extern "C" uint64_t hax_get_pfn_phys(hax_memdesc_phys *memdesc)
 {
     addr64_t hpa;
 
@@ -270,7 +270,7 @@ extern "C" void * hax_get_kva_phys(hax_memdesc_phys *memdesc)
     return memdesc->bmd->getBytesNoCopy();
 }
 
-extern "C" void * hax_map_page_frame(uint64 pfn, hax_kmap_phys *kmap)
+extern "C" void * hax_map_page_frame(uint64_t pfn, hax_kmap_phys *kmap)
 {
     IOMemoryDescriptor *md;
     IOMemoryMap *mm;

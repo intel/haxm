@@ -38,7 +38,7 @@
 #endif  // CONFIG_HAX_EPT2
 
 #ifdef CONFIG_HAX_EPT2
-static int handle_alloc_ram(struct vm_t *vm, uint64 start_uva, uint64 size)
+static int handle_alloc_ram(struct vm_t *vm, uint64_t start_uva, uint64_t size)
 {
     int ret;
     hax_ramblock *block;
@@ -232,12 +232,12 @@ static struct hax_vcpu_mem *get_pmem_range(struct vm_t *vm, uint64_t va)
 }
 
 #ifdef CONFIG_HAX_EPT2
-static int handle_set_ram(struct vm_t *vm, uint64 start_gpa, uint64 size,
-                          uint64 start_uva, uint32 flags)
+static int handle_set_ram(struct vm_t *vm, uint64_t start_gpa, uint64_t size,
+                          uint64_t start_uva, uint32_t flags)
 {
     bool unmap = flags & HAX_RAM_INFO_INVALID;
     hax_gpa_space *gpa_space;
-    uint64 start_gfn, npages;
+    uint64_t start_gfn, npages;
     int ret;
     hax_ept_tree *ept_tree;
 
@@ -272,7 +272,7 @@ static int handle_set_ram(struct vm_t *vm, uint64 start_gpa, uint64 size,
     memslot_dump_list(gpa_space);
 
     ept_tree = &vm->ept_tree;
-    if (!hax_test_and_clear_bit(0, (uint64 *)&ept_tree->invept_pending)) {
+    if (!hax_test_and_clear_bit(0, (uint64_t *)&ept_tree->invept_pending)) {
         // INVEPT pending flag was set
         hax_info("%s: Invoking INVEPT for VM #%d\n", __func__, vm->vm_id);
         invept(vm, EPT_INVEPT_SINGLE_CONTEXT);
@@ -287,8 +287,8 @@ int hax_vm_set_ram(struct vm_t *vm, struct hax_set_ram_info *info)
     return handle_set_ram(vm, info->pa_start, info->size, info->va,
                           info->flags);
 #else  // !CONFIG_HAX_EPT2
-    int num = info->size >> page_shift;
-    uint64_t gpfn = info->pa_start >> page_shift;
+    int num = info->size >> HAX_PAGE_SHIFT;
+    uint64_t gpfn = info->pa_start >> HAX_PAGE_SHIFT;
     uint64_t cur_va = info->va;
     bool is_unmap = info->flags & HAX_RAM_INFO_INVALID;
     bool is_readonly = info->flags & HAX_RAM_INFO_ROM;
@@ -329,14 +329,14 @@ int hax_vm_set_ram(struct vm_t *vm, struct hax_set_ram_info *info)
                  */
                 return -ENOMEM;
             }
-#if defined(__MACH__)
-#ifdef __x86_64__
+#if defined(HAX_PLATFORM_DARWIN)
+#ifdef HAX_ARCH_X86_64
             hva = (uint64_t)pmem->kva + (cur_va - pmem->uva);
 #else
             hva = (uint64_t)(uint32_t)pmem->kva + (cur_va - pmem->uva);
 #endif
-#else   // __MACH
-#if defined(_WIN64)
+#else   // !HAX_PLATFORM_DARWIN
+#ifdef HAX_ARCH_X86_64
             hva = (uint64_t)pmem->kva + (cur_va - pmem->uva);
 #else
             hva = 0;
@@ -348,7 +348,7 @@ int hax_vm_set_ram(struct vm_t *vm, struct hax_set_ram_info *info)
         if (!hax_core_set_p2m(vm, gpfn, hpfn, hva, info->flags)) {
             return -ENOMEM;
         }
-        if (!ept_set_pte(vm, gpfn << page_shift, hpfn << page_shift, emt, perm,
+        if (!ept_set_pte(vm, gpfn << HAX_PAGE_SHIFT, hpfn << HAX_PAGE_SHIFT, emt, perm,
                          &epte_modified)) {
             hax_error("ept_set_pte() failed at gpfn 0x%llx hpfn 0x%llx\n", gpfn,
                       hpfn);
@@ -393,7 +393,7 @@ int hax_vcpu_setup_hax_tunnel(struct vcpu_t *cv, struct hax_tunnel_info *info)
     // The tunnel and iobuf are always set together.
     if (cv->tunnel && cv->iobuf_vcpumem) {
         hax_info("setup hax tunnel request for already setup one\n");
-        info->size = PAGE_SIZE;
+        info->size = HAX_PAGE_SIZE;
         info->va = cv->tunnel_vcpumem->uva;
         info->io_va = cv->iobuf_vcpumem->uva;
         return 0;
@@ -407,7 +407,7 @@ int hax_vcpu_setup_hax_tunnel(struct vcpu_t *cv, struct hax_tunnel_info *info)
     if (!cv->iobuf_vcpumem)
         goto error;
 
-    ret = hax_setup_vcpumem(cv->tunnel_vcpumem, 0, PAGE_SIZE, 0);
+    ret = hax_setup_vcpumem(cv->tunnel_vcpumem, 0, HAX_PAGE_SIZE, 0);
     if (ret < 0)
         goto error;
 
@@ -417,7 +417,7 @@ int hax_vcpu_setup_hax_tunnel(struct vcpu_t *cv, struct hax_tunnel_info *info)
 
     info->va = cv->tunnel_vcpumem->uva;
     info->io_va = cv->iobuf_vcpumem->uva;
-    info->size = PAGE_SIZE;
+    info->size = HAX_PAGE_SIZE;
     set_vcpu_tunnel(cv, (struct hax_tunnel *)cv->tunnel_vcpumem->kva,
                     (uint8_t *)cv->iobuf_vcpumem->kva);
     return 0;

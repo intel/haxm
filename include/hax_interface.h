@@ -39,11 +39,10 @@
 
 #include "hax_types.h"
 
-#ifdef __MACH__
+#ifdef HAX_PLATFORM_DARWIN
 #include "darwin/hax_interface_mac.h"
 #endif
-
-#ifdef __WINNT__
+#ifdef HAX_PLATFORM_WINDOWS
 #include "windows/hax_interface_windows.h"
 #endif
 
@@ -56,33 +55,33 @@ struct vmx_msr {
 
 /* fx_layout has 3 formats table 3-56, 512bytes */
 struct fx_layout {
-    uint16  fcw;
-    uint16  fsw;
-    uint8   ftw;
-    uint8   res1;
-    uint16  fop;
+    uint16_t  fcw;
+    uint16_t  fsw;
+    uint8_t   ftw;
+    uint8_t   res1;
+    uint16_t  fop;
     union {
         struct {
-            uint32  fip;
-            uint16  fcs;
-            uint16  res2;
+            uint32_t  fip;
+            uint16_t  fcs;
+            uint16_t  res2;
         };
-        uint64  fpu_ip;
+        uint64_t  fpu_ip;
     };
     union {
         struct {
-            uint32  fdp;
-            uint16  fds;
-            uint16  res3;
+            uint32_t  fdp;
+            uint16_t  fds;
+            uint16_t  res3;
         };
-        uint64  fpu_dp;
+        uint64_t  fpu_dp;
     };
-    uint32  mxcsr;
-    uint32  mxcsr_mask;
-    uint8   st_mm[8][16];
-    uint8   mmx_1[8][16];
-    uint8   mmx_2[8][16];
-    uint8   pad[96];
+    uint32_t  mxcsr;
+    uint32_t  mxcsr_mask;
+    uint8_t   st_mm[8][16];
+    uint8_t   mmx_1[8][16];
+    uint8_t   mmx_2[8][16];
+    uint8_t   pad[96];
 } ALIGNED(16);
 
 /*

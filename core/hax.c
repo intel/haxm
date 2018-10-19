@@ -376,11 +376,11 @@ int hax_get_capability(void *buf, int bufLeng, int *outLength)
  * |read| and |write| determine if each MSR can be read or written freely by the
  * guest, respectively.
  */
-static void set_msr_access(uint32 start, uint32 count, bool read, bool write)
+static void set_msr_access(uint32_t start, uint32_t count, bool read, bool write)
 {
-    uint32 end = start + count - 1;
-    uint32 read_base, write_base, bit;
-    uint8 *msr_bitmap = hax_page_va(msr_bitmap_page);
+    uint32_t end = start + count - 1;
+    uint32_t read_base, write_base, bit;
+    uint8_t *msr_bitmap = hax_page_va(msr_bitmap_page);
 
     assert(((start ^ (start << 1)) & 0x80000000) == 0);
     assert((start & 0x3fffe000) == 0);
@@ -456,7 +456,7 @@ static void hax_pmu_init(void)
                 ref_pmu_info->apm_general_count > APM_MAX_GENERAL_COUNT
                 ? APM_MAX_GENERAL_COUNT : ref_pmu_info->apm_general_count;
         apm_general_bitlen = ref_pmu_info->apm_general_bitlen;
-        hax->apm_general_mask = apm_general_bitlen > 63 ? (uint64)-1
+        hax->apm_general_mask = apm_general_bitlen > 63 ? (uint64_t)-1
                                 : (1ULL << apm_general_bitlen) - 1;
         hax->apm_event_count =
                 ref_pmu_info->apm_event_count > APM_MAX_EVENT_COUNT
@@ -477,7 +477,7 @@ static void hax_pmu_init(void)
                     ref_pmu_info->apm_fixed_count > APM_MAX_FIXED_COUNT
                     ? APM_MAX_FIXED_COUNT : ref_pmu_info->apm_fixed_count;
             apm_fixed_bitlen = ref_pmu_info->apm_fixed_bitlen;
-            hax->apm_fixed_mask = apm_fixed_bitlen > 63 ? (uint64)-1
+            hax->apm_fixed_mask = apm_fixed_bitlen > 63 ? (uint64_t)-1
                                   : (1ULL << apm_fixed_bitlen) - 1;
             hax_info("APM: %u fixed-function counters, bitmask 0x%llx\n",
                      hax->apm_fixed_count, hax->apm_fixed_mask);

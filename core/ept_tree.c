@@ -39,33 +39,33 @@ static hax_epte INVALID_EPTE = {
     // Other fields are initialized to 0
 };
 
-static inline uint get_pml4_index(uint64 gfn)
+static inline uint get_pml4_index(uint64_t gfn)
 {
     return (uint) (gfn >> (HAX_EPT_TABLE_SHIFT * 3));
 }
 
-static inline uint get_pdpt_gross_index(uint64 gfn)
+static inline uint get_pdpt_gross_index(uint64_t gfn)
 {
     return (uint) (gfn >> (HAX_EPT_TABLE_SHIFT * 2));
 }
 
-static inline uint get_pdpt_index(uint64 gfn)
+static inline uint get_pdpt_index(uint64_t gfn)
 {
     return (uint) ((gfn >> (HAX_EPT_TABLE_SHIFT * 2)) &
                    (HAX_EPT_TABLE_SIZE - 1));
 }
 
-static inline uint get_pd_gross_index(uint64 gfn)
+static inline uint get_pd_gross_index(uint64_t gfn)
 {
     return (uint) (gfn >> HAX_EPT_TABLE_SHIFT);
 }
 
-static inline uint get_pd_index(uint64 gfn)
+static inline uint get_pd_index(uint64_t gfn)
 {
     return (uint) ((gfn >> HAX_EPT_TABLE_SHIFT) & (HAX_EPT_TABLE_SIZE - 1));
 }
 
-static inline uint get_pt_index(uint64 gfn)
+static inline uint get_pt_index(uint64_t gfn)
 {
     return (uint) (gfn & (HAX_EPT_TABLE_SIZE - 1));
 }
@@ -100,7 +100,7 @@ static hax_ept_page * ept_tree_alloc_page(hax_ept_tree *tree)
 // The returned buffer can be used to fill the cache if it is not yet available.
 // Returns NULL if the |hax_ept_page| in question is not a frequently-used page.
 static inline hax_ept_page_kmap * ept_tree_get_freq_page(hax_ept_tree *tree,
-                                                         uint64 gfn, int level)
+                                                         uint64_t gfn, int level)
 {
     // Only HAX_EPT_FREQ_PAGE_COUNT EPT pages are considered frequently-used,
     // whose KVA mappings are cached in tree->freq_pages[]. They are:
@@ -147,7 +147,7 @@ int ept_tree_init(hax_ept_tree *tree)
     hax_ept_page *root_page;
     hax_ept_page_kmap *root_page_kmap;
     void *kva;
-    uint64 pfn;
+    uint64_t pfn;
 
     if (!tree) {
         hax_error("%s: tree == NULL\n", __func__);
@@ -267,7 +267,7 @@ static inline hax_epte * ept_tree_get_root_table(hax_ept_tree *tree)
 //                       that belongs to |current_table| and covers |gfn|. May
 //                       be NULL.
 // |opaque|: An arbitrary pointer passed as-is to |visit_current_epte|.
-static hax_epte * ept_tree_get_next_table(hax_ept_tree *tree, uint64 gfn,
+static hax_epte * ept_tree_get_next_table(hax_ept_tree *tree, uint64_t gfn,
                                           int current_level,
                                           hax_epte *current_table,
                                           hax_kmap_phys *kmap, bool create,
@@ -300,7 +300,7 @@ static hax_epte * ept_tree_get_next_table(hax_ept_tree *tree, uint64 gfn,
         // means the EPT entry pointing to the next-level page table is not
         // present, i.e. the next-level table does not exist
         hax_ept_page *page;
-        uint64 pfn;
+        uint64_t pfn;
         hax_epte temp_epte = { 0 };
         void *kva;
 
@@ -396,7 +396,7 @@ static inline void kmap_swap(hax_kmap_phys *kmap1, hax_kmap_phys *kmap2)
     *kmap2 = tmp;
 }
 
-int ept_tree_create_entry(hax_ept_tree *tree, uint64 gfn, hax_epte value)
+int ept_tree_create_entry(hax_ept_tree *tree, uint64_t gfn, hax_epte value)
 {
     hax_epte *table;
     int level;
@@ -457,18 +457,18 @@ int ept_tree_create_entry(hax_ept_tree *tree, uint64 gfn, hax_epte value)
     return 0;
 }
 
-int ept_tree_create_entries(hax_ept_tree *tree, uint64 start_gfn, uint64 npages,
-                            hax_chunk *chunk, uint64 offset_within_chunk,
-                            uint8 flags)
+int ept_tree_create_entries(hax_ept_tree *tree, uint64_t start_gfn, uint64_t npages,
+                            hax_chunk *chunk, uint64_t offset_within_chunk,
+                            uint8_t flags)
 {
     bool is_rom = flags & HAX_MEMSLOT_READONLY;
     hax_epte new_pte = { 0 };
-    uint64 gfn, end_gfn;
+    uint64_t gfn, end_gfn;
     hax_epte *pml4, *pdpt, *pd, *pt;
     hax_kmap_phys pdpt_kmap = { 0 }, pd_kmap = { 0 }, pt_kmap = { 0 };
     int ret;
     uint index, start_index, end_index;
-    uint64 offset = offset_within_chunk;
+    uint64_t offset = offset_within_chunk;
     int created_count = 0;
 
     assert(tree != NULL);
@@ -596,7 +596,7 @@ out:
     return ret;
 }
 
-void get_pte(hax_ept_tree *tree, uint64 gfn, int level, hax_epte *epte,
+void get_pte(hax_ept_tree *tree, uint64_t gfn, int level, hax_epte *epte,
              void *opaque)
 {
     hax_epte *pte;
@@ -612,7 +612,7 @@ void get_pte(hax_ept_tree *tree, uint64 gfn, int level, hax_epte *epte,
     *pte = *epte;
 }
 
-hax_epte ept_tree_get_entry(hax_ept_tree *tree, uint64 gfn)
+hax_epte ept_tree_get_entry(hax_ept_tree *tree, uint64_t gfn)
 {
     hax_epte pte = { 0 };
 
@@ -620,7 +620,7 @@ hax_epte ept_tree_get_entry(hax_ept_tree *tree, uint64 gfn)
     return pte;
 }
 
-void ept_tree_walk(hax_ept_tree *tree, uint64 gfn, epte_visitor visit_epte,
+void ept_tree_walk(hax_ept_tree *tree, uint64_t gfn, epte_visitor visit_epte,
                    void *opaque)
 {
     hax_epte *table;
@@ -662,7 +662,7 @@ void ept_tree_walk(hax_ept_tree *tree, uint64 gfn, epte_visitor visit_epte,
     assert(ret == 0);
 }
 
-void invalidate_pte(hax_ept_tree *tree, uint64 gfn, int level, hax_epte *epte,
+void invalidate_pte(hax_ept_tree *tree, uint64_t gfn, int level, hax_epte *epte,
                     void *opaque)
 {
     hax_epte *pte;
@@ -693,7 +693,7 @@ void invalidate_pte(hax_ept_tree *tree, uint64 gfn, int level, hax_epte *epte,
 
 // Returns 1 if the EPT leaf entry to be invalidated was present, or 0 if it is
 // not present.
-static int ept_tree_invalidate_entry(hax_ept_tree *tree, uint64 gfn)
+static int ept_tree_invalidate_entry(hax_ept_tree *tree, uint64_t gfn)
 {
     bool modified = false;
 
@@ -701,10 +701,10 @@ static int ept_tree_invalidate_entry(hax_ept_tree *tree, uint64 gfn)
     return modified ? 1 : 0;
 }
 
-int ept_tree_invalidate_entries(hax_ept_tree *tree, uint64 start_gfn,
-                                uint64 npages)
+int ept_tree_invalidate_entries(hax_ept_tree *tree, uint64_t start_gfn,
+                                uint64_t npages)
 {
-    uint64 end_gfn = start_gfn + npages, gfn;
+    uint64_t end_gfn = start_gfn + npages, gfn;
     int modified_count = 0;
 
     if (!tree) {
@@ -719,7 +719,7 @@ int ept_tree_invalidate_entries(hax_ept_tree *tree, uint64 start_gfn,
         modified_count += ret;
     }
     if (modified_count) {
-        if (hax_test_and_set_bit(0, (uint64 *) &tree->invept_pending)) {
+        if (hax_test_and_set_bit(0, (uint64_t *) &tree->invept_pending)) {
             hax_warning("%s: INVEPT pending flag is already set\n", __func__);
         }
     }

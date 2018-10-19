@@ -44,53 +44,53 @@
 struct vcpu_t;
 struct vcpu_state_t;
 
-typedef uint32 cpuid_t;  // CPU identifier
+typedef uint32_t cpuid_t;  // CPU identifier
 
 #define NR_HMSR 6
 
 struct hstate {
     /* ldt is not covered by host vmcs area */
-    uint16 ldt_selector;
-    uint16 ds;
-    uint16 es;
-    uint16 fs;
-    uint16 gs;
-    uint16 seg_valid;
+    uint16_t ldt_selector;
+    uint16_t ds;
+    uint16_t es;
+    uint16_t fs;
+    uint16_t gs;
+    uint16_t seg_valid;
 #define HOST_SEG_VALID_GS 0x1
 #define HOST_SEG_VALID_FS 0x2
 #define HOST_SEG_VALID_DS 0x4
 #define HOST_SEG_VALID_ES 0x8
-    uint16 seg_not_present;
+    uint16_t seg_not_present;
 #define HOST_SEG_NOT_PRESENT_GS 0x1
-    uint64 _efer;
-    uint64 gs_base;
-    uint64 fs_base;
-    uint64 hcr2;
+    uint64_t _efer;
+    uint64_t gs_base;
+    uint64_t fs_base;
+    uint64_t hcr2;
     struct vmx_msr hmsr[NR_HMSR];
     // IA32_PMCx, since APM v1
-    uint64 apm_pmc_msrs[APM_MAX_GENERAL_COUNT];
+    uint64_t apm_pmc_msrs[APM_MAX_GENERAL_COUNT];
     // IA32_PERFEVTSELx, since APM v1
-    uint64 apm_pes_msrs[APM_MAX_GENERAL_COUNT];
+    uint64_t apm_pes_msrs[APM_MAX_GENERAL_COUNT];
     // IA32_TSC_AUX
-    uint64 tsc_aux;
+    uint64_t tsc_aux;
     struct hax_page *hfxpage;
-    uint64 fake_gs;
+    uint64_t fake_gs;
     system_desc_t host_gdtr;
     system_desc_t host_idtr;
     // Debug registers
-    uint64 dr0;
-    uint64 dr1;
-    uint64 dr2;
-    uint64 dr3;
-    uint64 dr6;
+    uint64_t dr0;
+    uint64_t dr1;
+    uint64_t dr2;
+    uint64_t dr3;
+    uint64_t dr6;
 };
 
 struct hstate_compare {
-    uint32 cr0, cr2, cr3, cr4;
-    uint32 cs, ds, es, fs, gs, ss, ldt, tr;
-    uint32 cs_avail, ds_avail, es_avail, fs_avail, gs_avail, tr_avail, ss_avail;
-    uint64 sysenter_cs, sysenter_eip, sysenter_esp, efer, pat_msr, fs_msr;
-    uint64 gs_msr, rflags, rsp;
+    uint32_t cr0, cr2, cr3, cr4;
+    uint32_t cs, ds, es, fs, gs, ss, ldt, tr;
+    uint32_t cs_avail, ds_avail, es_avail, fs_avail, gs_avail, tr_avail, ss_avail;
+    uint64_t sysenter_cs, sysenter_eip, sysenter_esp, efer, pat_msr, fs_msr;
+    uint64_t gs_msr, rflags, rsp;
 };
 
 #define VMXON_HAX (1 << 0)
@@ -101,8 +101,8 @@ struct per_cpu_data {
     struct vcpu_t      *current_vcpu;
     paddr_t            other_vmcs;
     cpuid_t            cpu_id;
-    uint16             vmm_flag;
-    uint16             nested;
+    uint16_t           vmm_flag;
+    uint16_t           nested;
     mword              host_cr4_vmxe;
 
     /*
@@ -141,7 +141,7 @@ struct per_cpu_data {
 #define HAX_CPUF_ENABLE_EM64T   0x40
 
 #define HAX_CPUF_INITIALIZED    0x100
-    uint16                   cpu_features;
+    uint16_t                 cpu_features;
     info_t                   vmx_info;
     struct                   cpu_pmu_info pmu_info;
 #ifdef  DEBUG_HOST_STATE
@@ -154,11 +154,11 @@ struct per_cpu_data {
 extern struct per_cpu_data ** hax_cpu_data;
 static struct per_cpu_data * current_cpu_data(void)
 {
-    uint32 cpu_id = hax_cpuid();
+    uint32_t cpu_id = hax_cpuid();
     return hax_cpu_data[cpu_id];
 }
 
-static struct per_cpu_data * get_cpu_data(uint32 cpu_id)
+static struct per_cpu_data * get_cpu_data(uint32_t cpu_id)
 {
     return hax_cpu_data[cpu_id];
 }
@@ -174,7 +174,7 @@ void cpu_exit_vmx(void *arg);
 
 void cpu_pmu_init(void *arg);
 
-void cpu_init_feature_cache();
+void cpu_init_feature_cache(void);
 bool cpu_has_feature(uint32_t feature);
 
 void hax_panic_log(struct vcpu_t *vcpu);
@@ -184,9 +184,9 @@ vmx_result_t cpu_vmx_run(struct vcpu_t *vcpu, struct hax_tunnel *htun);
 int cpu_vmx_execute(struct vcpu_t *vcpu, struct hax_tunnel *htun);
 
 void load_vmcs_common(struct vcpu_t *vcpu);
-uint32 load_vmcs(struct vcpu_t *vcpu, preempt_flag *flags);
-uint32 put_vmcs(struct vcpu_t *vcpu, preempt_flag *flags);
-uint8 is_vmcs_loaded(struct vcpu_t *vcpu);
+uint32_t load_vmcs(struct vcpu_t *vcpu, preempt_flag *flags);
+uint32_t put_vmcs(struct vcpu_t *vcpu, preempt_flag *flags);
+uint8_t is_vmcs_loaded(struct vcpu_t *vcpu);
 
 vmx_result_t cpu_vmxroot_leave(void);
 vmx_result_t cpu_vmxroot_enter(void);

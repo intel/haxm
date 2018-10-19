@@ -49,17 +49,17 @@
 #define PAGE_SIZE_4M  (1 << PG_ORDER_4M)
 #define PAGE_SIZE_1G  (1 << PG_ORDER_1G)
 
-static inline uint64 pgsz(uint order)
+static inline uint64_t pgsz(uint order)
 {
-    return (uint64)1 << order;
+    return (uint64_t)1 << order;
 }
 
-static inline uint64 pgoffs(uint order)
+static inline uint64_t pgoffs(uint order)
 {
     return pgsz(order) - 1;
 }
 
-static inline uint64 pgmask(uint order)
+static inline uint64_t pgmask(uint order)
 {
     return ~pgoffs(order);
 }
@@ -67,51 +67,51 @@ static inline uint64 pgmask(uint order)
 // Merge page and offset into a single address, depending on order
 static paddr_t get_pageoffs(paddr_t p, paddr_t o, uint order)
 {
-    return ((~(uint64)0 << order) & p) | (~(~(uint64)0 << order) & o);
+    return ((~(uint64_t)0 << order) & p) | (~(~(uint64_t)0 << order) & o);
 }
 
 static paddr_t get_pagebase(vaddr_t p, uint order)
 {
-    return (~(uint64)0 << order) & p;
+    return (~(uint64_t)0 << order) & p;
 }
 
-#define INVALID_ADDR  ~(uint64)0
+#define INVALID_ADDR  ~(uint64_t)0
 #define INVALID_PFN   INVALID_ADDR
 
 typedef struct pte32 {
     union {
-        uint32 raw;
+        uint32_t raw;
         struct {
-            uint32 p       : 1;
-            uint32 rw      : 1;
-            uint32 us      : 1;
-            uint32 pwt     : 1;
-            uint32 pcd     : 1;
-            uint32 a       : 1;
-            uint32 x1      : 2;
-            uint32 g       : 1;
-            uint32 x2      : 23;
+            uint32_t p       : 1;
+            uint32_t rw      : 1;
+            uint32_t us      : 1;
+            uint32_t pwt     : 1;
+            uint32_t pcd     : 1;
+            uint32_t a       : 1;
+            uint32_t x1      : 2;
+            uint32_t g       : 1;
+            uint32_t x2      : 23;
         };
         struct {
-            uint32 x3      : 6; // The 6 bits are always identical
-            uint32 d       : 1;
-            uint32 pat     : 1;
-            uint32 x4      : 4;
-            uint32 address : 20;
+            uint32_t x3      : 6; // The 6 bits are always identical
+            uint32_t d       : 1;
+            uint32_t pat     : 1;
+            uint32_t x4      : 4;
+            uint32_t address : 20;
         } pte;
         struct {
-            uint32 x5      : 7; // The 7 bits are always identical
-            uint32 ps      : 1;
-            uint32 x6      : 4;
-            uint32 address : 20;
+            uint32_t x5      : 7; // The 7 bits are always identical
+            uint32_t ps      : 1;
+            uint32_t x6      : 4;
+            uint32_t address : 20;
         } pde;
         struct {
-            uint32 x7      : 7; // The 7 bits are always identical
-            uint32 ps      : 1;
-            uint32 x8      : 4;
-            uint32 pat     : 1;
-            uint32 x9      : 9;
-            uint32 address : 10;
+            uint32_t x7      : 7; // The 7 bits are always identical
+            uint32_t ps      : 1;
+            uint32_t x8      : 4;
+            uint32_t pat     : 1;
+            uint32_t x9      : 9;
+            uint32_t address : 10;
         } pde_4M;
     };
 } pte32_t;
@@ -132,7 +132,7 @@ static inline void pte32_set_address(pte32_t *entry, uint lvl, paddr_t addr,
     }
 }
 
-static inline uint32 pte32_get_val(pte32_t *entry)
+static inline uint32_t pte32_get_val(pte32_t *entry)
 {
     return entry->raw;
 }
@@ -173,7 +173,7 @@ static inline void pte32_set_ad(pte32_t *entry, uint lvl, bool d)
 static inline bool pte32_atomic_set_ad(pte32_t *entry, uint lvl, bool d,
                                        pte32_t *prev)
 {
-    uint32 old_val, new_val;
+    uint32_t old_val, new_val;
 
     assert(is_leaf(lvl));
 
@@ -193,8 +193,8 @@ static inline void pte32_set_accessed(pte32_t *entry)
 
 static inline bool pte32_atomic_set_accessed(pte32_t *entry, pte32_t *prev)
 {
-    uint32 old_val = prev->raw;
-    uint32 new_val = prev->raw | 0x20;
+    uint32_t old_val = prev->raw;
+    uint32_t new_val = prev->raw | 0x20;
 
     if (new_val == old_val)
         return true;
@@ -287,43 +287,43 @@ static inline bool pte32_check_rsvd(pte32_t *entry, uint lvl)
 // Returns true if reserved bits are set
 static inline bool pae_check_rsvd(pte32_t *entry, uint lvl)
 {
-    uint32 reserved_mask = (((uint32)1 << 21) - 1) - (((uint32)1 << 13) - 1);
+    uint32_t reserved_mask = (((uint32_t)1 << 21) - 1) - (((uint32_t)1 << 13) - 1);
     return pte32_is_superlvl(lvl) && entry->pde_4M.ps &&
            (entry->raw & reserved_mask);
 }
 
 typedef struct pte64 {
     union {
-        uint64 raw;
+        uint64_t raw;
         struct {
-            uint64 p       : 1;
-            uint64 rw      : 1;
-            uint64 us      : 1;
-            uint64 pwt     : 1;
-            uint64 pcd     : 1;
-            uint64 a       : 1;
-            uint64 x1      : 2;
-            uint64 g       : 1;
-            uint64 lock    : 1;
-            uint64 x2      : 2;
-            uint64 addr    : 28;
-            uint64 rsvd    : 23;
-            uint64 xd      : 1;
+            uint64_t p       : 1;
+            uint64_t rw      : 1;
+            uint64_t us      : 1;
+            uint64_t pwt     : 1;
+            uint64_t pcd     : 1;
+            uint64_t a       : 1;
+            uint64_t x1      : 2;
+            uint64_t g       : 1;
+            uint64_t lock    : 1;
+            uint64_t x2      : 2;
+            uint64_t addr    : 28;
+            uint64_t rsvd    : 23;
+            uint64_t xd      : 1;
         };
         struct {
-            uint64 x3      : 6; // The 6 bits are always identical
-            uint64 d       : 1;
-            uint64 pat     : 1;
-            uint64 x4      : 4;
-            uint64 address : 28;
-            uint64 x5      : 24;
+            uint64_t x3      : 6; // The 6 bits are always identical
+            uint64_t d       : 1;
+            uint64_t pat     : 1;
+            uint64_t x4      : 4;
+            uint64_t address : 28;
+            uint64_t x5      : 24;
         } pte;
         struct {
-            uint64 x6      : 7; // The bits are identical or reserved
-            uint64 ps      : 1; // Page size
-            uint64 x7      : 4;
-            uint64 address : 28;
-            uint64 x8      : 24;
+            uint64_t x6      : 7; // The bits are identical or reserved
+            uint64_t ps      : 1; // Page size
+            uint64_t x7      : 4;
+            uint64_t address : 28;
+            uint64_t x8      : 24;
         } pde;
     };
 } pte64_t;
@@ -338,7 +338,7 @@ static inline void pte64_clear_entry(pte64_t *entry)
     entry->raw = 0;
 }
 
-static inline uint32 pte64_get_val(pte64_t *entry)
+static inline uint32_t pte64_get_val(pte64_t *entry)
 {
     return entry->raw;
 }

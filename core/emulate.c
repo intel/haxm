@@ -288,7 +288,7 @@ static bool is_translation_required(struct em_context_t *ctxt)
 static uint64_t get_canonical_address(struct em_context_t *ctxt,
                                       uint64_t addr, uint vaddr_bits)
 {
-    return ((int64)addr << (64 - vaddr_bits)) >> (64 - vaddr_bits);
+    return ((int64_t)addr << (64 - vaddr_bits)) >> (64 - vaddr_bits);
 }
 
 static em_status_t get_linear_address(struct em_context_t *ctxt,
@@ -475,24 +475,24 @@ static uint64_t insn_fetch_u64(struct em_context_t *ctxt)
     return result;
 }
 
-static int8 insn_fetch_s8(struct em_context_t *ctxt)
+static int8_t insn_fetch_s8(struct em_context_t *ctxt)
 {
-    return (int8)insn_fetch_u8(ctxt);
+    return (int8_t)insn_fetch_u8(ctxt);
 }
 
-static int16 insn_fetch_s16(struct em_context_t *ctxt)
+static int16_t insn_fetch_s16(struct em_context_t *ctxt)
 {
-    return (int16)insn_fetch_u16(ctxt);
+    return (int16_t)insn_fetch_u16(ctxt);
 }
 
-static int32 insn_fetch_s32(struct em_context_t *ctxt)
+static int32_t insn_fetch_s32(struct em_context_t *ctxt)
 {
-    return (int32)insn_fetch_u32(ctxt);
+    return (int32_t)insn_fetch_u32(ctxt);
 }
 
-static int64 insn_fetch_s64(struct em_context_t *ctxt)
+static int64_t insn_fetch_s64(struct em_context_t *ctxt)
 {
-    return (int64)insn_fetch_u64(ctxt);
+    return (int64_t)insn_fetch_u64(ctxt);
 }
 
 static void decode_prefixes(struct em_context_t *ctxt)
@@ -774,7 +774,7 @@ static em_status_t decode_op_simm8(em_context_t *ctxt,
 {
     op->type = OP_IMM;
     op->size = 1;
-    op->value = (int64)(insn_fetch_s8(ctxt));
+    op->value = (int64_t)(insn_fetch_s8(ctxt));
     return EM_CONTINUE;
 }
 

@@ -60,7 +60,7 @@ int gpa_space_init(hax_gpa_space *gpa_space)
 }
 
 // Returns the protection bitmap size in bytes, or 0 on error.
-static uint gpa_space_prot_bitmap_size(uint64 npages)
+static uint gpa_space_prot_bitmap_size(uint64_t npages)
 {
     uint bitmap_size;
 
@@ -126,15 +126,15 @@ void gpa_space_remove_listener(hax_gpa_space *gpa_space,
 // (or write to it if |*writable| is true), with a size equal to the return
 // value. When it is done with the buffer, it must destroy |kmap| by calling
 // hax_unmap_user_pages().
-static int gpa_space_map_range(hax_gpa_space *gpa_space, uint64 start_gpa,
-                               int len, uint8 **buf, hax_kmap_user *kmap,
+static int gpa_space_map_range(hax_gpa_space *gpa_space, uint64_t start_gpa,
+                               int len, uint8_t **buf, hax_kmap_user *kmap,
                                bool *writable)
 {
-    uint64 gfn;
+    uint64_t gfn;
     uint delta, size, npages;
     hax_memslot *slot;
     hax_ramblock *block;
-    uint64 offset_within_block, offset_within_chunk;
+    uint64_t offset_within_block, offset_within_chunk;
     hax_chunk *chunk;
     void *kva;
 
@@ -197,14 +197,14 @@ static int gpa_space_map_range(hax_gpa_space *gpa_space, uint64 start_gpa,
         return -ENOMEM;
     }
     // Assuming buf != NULL
-    *buf = (uint8 *) kva + delta;
+    *buf = (uint8_t *) kva + delta;
     return (int) (size - delta);
 }
 
-int gpa_space_read_data(hax_gpa_space *gpa_space, uint64 start_gpa, int len,
-                        uint8 *data)
+int gpa_space_read_data(hax_gpa_space *gpa_space, uint64_t start_gpa, int len,
+                        uint8_t *data)
 {
-    uint8 *buf;
+    uint8_t *buf;
     hax_kmap_user kmap;
     int ret, nbytes;
 
@@ -239,10 +239,10 @@ int gpa_space_read_data(hax_gpa_space *gpa_space, uint64 start_gpa, int len,
     return nbytes;
 }
 
-int gpa_space_write_data(hax_gpa_space *gpa_space, uint64 start_gpa, int len,
-                         uint8 *data)
+int gpa_space_write_data(hax_gpa_space *gpa_space, uint64_t start_gpa, int len,
+                         uint8_t *data)
 {
-    uint8 *buf;
+    uint8_t *buf;
     hax_kmap_user kmap;
     bool writable;
     int ret, nbytes;
@@ -284,10 +284,10 @@ int gpa_space_write_data(hax_gpa_space *gpa_space, uint64 start_gpa, int len,
     return nbytes;
 }
 
-void * gpa_space_map_page(hax_gpa_space *gpa_space, uint64 gfn,
+void * gpa_space_map_page(hax_gpa_space *gpa_space, uint64_t gfn,
                           hax_kmap_user *kmap, bool *writable)
 {
-    uint8 *buf;
+    uint8_t *buf;
     int ret;
     void *kva;
 
@@ -315,13 +315,13 @@ void gpa_space_unmap_page(hax_gpa_space *gpa_space, hax_kmap_user *kmap)
     }
 }
 
-uint64 gpa_space_get_pfn(hax_gpa_space *gpa_space, uint64 gfn, uint8 *flags)
+uint64_t gpa_space_get_pfn(hax_gpa_space *gpa_space, uint64_t gfn, uint8_t *flags)
 {
     hax_memslot *slot;
     hax_ramblock *block;
     hax_chunk *chunk;
-    uint64 pfn;
-    uint64 offset_within_slot, offset_within_block, offset_within_chunk;
+    uint64_t pfn;
+    uint64_t offset_within_slot, offset_within_block, offset_within_chunk;
 
     assert(gpa_space != NULL);
 
@@ -366,11 +366,11 @@ uint64 gpa_space_get_pfn(hax_gpa_space *gpa_space, uint64 gfn, uint8 *flags)
     return pfn;
 }
 
-int gpa_space_adjust_prot_bitmap(hax_gpa_space *gpa_space, uint64 end_gfn)
+int gpa_space_adjust_prot_bitmap(hax_gpa_space *gpa_space, uint64_t end_gfn)
 {
     hax_gpa_prot *pb = &gpa_space->prot;
     uint new_size;
-    uint8 *bmold = pb->bitmap, *bmnew = NULL;
+    uint8_t *bmold = pb->bitmap, *bmnew = NULL;
 
     /* Bitmap size only grows until it is destroyed */
     if (end_gfn <= pb->end_gfn)
@@ -400,7 +400,7 @@ int gpa_space_adjust_prot_bitmap(hax_gpa_space *gpa_space, uint64 end_gfn)
 }
 
 // Sets or clears consecutive bits in a byte.
-static inline void set_bits_in_byte(uint8 *byte, int start, int nbits, bool set)
+static inline void set_bits_in_byte(uint8_t *byte, int start, int nbits, bool set)
 {
     uint mask;
 
@@ -410,20 +410,20 @@ static inline void set_bits_in_byte(uint8 *byte, int start, int nbits, bool set)
 
     mask = ((1 << nbits) - 1) << start;
     if (set) {
-        *byte = (uint8)(*byte | mask);
+        *byte = (uint8_t)(*byte | mask);
     } else {
         mask = ~mask & 0xff;
-        *byte = (uint8)(*byte & mask);
+        *byte = (uint8_t)(*byte & mask);
     }
 }
 
 // Sets or clears consecutive bits in a bitmap.
-static void set_bit_block(uint8 *bitmap, uint64 start, uint64 nbits, bool set)
+static void set_bit_block(uint8_t *bitmap, uint64_t start, uint64_t nbits, bool set)
 {
     // TODO: Is it safe to use 64-bit array indices on 32-bit hosts?
-    uint64 first_byte_index = start / 8;
-    uint64 last_byte_index = (start + nbits - 1) / 8;
-    uint64 i;
+    uint64_t first_byte_index = start / 8;
+    uint64_t last_byte_index = (start + nbits - 1) / 8;
+    uint64_t i;
     int first_bit_index = (int)(start % 8);
     int last_bit_index = (int)((start + nbits - 1) % 8);
 
@@ -441,7 +441,7 @@ static void set_bit_block(uint8 *bitmap, uint64 start, uint64 nbits, bool set)
     set_bits_in_byte(&bitmap[last_byte_index], 0, last_bit_index + 1, set);
 }
 
-bool gpa_space_is_page_protected(struct hax_gpa_space *gpa_space, uint64 gfn)
+bool gpa_space_is_page_protected(struct hax_gpa_space *gpa_space, uint64_t gfn)
 {
     struct hax_gpa_prot *pbm = &gpa_space->prot;
 
@@ -453,18 +453,18 @@ bool gpa_space_is_page_protected(struct hax_gpa_space *gpa_space, uint64 gfn)
 
     // Since gfn < pbm->end_gfn < 2^31 (cf. gpa_space_prot_bitmap_size()), it's
     // safe to convert it to int.
-    return hax_test_bit((int)gfn, (uint64 *)pbm->bitmap);
+    return hax_test_bit((int)gfn, (uint64_t *)pbm->bitmap);
 }
 
-bool gpa_space_is_chunk_protected(struct hax_gpa_space *gpa_space, uint64 gfn,
-                                  uint64 *fault_gfn)
+bool gpa_space_is_chunk_protected(struct hax_gpa_space *gpa_space, uint64_t gfn,
+                                  uint64_t *fault_gfn)
 {
 #define HAX_CHUNK_NR_PAGES (HAX_CHUNK_SIZE / PAGE_SIZE_4K)
     // FIXME: Chunks are created in HVA space (by dividing a RAM block), not in
     // GPA space. So rounding a GPA down to the nearest HAX_CHUNK_SIZE boundary
     // is not guaranteed to yield a GPA that maps to the same chunk.
-    uint64 start_gfn = gfn / HAX_CHUNK_NR_PAGES * HAX_CHUNK_NR_PAGES;
-    uint64 temp_gfn = start_gfn;
+    uint64_t start_gfn = gfn / HAX_CHUNK_NR_PAGES * HAX_CHUNK_NR_PAGES;
+    uint64_t temp_gfn = start_gfn;
 
     for (; temp_gfn < start_gfn + HAX_CHUNK_NR_PAGES; temp_gfn++)
         if (gpa_space_is_page_protected(gpa_space, temp_gfn)) {
@@ -476,10 +476,10 @@ bool gpa_space_is_chunk_protected(struct hax_gpa_space *gpa_space, uint64 gfn,
 }
 
 int gpa_space_protect_range(struct hax_gpa_space *gpa_space,
-                            uint64 start_gpa, uint64 len, uint32 flags)
+                            uint64_t start_gpa, uint64_t len, uint32_t flags)
 {
     uint perm = (uint)(flags & HAX_RAM_PERM_MASK);
-    uint64 first_gfn, last_gfn, npages;
+    uint64_t first_gfn, last_gfn, npages;
     hax_gpa_space_listener *listener;
 
     if (perm == HAX_RAM_PERM_NONE) {

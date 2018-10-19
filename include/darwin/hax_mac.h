@@ -120,12 +120,12 @@ static int hax_test_and_clear_bit(int bit, uint64_t *memory)
     return OSTestAndClear(offset, p);
 }
 
-static bool hax_cmpxchg32(uint32 old_val, uint32 new_val, volatile uint32 *addr)
+static bool hax_cmpxchg32(uint32_t old_val, uint32_t new_val, volatile uint32_t *addr)
 {
     return OSCompareAndSwap(old_val, new_val, addr);
 }
 
-static bool hax_cmpxchg64(uint64 old_val, uint64 new_val, volatile uint64 *addr)
+static bool hax_cmpxchg64(uint64_t old_val, uint64_t new_val, volatile uint64_t *addr)
 {
     return OSCompareAndSwap64(old_val, new_val, addr);
 }
@@ -199,8 +199,6 @@ extern int default_hax_log_level;
             printf("haxm_panic: " x); \
             v->panicked = 1;          \
         }
-
-#define ASSERT(condition) assert(condition)
 
 static inline bool cpu_is_online(int cpu)
 {

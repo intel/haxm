@@ -31,7 +31,7 @@
 #ifndef HAX_CORE_PAGE_WALKER_H_
 #define HAX_CORE_PAGE_WALKER_H_
 
-typedef uint64 ADDRESS;
+typedef uint64_t ADDRESS;
 
 #define ALIGN_BACKWARD(__address, __bytes)  \
         ((ADDRESS)(__address) & ~((__bytes) - 1))
@@ -44,7 +44,7 @@ typedef uint64 ADDRESS;
 #define PAGE_4MB_MASK       (PAGE_SIZE_4M - 1)
 #define PAGE_1GB_MASK       (PAGE_SIZE_1G - 1)
 
-#define PW_INVALID_GPA (~((uint64)0))
+#define PW_INVALID_GPA (~((uint64_t)0))
 #define PW_NUM_OF_PDPT_ENTRIES_IN_32_BIT_MODE 4
 
 /*
@@ -62,9 +62,9 @@ typedef uint64 ADDRESS;
  *       order   - PG_ORDER_4K, PG_ORDER_2M, PG_ORDER_4M, PG_ORDER_1G
  */
 
-uint32 pw_perform_page_walk(IN struct vcpu_t *vcpu, IN uint64 virt_addr,
-                            IN uint32 access, OUT uint64 *gpa_out,
-                            OUT uint *order, IN bool set_ad_bits,
-                            IN bool is_fetch);
+uint32_t pw_perform_page_walk(IN struct vcpu_t *vcpu, IN uint64_t virt_addr,
+                              IN uint32_t access, OUT uint64_t *gpa_out,
+                              OUT uint *order, IN bool set_ad_bits,
+                              IN bool is_fetch);
 
 #endif  // HAX_CORE_PAGE_WALKER_H_

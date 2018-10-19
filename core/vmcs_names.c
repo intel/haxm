@@ -34,12 +34,12 @@
 
 unsigned char **vmcs_names;
 
-extern uint32 vmcs_hash(uint32 enc);
+extern uint32_t vmcs_hash(uint32_t enc);
 
 /* Table produced by gperf version 3.0.4 */
-uint32 vmcs_hash(uint32 enc)
+uint32_t vmcs_hash(uint32_t enc)
 {
-    static const uint8 table[] = {
+    static const uint8_t table[] = {
           8,  48,   4, 255,   0, 255,  16, 255,  12,  66,
          37, 255,  60,  92,  85, 255, 130, 255, 138, 255,
         134, 255, 145, 255,  75, 255,  67, 255,  71, 255,

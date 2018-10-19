@@ -54,23 +54,18 @@ inline cpumap_t cpu2cpumap(int cpu)
 typedef KIRQL preempt_flag;
 
 // Signed Types
-typedef signed char         int8;
-typedef signed short        int16;
-typedef signed int          int32;
-typedef signed long long    int64;
+typedef signed char         int8_t;
+typedef signed short        int16_t;
+typedef signed int          int32_t;
+typedef signed long long    int64_t;
 
 // Unsigned Types
-typedef unsigned char       uint8;
-typedef unsigned short      uint16;
-typedef unsigned int        uint32;
-typedef unsigned int        uint;
-typedef unsigned long long  uint64;
-typedef unsigned long       ulong;
-
 typedef unsigned char       uint8_t;
 typedef unsigned short      uint16_t;
 typedef unsigned int        uint32_t;
 typedef unsigned long long  uint64_t;
+typedef unsigned int        uint;
+typedef unsigned long       ulong;
 typedef unsigned long       ulong_t;
 
 #include "../hax_list.h"
@@ -108,7 +103,6 @@ typedef struct {
 
 typedef FAST_MUTEX *hax_mutex;
 
-#define PAGE_MASK (((mword)0x1 << 12) - 1)
 /* In DDK, the InterlockedXXX using ULONG, which is in fact 32bit */
 typedef LONG hax_atomic_t;
 
@@ -129,9 +123,6 @@ static hax_atomic_t hax_atomic_dec(volatile hax_atomic_t *atom)
 {
     return InterlockedDecrement(atom) + 1;
 }
-
-#define ALIGNED(x) __declspec(align(x))
-#define PACKED
 
 #if defined(_X86_)
 typedef uint32_t mword;

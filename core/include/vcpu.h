@@ -45,20 +45,20 @@
 struct gstate {
     struct vmx_msr gmsr[NR_GMSR];
     // IA32_PMCx, since APM v1
-    uint64 apm_pmc_msrs[APM_MAX_GENERAL_COUNT];
+    uint64_t apm_pmc_msrs[APM_MAX_GENERAL_COUNT];
     // IA32_PERFEVTSELx, since APM v1
-    uint64 apm_pes_msrs[APM_MAX_GENERAL_COUNT];
+    uint64_t apm_pes_msrs[APM_MAX_GENERAL_COUNT];
     // IA32_TSC_AUX
-    uint64 tsc_aux;
+    uint64_t tsc_aux;
     struct hax_page *gfxpage;
     // APIC_BASE MSR
-    uint64 apic_base;
+    uint64_t apic_base;
 };
 
 struct cvtlb {
     vaddr_t va;
     paddr_t ha;
-    uint64 flags;
+    uint64_t flags;
     uint guest_order;
     uint order;
     uint access;
@@ -69,31 +69,31 @@ struct hax_mmu;
 struct per_cpu_data;
 
 struct vcpu_vmx_data {
-    uint32 pin_ctls_base;
-    uint32 pcpu_ctls_base;
-    uint32 scpu_ctls_base;
-    uint32 entry_ctls_base;
-    uint32 exc_bitmap_base;
-    uint32 exit_ctls_base;
+    uint32_t pin_ctls_base;
+    uint32_t pcpu_ctls_base;
+    uint32_t scpu_ctls_base;
+    uint32_t entry_ctls_base;
+    uint32_t exc_bitmap_base;
+    uint32_t exit_ctls_base;
 
-    uint32 pin_ctls;
-    uint32 pcpu_ctls;
-    uint32 scpu_ctls;
-    uint32 entry_ctls;
-    uint32 exc_bitmap;
-    uint32 exit_ctls;
+    uint32_t pin_ctls;
+    uint32_t pcpu_ctls;
+    uint32_t scpu_ctls;
+    uint32_t entry_ctls;
+    uint32_t exc_bitmap;
+    uint32_t exit_ctls;
 
-    uint64 cr0_mask, cr0_shadow;
-    uint64 cr4_mask, cr4_shadow;
-    uint32 entry_exception_vector;
-    uint32 entry_exception_error_code;
+    uint64_t cr0_mask, cr0_shadow;
+    uint64_t cr4_mask, cr4_shadow;
+    uint32_t entry_exception_vector;
+    uint32_t entry_exception_error_code;
 
-    uint32 exit_exception_error_code;
+    uint32_t exit_exception_error_code;
     interruption_info_t exit_intr_info;
     interruption_info_t entry_intr_info;
-    uint32 exit_idt_vectoring;
-    uint32 exit_instr_length;
-    uint32 entry_instr_length;
+    uint32_t exit_idt_vectoring;
+    uint32_t exit_instr_length;
+    uint32_t entry_instr_length;
 
     exit_reason_t exit_reason;
     exit_qualification_t exit_qualification;
@@ -112,7 +112,7 @@ struct vcpu_post_mmio {
     } op;
     union {
         /* Index to the register to write to (for VCPU_POST_MMIO_WRITE_REG) */
-        uint8 reg_index;
+        uint8_t reg_index;
         /* GVA to write to (for VCPU_POST_MMIO_WRITE_MEM) */
         vaddr_t va;
     };
@@ -128,13 +128,13 @@ struct vcpu_post_mmio {
         VCPU_POST_MMIO_MANIP_XOR
     } manip;
     /* Another value (besides hax_fastmmio.value) for use by |manip| */
-    uint64 value;
+    uint64_t value;
 };
 
 #ifdef CONFIG_HAX_EPT2
 struct mmio_fetch_cache {
-    uint64 last_gva;
-    uint64 last_guest_cr3;
+    uint64_t last_gva;
+    uint64_t last_guest_cr3;
     void *kva;
     hax_kmap_user kmap;
     int hit_count;
@@ -144,8 +144,8 @@ struct mmio_fetch_cache {
 #define IOS_MAX_BUFFER 64
 
 struct vcpu_t {
-    uint16 vcpu_id;
-    uint16 cpu_id;
+    uint16_t vcpu_id;
+    uint16_t cpu_id;
     /*
      * VPID: Virtual Processor Identifier
      * VPIDs provide a way for software to identify to the processor
@@ -155,14 +155,14 @@ struct vcpu_t {
      * caches, even when non-zero PCIDs are not being used.
      * Reference: SDM, Volume 3, Chapter 4.11.2 & Chapter 28.1.
      */
-    uint16 vpid;
-    uint32 launched;
+    uint16_t vpid;
+    uint32_t launched;
     /*
      * This one should co-exist with the is_running and paused,
      * but considering this needs atomic, don't trouble to clean it now
      */
 #define VCPU_STATE_FLAGS_OPENED 0x1
-    uint64 flags;
+    uint64_t flags;
     hax_atomic_t ref_count;
     hax_list_head vcpu_list;
     hax_mutex tmutex;
@@ -171,29 +171,29 @@ struct vcpu_t {
     struct hax_mmu *mmu;
     struct vcpu_state_t *state;
     struct hax_tunnel *tunnel;
-    uint8 *io_buf;
+    uint8_t *io_buf;
     struct hax_page *vmcs_page;
     void *vcpu_host;
     struct {
-        uint64 paused                          : 1;
-        uint64 panicked                        : 1;
-        uint64 is_running                      : 1;
-        uint64 is_vmcs_loaded                  : 1;
-        uint64 event_injected                  : 1;
+        uint64_t paused                          : 1;
+        uint64_t panicked                        : 1;
+        uint64_t is_running                      : 1;
+        uint64_t is_vmcs_loaded                  : 1;
+        uint64_t event_injected                  : 1;
         /* vcpu->state is valid or not */
 #define GS_STALE      0
 #define GS_VALID      1
-        uint64 cur_state                       : 1;
-        uint64 vmcs_pending                    : 1;
-        uint64 vmcs_pending_entry_error_code   : 1;
-        uint64 vmcs_pending_entry_instr_length : 1;
-        uint64 vmcs_pending_entry_intr_info    : 1;
-        uint64 vmcs_pending_guest_cr3          : 1;
-        uint64 padding                         : 53;
+        uint64_t cur_state                       : 1;
+        uint64_t vmcs_pending                    : 1;
+        uint64_t vmcs_pending_entry_error_code   : 1;
+        uint64_t vmcs_pending_entry_instr_length : 1;
+        uint64_t vmcs_pending_entry_intr_info    : 1;
+        uint64_t vmcs_pending_guest_cr3          : 1;
+        uint64_t padding                         : 53;
     };
 
     /* For TSC offseting feature*/
-    int64 tsc_offset;
+    int64_t tsc_offset;
 
     /* vmx control and states */
     struct vcpu_vmx_data vmx;
@@ -204,17 +204,17 @@ struct vcpu_t {
 
     /* These GPAs will be loaded into VMCS fields PDPTE{0..3} when EPT is
      * enabled and the vCPU is about to enter PAE paging mode. */
-    uint64 pae_pdptes[4];
+    uint64_t pae_pdptes[4];
 
-    uint64 cr_pat;
-    uint64 cpuid_features_flag_mask;
+    uint64_t cr_pat;
+    uint64_t cpuid_features_flag_mask;
 
     /* Debugging */
-    uint32 debug_control;
+    uint32_t debug_control;
 
     /* Interrupt stuff */
-    uint32 intr_pending[8];
-    uint32 nr_pending_intrs;
+    uint32_t intr_pending[8];
+    uint32_t nr_pending_intrs;
 
     struct gstate gstate;
     struct hax_vcpu_mem *tunnel_vcpumem;
@@ -249,8 +249,8 @@ int vcpu_get_regs(struct vcpu_t *vcpu, struct vcpu_state_t *state);
 int vcpu_put_regs(struct vcpu_t *vcpu, struct vcpu_state_t *state);
 int vcpu_get_fpu(struct vcpu_t *vcpu, struct fx_layout *fl);
 int vcpu_put_fpu(struct vcpu_t *vcpu, struct fx_layout *fl);
-int vcpu_get_msr(struct vcpu_t *vcpu, uint64 entry, uint64 *val);
-int vcpu_put_msr(struct vcpu_t *vcpu, uint64 entry, uint64 val);
+int vcpu_get_msr(struct vcpu_t *vcpu, uint64_t entry, uint64_t *val);
+int vcpu_put_msr(struct vcpu_t *vcpu, uint64_t entry, uint64_t val);
 void vcpu_debug(struct vcpu_t *vcpu, struct hax_debug_t *debug);
 
 /* The declaration for OS wrapper code */
@@ -268,7 +268,7 @@ int vcpu_takeoff(struct vcpu_t *vcpu);
 void *vcpu_vmcs_va(struct vcpu_t *vcpu);
 paddr_t vcpu_vmcs_pa(struct vcpu_t *vcpu);
 int set_vcpu_tunnel(struct vcpu_t *vcpu, struct hax_tunnel *tunnel,
-                    uint8 *iobuf);
+                    uint8_t *iobuf);
 
 static inline bool valid_vcpu_id(int vcpu_id)
 {
