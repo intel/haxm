@@ -1,6 +1,0 @@
-The directory layout:
-source/: the implemenation of the driver
-source/core/: the interface exported from hax core module
-source/include/: darwin driver's include file to be shared with hax core module
-source/darwin_utility/: darwin's utility to be exported by hax core
-source/hax_core: hax core implementation
