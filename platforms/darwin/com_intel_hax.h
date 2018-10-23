@@ -40,8 +40,8 @@
 #include <sys/kauth.h>
 #include <libkern/OSBase.h>
 
-#include "../../../include/hax.h"
-#include "../../../core/include/hax_core_interface.h"
+#include "../../include/hax.h"
+#include "../../core/include/hax_core_interface.h"
 
 #include "com_intel_hax_component.h"
 #include "com_intel_hax_ui.h"

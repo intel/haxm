@@ -1,0 +1,73 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.27428.2037
+MinimumVisualStudioVersion = 12.0
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "platforms", "platforms", "{64E1CC85-832B-4062-9134-2F3852769FB2}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "core", "core", "{247C0037-7F0A-4694-B918-1160A913DDFF}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{4FF4BA9A-1A63-4CBF-A6C0-1D2D83B2146E}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "windows", "windows", "{8541C607-6D29-438B-9EC3-A49FDA0C82C4}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "haxm-core", "haxm-core.vcxproj", "{BC80D1E0-5738-4048-A742-8A20949A6587}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "haxm-windows", "haxm-windows.vcxproj", "{BA777056-A57E-492D-A821-68D08A2DACE6}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "haxm-tests", "haxm-tests.vcxproj", "{0458723C-5C3F-4509-BDAE-35FAE2A90C19}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Debug|x64 = Debug|x64
+		Release|Win32 = Release|Win32
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{BC80D1E0-5738-4048-A742-8A20949A6587}.Debug|Win32.ActiveCfg = Debug|Win32
+		{BC80D1E0-5738-4048-A742-8A20949A6587}.Debug|Win32.Build.0 = Debug|Win32
+		{BC80D1E0-5738-4048-A742-8A20949A6587}.Debug|Win32.Deploy.0 = Debug|Win32
+		{BC80D1E0-5738-4048-A742-8A20949A6587}.Debug|x64.ActiveCfg = Debug|x64
+		{BC80D1E0-5738-4048-A742-8A20949A6587}.Debug|x64.Build.0 = Debug|x64
+		{BC80D1E0-5738-4048-A742-8A20949A6587}.Debug|x64.Deploy.0 = Debug|x64
+		{BC80D1E0-5738-4048-A742-8A20949A6587}.Release|Win32.ActiveCfg = Release|Win32
+		{BC80D1E0-5738-4048-A742-8A20949A6587}.Release|Win32.Build.0 = Release|Win32
+		{BC80D1E0-5738-4048-A742-8A20949A6587}.Release|Win32.Deploy.0 = Release|Win32
+		{BC80D1E0-5738-4048-A742-8A20949A6587}.Release|x64.ActiveCfg = Release|x64
+		{BC80D1E0-5738-4048-A742-8A20949A6587}.Release|x64.Build.0 = Release|x64
+		{BC80D1E0-5738-4048-A742-8A20949A6587}.Release|x64.Deploy.0 = Release|x64
+		{BA777056-A57E-492D-A821-68D08A2DACE6}.Debug|Win32.ActiveCfg = Debug|Win32
+		{BA777056-A57E-492D-A821-68D08A2DACE6}.Debug|Win32.Build.0 = Debug|Win32
+		{BA777056-A57E-492D-A821-68D08A2DACE6}.Debug|Win32.Deploy.0 = Debug|Win32
+		{BA777056-A57E-492D-A821-68D08A2DACE6}.Debug|x64.ActiveCfg = Debug|x64
+		{BA777056-A57E-492D-A821-68D08A2DACE6}.Debug|x64.Build.0 = Debug|x64
+		{BA777056-A57E-492D-A821-68D08A2DACE6}.Debug|x64.Deploy.0 = Debug|x64
+		{BA777056-A57E-492D-A821-68D08A2DACE6}.Release|Win32.ActiveCfg = Release|Win32
+		{BA777056-A57E-492D-A821-68D08A2DACE6}.Release|Win32.Build.0 = Release|Win32
+		{BA777056-A57E-492D-A821-68D08A2DACE6}.Release|Win32.Deploy.0 = Release|Win32
+		{BA777056-A57E-492D-A821-68D08A2DACE6}.Release|x64.ActiveCfg = Release|x64
+		{BA777056-A57E-492D-A821-68D08A2DACE6}.Release|x64.Build.0 = Release|x64
+		{BA777056-A57E-492D-A821-68D08A2DACE6}.Release|x64.Deploy.0 = Release|x64
+		{0458723C-5C3F-4509-BDAE-35FAE2A90C19}.Debug|Win32.ActiveCfg = Debug|Win32
+		{0458723C-5C3F-4509-BDAE-35FAE2A90C19}.Debug|Win32.Build.0 = Debug|Win32
+		{0458723C-5C3F-4509-BDAE-35FAE2A90C19}.Debug|x64.ActiveCfg = Debug|x64
+		{0458723C-5C3F-4509-BDAE-35FAE2A90C19}.Debug|x64.Build.0 = Debug|x64
+		{0458723C-5C3F-4509-BDAE-35FAE2A90C19}.Release|Win32.ActiveCfg = Release|Win32
+		{0458723C-5C3F-4509-BDAE-35FAE2A90C19}.Release|Win32.Build.0 = Release|Win32
+		{0458723C-5C3F-4509-BDAE-35FAE2A90C19}.Release|x64.ActiveCfg = Release|x64
+		{0458723C-5C3F-4509-BDAE-35FAE2A90C19}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{8541C607-6D29-438B-9EC3-A49FDA0C82C4} = {64E1CC85-832B-4062-9134-2F3852769FB2}
+		{BC80D1E0-5738-4048-A742-8A20949A6587} = {247C0037-7F0A-4694-B918-1160A913DDFF}
+		{BA777056-A57E-492D-A821-68D08A2DACE6} = {8541C607-6D29-438B-9EC3-A49FDA0C82C4}
+		{0458723C-5C3F-4509-BDAE-35FAE2A90C19} = {4FF4BA9A-1A63-4CBF-A6C0-1D2D83B2146E}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {6858D286-AAC4-4D68-B5E1-C3320ABEE28C}
+	EndGlobalSection
+EndGlobal

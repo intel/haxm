@@ -67,7 +67,7 @@
 #define HAX_PLATFORM_DARWIN
 #include "darwin/hax_types_mac.h"
 // Windows
-#elif defined(__WINNT__)
+#elif defined(_WIN32)
 #define HAX_PLATFORM_WINDOWS
 #include "windows/hax_types_windows.h"
 #else
