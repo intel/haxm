@@ -146,6 +146,8 @@ struct mmio_fetch_cache {
 struct vcpu_t {
     uint16_t vcpu_id;
     uint16_t cpu_id;
+    // Sometimes current thread might be migrated to other core.
+    uint16_t prev_cpu_id;
     /*
      * VPID: Virtual Processor Identifier
      * VPIDs provide a way for software to identify to the processor
@@ -189,7 +191,9 @@ struct vcpu_t {
         uint64_t vmcs_pending_entry_instr_length : 1;
         uint64_t vmcs_pending_entry_intr_info    : 1;
         uint64_t vmcs_pending_guest_cr3          : 1;
-        uint64_t padding                         : 53;
+        uint64_t debug_control_dirty             : 1;
+        uint64_t dr_dirty                        : 1;
+        uint64_t padding                         : 51;
     };
 
     /* For TSC offseting feature*/

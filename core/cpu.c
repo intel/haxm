@@ -607,6 +607,7 @@ uint32_t load_vmcs(struct vcpu_t *vcpu, preempt_flag *flags)
     if (vcpu) {
         vcpu->is_vmcs_loaded = 1;
         cpu_data->current_vcpu = vcpu;
+        vcpu->prev_cpu_id = vcpu->cpu_id;
         vcpu->cpu_id = hax_cpuid();
     }
 

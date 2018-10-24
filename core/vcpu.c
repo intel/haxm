@@ -439,6 +439,7 @@ struct vcpu_t *vcpu_create(struct vm_t *vm, void *vm_host, int vcpu_id)
     if (hax_vcpu_create_host(vcpu, vm_host, vm->vm_id, vcpu_id))
         goto fail_7;
 
+    vcpu->prev_cpu_id = -1;
     vcpu->cpu_id = hax_cpuid();
     vcpu->vcpu_id = vcpu_id;
     vcpu->is_running = 0;
@@ -583,8 +584,9 @@ static void vcpu_init(struct vcpu_t *vcpu)
     get_segment_desc_t(&state->_tr, 0, 0, 0xffff, 0x83);
 
     state->_dr0 = state->_dr1 = state->_dr2 = state->_dr3 = 0x0;
-    state->_dr6 = 0xffff0ff0;
-    state->_dr7 = 0x00000400;
+    state->_dr6 = DR6_SETBITS;
+    state->_dr7 = DR7_SETBITS;
+    vcpu->dr_dirty = 1;
 
     // Initialize guest MSR state, i.e. a list of MSRs and their initial values.
     // Note that all zeros is not a valid state (see below). At the first VM
@@ -1036,6 +1038,107 @@ static void load_host_msr(struct vcpu_t *vcpu)
     }
 }
 
+static inline bool is_host_debug_enabled(struct vcpu_t *vcpu)
+{
+    struct hstate *hstate = &get_cpu_data(vcpu->cpu_id)->hstate;
+
+    return !!(hstate->dr7 & HBREAK_ENABLED_MASK);
+}
+
+static inline bool is_thread_migrated(struct vcpu_t *vcpu)
+{
+    /*
+     * Sometimes current thread might be migrated to other CPU core. In this
+     * case, registers might be different with them in original core.
+     * This function is to check thread is migrated or not.
+     */
+    return (vcpu->cpu_id != vcpu->prev_cpu_id);
+}
+
+static void load_guest_rip_rflags(struct vcpu_t *vcpu)
+{
+    // TODO vmcs rip rflags could be loaded here in dirty case
+    struct vcpu_state_t *state = vcpu->state;
+
+    if (vcpu->debug_control_dirty) {
+        state->_rflags = vmread(vcpu, GUEST_RFLAGS);
+        // Single-stepping
+        if (vcpu->debug_control & HAX_DEBUG_STEP) {
+            state->_rflags |= EFLAGS_TF;
+        } else {
+            state->_rflags &= ~EFLAGS_TF;
+        }
+        vmwrite(vcpu, GUEST_RFLAGS, state->_rflags);
+        vcpu->debug_control_dirty = 0;
+    }
+}
+
+static inline bool is_guest_dr_dirty(struct vcpu_t *vcpu)
+{
+    return (vcpu->dr_dirty || is_thread_migrated(vcpu));
+}
+
+static void save_guest_dr(struct vcpu_t *vcpu)
+{
+    struct vcpu_state_t *state = vcpu->state;
+
+    /*
+     * Only dr6 needs to be saved. Guest couldn't change dr registers directly
+     * except for dr6. Guest writing dr is captured by exit_dr_access, and
+     * saved in guest state dr.
+     */
+    state->_dr6 = get_dr6();
+}
+
+static void load_guest_dr(struct vcpu_t *vcpu)
+{
+    struct vcpu_state_t *state = vcpu->state;
+
+    if (!(is_guest_dr_dirty(vcpu) || is_host_debug_enabled(vcpu)))
+        return;
+
+    set_dr0(state->_dr0);
+    set_dr1(state->_dr1);
+    set_dr2(state->_dr2);
+    set_dr3(state->_dr3);
+    set_dr6(state->_dr6);
+    vmwrite(vcpu, GUEST_DR7, state->_dr7);
+
+    vcpu->dr_dirty = 0;
+}
+
+static void save_host_dr(struct vcpu_t *vcpu)
+{
+    struct hstate *hstate = &get_cpu_data(vcpu->cpu_id)->hstate;
+
+    // dr7 is used to check host debugging enabled or not
+    hstate->dr7 = get_dr7();
+
+    if (!is_host_debug_enabled(vcpu))
+        return;
+
+    hstate->dr0 = get_dr0();
+    hstate->dr1 = get_dr1();
+    hstate->dr2 = get_dr2();
+    hstate->dr3 = get_dr3();
+    hstate->dr6 = get_dr6();
+}
+
+static void load_host_dr(struct vcpu_t *vcpu)
+{
+    struct hstate *hstate = &get_cpu_data(vcpu->cpu_id)->hstate;
+
+    if (!is_host_debug_enabled(vcpu))
+        return;
+
+    set_dr0(hstate->dr0);
+    set_dr1(hstate->dr1);
+    set_dr2(hstate->dr2);
+    set_dr3(hstate->dr3);
+    set_dr6(hstate->dr6);
+    set_dr7(hstate->dr7);
+}
+
 void vcpu_save_host_state(struct vcpu_t *vcpu)
 {
     struct hstate *hstate = &get_cpu_data(vcpu->cpu_id)->hstate;
@@ -1154,11 +1257,9 @@ void vcpu_save_host_state(struct vcpu_t *vcpu)
     save_host_msr(vcpu);
 
     hstate->hcr2 = get_cr2();
-    hstate->dr0 = get_dr0();
-    hstate->dr1 = get_dr1();
-    hstate->dr2 = get_dr2();
-    hstate->dr3 = get_dr3();
-    hstate->dr6 = get_dr6();
+
+    save_host_dr(vcpu);
+
     vcpu_enter_fpu_state(vcpu);
     // CR0 should be written after host fpu state is saved
     vmwrite(vcpu, HOST_CR0, get_cr0());
@@ -1193,7 +1294,7 @@ static void fill_common_vmcs(struct vcpu_t *vcpu)
     // How to determine the capability
     pin_ctls = EXT_INTERRUPT_EXITING | NMI_EXITING;
 
-    pcpu_ctls = IO_BITMAP_ACTIVE | MSR_BITMAP_ACTIVE |
+    pcpu_ctls = IO_BITMAP_ACTIVE | MSR_BITMAP_ACTIVE | DR_EXITING |
                 INTERRUPT_WINDOW_EXITING | USE_TSC_OFFSETTING | HLT_EXITING |
                 SECONDARY_CONTROLS;
 
@@ -1391,37 +1492,26 @@ void vcpu_load_host_state(struct vcpu_t *vcpu)
 
     load_host_msr(vcpu);
     set_cr2(hstate->hcr2);
-    set_dr0(hstate->dr0);
-    set_dr1(hstate->dr1);
-    set_dr2(hstate->dr2);
-    set_dr3(hstate->dr3);
-    set_dr6(hstate->dr6);
+
+    load_host_dr(vcpu);
 
     vcpu_exit_fpu_state(vcpu);
 }
 
 void vcpu_save_guest_state(struct vcpu_t *vcpu)
 {
-    struct vcpu_state_t *state = vcpu->state;
-
     save_guest_msr(vcpu);
-    state->_dr0 = get_dr0();
-    state->_dr1 = get_dr1();
-    state->_dr2 = get_dr2();
-    state->_dr3 = get_dr3();
-    state->_dr6 = get_dr6();
+
+    save_guest_dr(vcpu);
 }
 
 void vcpu_load_guest_state(struct vcpu_t *vcpu)
 {
-    struct vcpu_state_t *state = vcpu->state;
-
     load_guest_msr(vcpu);
-    set_dr0(state->_dr0);
-    set_dr1(state->_dr1);
-    set_dr2(state->_dr2);
-    set_dr3(state->_dr3);
-    set_dr6(state->_dr6);
+
+    load_guest_dr(vcpu);
+
+    load_guest_rip_rflags(vcpu);
 }
 
 /*
@@ -2864,16 +2954,15 @@ static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 
 static int exit_dr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
-    // TODO: DR-exiting flag is disabled so this function is never executed.
-    //       We should conditionally enable "DR exiting" whenever
-    //       HAX_DEBUG_USE_HW_BP is enabled, to prevent the guest from
-    //       tampering with debug drN registers.
-    uint64_t *dr;
+    uint64_t *dr = NULL;
+    int dreg = vmx(vcpu, exit_qualification.dr.dreg);
+    int gpr_reg = vmx(vcpu, exit_qualification).dr.gpr;
+    bool hbreak_enabled = !!(vcpu->debug_control & HAX_DEBUG_USE_HW_BP);
     struct vcpu_state_t *state = vcpu->state;
 
     htun->_exit_reason = vmx(vcpu, exit_reason).basic_reason;
 
-    // Generally detect
+    // General Detect(GD) Enable flag
     if (state->_dr7 & DR7_GD) {
         state->_dr7 &= ~(uint64_t)DR7_GD;
         state->_dr6 |= DR6_BD;
@@ -2883,7 +2972,7 @@ static int exit_dr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
         return HAX_RESUME;
     }
 
-    switch (vmx(vcpu, exit_qualification.dr.dreg)) {
+    switch (dreg) {
         case 0: {
             dr = &state->_dr0;
             break;
@@ -2905,9 +2994,6 @@ static int exit_dr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
                 hax_inject_exception(vcpu, VECTOR_UD, NO_ERROR_CODE);
                 return HAX_RESUME;
             }
-            // Fall through
-        }
-        case 6: {
             dr = &state->_dr6;
             break;
         }
@@ -2916,20 +3002,45 @@ static int exit_dr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
                 hax_inject_exception(vcpu, VECTOR_UD, NO_ERROR_CODE);
                 return HAX_RESUME;
             }
-            // Fall through
-        }
-        default: {
             dr = &state->_dr7;
             break;
+        }
+        case 6: {
+            dr = &state->_dr6;
+            break;
+        }
+        case 7: {
+            dr = &state->_dr7;
+            break;
+        }
+        default: {
+            // It should not go here. Unreachable.
         }
     }
 
     if (vmx(vcpu, exit_qualification.dr.direction)) {
         // MOV DR -> GPR
-        state->_regs[vmx(vcpu, exit_qualification).dr.gpr] = *dr;
-    } else if (!(vcpu->debug_control & HAX_DEBUG_USE_HW_BP)) {
+        if (hbreak_enabled) {
+            // HAX hardware breakpoint enabled, return dr default value
+            if (dreg == 6)
+                state->_regs[gpr_reg] = DR6_SETBITS;
+            else if (dreg == 7)
+                state->_regs[gpr_reg] = DR7_SETBITS;
+            else
+                state->_regs[gpr_reg] = 0;
+
+            hax_debug("Ignore guest DR%d read due to hw bp enabled.\n", dreg);
+        } else {
+            state->_regs[gpr_reg] = *dr;
+        }
+    } else {
         // MOV DR <- GPR
-        *dr = state->_regs[vmx(vcpu, exit_qualification).dr.gpr];
+        if (hbreak_enabled) {
+            hax_debug("Ignore guest DR%d write due to hw bp enabled.\n", dreg);
+        } else {
+            *dr = state->_regs[gpr_reg];
+            vcpu->dr_dirty = 1;
+        }
     }
 
     advance_rip(vcpu);
@@ -3770,12 +3881,53 @@ int vcpu_set_regs(struct vcpu_t *vcpu, struct vcpu_state_t *ustate)
         vmwrite_cr(vcpu);
     }
 
-    UPDATE_VCPU_STATE(_dr0, dr_dirty);
-    UPDATE_VCPU_STATE(_dr1, dr_dirty);
-    UPDATE_VCPU_STATE(_dr2, dr_dirty);
-    UPDATE_VCPU_STATE(_dr3, dr_dirty);
-    UPDATE_VCPU_STATE(_dr6, dr_dirty);
-    UPDATE_VCPU_STATE(_dr7, dr_dirty);
+    /*
+     * When the guest debug feature is in use (HAX_DEBUG_ENABLE is on), guest
+     * DR state is owned by the debugger (QEMU gdbserver), and must be
+     * protected from SET_REGS ioctl (called by other parts of QEMU).
+     *
+     * An obvious case is when hardware breakpoints are enabled
+     * (HAX_DEBUG_ENABLE | HAX_DEBUG_USE_HW_BP): all of DR0..7 need to be
+     * filled with values provided by the debugger. This is actually also true
+     * when hardware breakpoints are disabled: at least, the debugger expects
+     * DR7 to be disabled/reset, so we must not allow SET_REGS to enable it.
+     *
+     * Checking only the HAX_DEBUG_USE_HW_BP flag can actually lead to
+     * incorrect behavior, exposed by the gdb "c[ontinue]" command.
+     *
+     * Usually using hardware breakpoint to debug guest is running in this way:
+     *
+     * 1. QEMU/gdb enables hardware breakpoint via vcpu_debug ioctl;
+     * 2. Guest hits the break point and vm exits;
+     * 3. QEMU/gdb handles the event, then disables HW breakpoint;
+     * 4. QEMU/gdb enables single step debugging then resumes guest;
+     * 5. Guest hits single step and vm exits;
+     * 6. QEMU/gdb re-enable HW breakpoint.
+     * 7. Guest resumes running.
+     *
+     * From step 3 to step 5, HW breakpoint is disabled temporarily and runs
+     * one step, it should be presumably to prevent the guest from looping
+     * on the same HW breakpoint without setting RFAGS.RF (See Intel SDM Vol.
+     * 3B 17.3.1.1), which can't be done in user space.
+     */
+    if (vcpu->debug_control & HAX_DEBUG_ENABLE) {
+        hax_info("%s: Ignore DR updates because hax debugging has been enabled"
+                 " in %d.\n", __func__, vcpu->vcpu_id);
+    } else {
+        UPDATE_VCPU_STATE(_dr0, dr_dirty);
+        UPDATE_VCPU_STATE(_dr1, dr_dirty);
+        UPDATE_VCPU_STATE(_dr2, dr_dirty);
+        UPDATE_VCPU_STATE(_dr3, dr_dirty);
+        ustate->_dr6 = fix_dr6(ustate->_dr6);
+        UPDATE_VCPU_STATE(_dr6, dr_dirty);
+        ustate->_dr7 = fix_dr7(ustate->_dr7);
+        UPDATE_VCPU_STATE(_dr7, dr_dirty);
+
+        if (dr_dirty)
+            vcpu->dr_dirty = 1;
+        else
+            vcpu->dr_dirty = 0;
+    }
 
     UPDATE_SEGMENT_STATE(CS, _cs);
     UPDATE_SEGMENT_STATE(DS, _ds);
@@ -3872,32 +4024,36 @@ int vcpu_set_msr(struct vcpu_t *vcpu, uint64_t entry, uint64_t val)
 
 void vcpu_debug(struct vcpu_t *vcpu, struct hax_debug_t *debug)
 {
+    bool hbreak_enabled = false;
+
     if (debug->control & HAX_DEBUG_ENABLE) {
         vcpu->debug_control = debug->control;
+
         // Hardware breakpoints
         if (debug->control & HAX_DEBUG_USE_HW_BP) {
-            vcpu->state->_dr0 = debug->dr[0];
-            vcpu->state->_dr1 = debug->dr[1];
-            vcpu->state->_dr2 = debug->dr[2];
-            vcpu->state->_dr3 = debug->dr[3];
-            vmwrite(vcpu, GUEST_DR7, debug->dr[7]);
-        } else {
-            vmwrite(vcpu, GUEST_DR7, 0);
-        }
-        // Single-stepping
-        if (debug->control & HAX_DEBUG_STEP) {
-            vmwrite(vcpu, GUEST_RFLAGS,
-                    vmread(vcpu, GUEST_RFLAGS) | EFLAGS_TF);
-        } else {
-            vmwrite(vcpu, GUEST_RFLAGS,
-                    vmread(vcpu, GUEST_RFLAGS) & ~EFLAGS_TF);
+            hbreak_enabled = true;
         }
     } else {
         vcpu->debug_control = 0;
-        vmwrite(vcpu, GUEST_DR7, 0);
-        vmwrite(vcpu, GUEST_RFLAGS,
-                vmread(vcpu, GUEST_RFLAGS) & ~EFLAGS_TF);
     }
+
+    if (hbreak_enabled) {
+        vcpu->state->_dr0 = debug->dr[0];
+        vcpu->state->_dr1 = debug->dr[1];
+        vcpu->state->_dr2 = debug->dr[2];
+        vcpu->state->_dr3 = debug->dr[3];
+        vcpu->state->_dr7 = fix_dr7(debug->dr[7]);
+    } else {
+        vcpu->state->_dr0 = 0;
+        vcpu->state->_dr1 = 0;
+        vcpu->state->_dr2 = 0;
+        vcpu->state->_dr3 = 0;
+        vcpu->state->_dr7 = DR7_SETBITS;
+    }
+    vcpu->state->_dr6 = DR6_SETBITS;
+
+    vcpu->debug_control_dirty = 1;
+    vcpu->dr_dirty = 1;
     vcpu_update_exception_bitmap(vcpu);
 };
 

@@ -83,6 +83,7 @@ struct hstate {
     uint64_t dr2;
     uint64_t dr3;
     uint64_t dr6;
+    uint64_t dr7;
 };
 
 struct hstate_compare {

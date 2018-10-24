@@ -31,6 +31,8 @@
 #ifndef HAX_CORE_IA32_DEFS_H_
 #define HAX_CORE_IA32_DEFS_H_
 
+#include "../../include/hax_types.h"
+
 #define IA32_FXSAVE_SIZE 512
 
 enum {
@@ -65,9 +67,34 @@ enum {
 
 enum {
     DR6_BD          = (1 << 13),
+    DR7_L0          = (1 << 0),
+    DR7_G0          = (1 << 1),
+    DR7_L1          = (1 << 2),
+    DR7_G1          = (1 << 3),
+    DR7_L2          = (1 << 4),
+    DR7_G2          = (1 << 5),
+    DR7_L3          = (1 << 6),
+    DR7_G3          = (1 << 7),
     DR7_GD          = (1 << 13),
-    DR7_SETBITS     = (1 << 10)
 };
+#define    DR6_SETBITS          0xFFFF0FF0
+#define    DR7_SETBITS          (1 << 10)
+#define    HBREAK_ENABLED_MASK  (DR7_L0 | DR7_G0 | DR7_L1 | DR7_G1 | \
+                                 DR7_L2 | DR7_G2 | DR7_L3 | DR7_G3)
+
+/*
+ * According to SDM Vol 3B 17.2.6, DR6/7 high 32 bits should only be set to
+ * 0 in 64 bits mode. Reserved bits should be 1.
+ */
+static inline uint64_t fix_dr6(uint64_t val)
+{
+    return (val & 0xffffffff) | DR6_SETBITS;
+}
+
+static inline uint64_t fix_dr7(uint64_t val)
+{
+    return (val & 0xffffffff) | DR7_SETBITS;
+}
 
 enum {
     IA32_P5_MC_ADDR              = 0x0,
