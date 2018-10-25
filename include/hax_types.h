@@ -62,6 +62,7 @@
 #endif
 
 /* Detect platform */
+#ifndef HAX_TESTS // Prevent kernel-only exports from reaching userland code
 // MacOS
 #if defined(__MACH__)
 #define HAX_PLATFORM_DARWIN
@@ -73,6 +74,9 @@
 #else
 #error "Unsupported platform"
 #endif
+#else // !HAX_TESTS
+#include <stdint.h>
+#endif // HAX_TESTS
 
 #define HAX_PAGE_SIZE  4096
 #define HAX_PAGE_SHIFT 12

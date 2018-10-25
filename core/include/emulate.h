@@ -31,11 +31,7 @@
 #ifndef HAX_CORE_EMULATE_H_
 #define HAX_CORE_EMULATE_H_
 
-#ifdef HAX_TESTS
-#include <stdint.h>
-#else
 #include "../../include/hax_types.h"
-#endif
 
 #include "emulate_ops.h"
 
