@@ -1,0 +1,10 @@
+# Objects
+build/
+
+# Dependencies
+packages/
+
+# Visual Studio
+.vs/
+*.suo
+*.vcxproj.user

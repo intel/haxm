@@ -29,7 +29,7 @@
  */
 
 #include "hax_win.h"
-#include "../core/include/ia32.h"
+#include "../../core/include/ia32.h"
 
 int default_hax_log_level = 3;
 int max_cpus;

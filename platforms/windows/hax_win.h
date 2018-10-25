@@ -35,7 +35,7 @@
 #include <Ntifs.h>
 #include <stdarg.h>
 #include "hax_core_interface.h"
-#include "..\hax_interface.h"
+#include "../../include/hax_interface.h"
 #include "hax_types_windows.h"
 #include "hax_entry.h"
 #include "hax_event_win.h"

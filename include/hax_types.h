@@ -62,17 +62,21 @@
 #endif
 
 /* Detect platform */
+#ifndef HAX_TESTS // Prevent kernel-only exports from reaching userland code
 // MacOS
 #if defined(__MACH__)
 #define HAX_PLATFORM_DARWIN
 #include "darwin/hax_types_mac.h"
 // Windows
-#elif defined(__WINNT__)
+#elif defined(_WIN32)
 #define HAX_PLATFORM_WINDOWS
 #include "windows/hax_types_windows.h"
 #else
 #error "Unsupported platform"
 #endif
+#else // !HAX_TESTS
+#include <stdint.h>
+#endif // HAX_TESTS
 
 #define HAX_PAGE_SIZE  4096
 #define HAX_PAGE_SHIFT 12

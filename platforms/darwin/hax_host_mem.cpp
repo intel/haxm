@@ -28,13 +28,13 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "../../../include/hax_host_mem.h"
+#include "../../include/hax_host_mem.h"
 
 #include <IOKit/IOMemoryDescriptor.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
 
-#include "../../../include/hax.h"
-#include "../../../core/include/paging.h"
+#include "../../include/hax.h"
+#include "../../core/include/paging.h"
 
 extern "C" int hax_pin_user_pages(uint64_t start_uva, uint64_t size,
                                   hax_memdesc_user *memdesc)
