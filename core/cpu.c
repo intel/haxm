@@ -480,6 +480,10 @@ int cpu_vmx_execute(struct vcpu_t *vcpu, struct hax_tunnel *htun)
                 vcpu, VM_EXIT_INFO_IDT_VECTORING);
         vmx(vcpu, exit_instr_length) = vmread(
                 vcpu, VM_EXIT_INFO_INSTRUCTION_LENGTH);
+        vmx(vcpu, exit_gpa) = vmread(
+                vcpu, VM_EXIT_INFO_GUEST_PHYSICAL_ADDRESS);
+        vmx(vcpu, interruptibility_state).raw = vmread(
+                vcpu, GUEST_INTERRUPTIBILITY);
 
         state->_rflags = vmread(vcpu, GUEST_RFLAGS);
         state->_rsp = vmread(vcpu, GUEST_RSP);
