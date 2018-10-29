@@ -1,0 +1,29 @@
+language: c
+
+matrix:
+  include:
+    - name: "haxm-darwin"
+      os: osx
+      osx_image: xcode10
+      addons:
+        homebrew:
+          packages:
+            - nasm
+      script:
+        - cd platforms/darwin
+        - xcodebuild -configuration Debug -sdk macosx10.14
+
+  exclude: # TODO: Currently TravisCI does not support full VS/EWDK on Windows
+    - name: "haxm-windows"
+      os: windows
+      install:
+        - choco install -y nuget.commandline
+        - choco install -y windowsdriverkit10
+      script:
+        - cd platforms/windows
+        - nuget restore
+        - export PATH="$PATH:/c/Program Files (x86)/Microsoft Visual Studio/Installer/"
+        - export MSVC=$(vswhere -latest -products "*" -requires Microsoft.Component.MSBuild -property installationPath)
+        - export MSVC=$(echo /$MSVC | sed -e 's/\\/\//g' -e 's/://')
+        - export PATH="$PATH:$MSVC/MSBuild/15.0/Bin/"
+        - MSBuild.exe haxm.sln //p:Configuration="Debug" //p:Platform="x64"
