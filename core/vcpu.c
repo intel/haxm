@@ -1055,21 +1055,49 @@ static inline bool is_thread_migrated(struct vcpu_t *vcpu)
     return (vcpu->cpu_id != vcpu->prev_cpu_id);
 }
 
-static void load_guest_rip_rflags(struct vcpu_t *vcpu)
+static void load_dirty_vmcs_fields(struct vcpu_t *vcpu)
 {
-    // TODO vmcs rip rflags could be loaded here in dirty case
     struct vcpu_state_t *state = vcpu->state;
 
+    // rflags
     if (vcpu->debug_control_dirty) {
-        state->_rflags = vmread(vcpu, GUEST_RFLAGS);
         // Single-stepping
         if (vcpu->debug_control & HAX_DEBUG_STEP) {
             state->_rflags |= EFLAGS_TF;
         } else {
             state->_rflags &= ~EFLAGS_TF;
         }
-        vmwrite(vcpu, GUEST_RFLAGS, state->_rflags);
+        vcpu->rflags_dirty = 1;
         vcpu->debug_control_dirty = 0;
+    }
+    if (vcpu->rflags_dirty) {
+        vmwrite(vcpu, GUEST_RFLAGS, state->_rflags);
+        vcpu->rflags_dirty = 0;
+    }
+
+    // interruptibility
+    if (vcpu->interruptibility_dirty) {
+        vmwrite(vcpu, GUEST_INTERRUPTIBILITY,
+                vmx(vcpu, interruptibility_state).raw);
+        vcpu->interruptibility_dirty = 0;
+    }
+
+    // rip
+    if (vcpu->rip_dirty) {
+        vmwrite(vcpu, GUEST_RIP, state->_rip);
+        vcpu->rip_dirty = 0;
+    }
+
+    // primary cpu ctrl
+    if (vcpu->pcpu_ctls_dirty) {
+        vmwrite(vcpu, VMX_PRIMARY_PROCESSOR_CONTROLS, vmx(vcpu, pcpu_ctls));
+        vcpu->pcpu_ctls_dirty = 0;
+    }
+
+    // FS base
+    if (vcpu->fs_base_dirty) {
+        vmwrite(vcpu, GUEST_FS_BASE, vcpu->state->_fs.base);
+        vcpu->fs_base_dirty = 0;
     }
 }
 
@@ -1511,7 +1539,7 @@ void vcpu_load_guest_state(struct vcpu_t *vcpu)
 
     load_guest_dr(vcpu);
 
-    load_guest_rip_rflags(vcpu);
+    load_dirty_vmcs_fields(vcpu);
 }
 
 /*
@@ -1711,55 +1739,16 @@ int vtlb_active(struct vcpu_t *vcpu)
 static void advance_rip(struct vcpu_t *vcpu)
 {
     struct vcpu_state_t *state = vcpu->state;
-    preempt_flag flags;
-    uint32_t interruptibility = vmread(vcpu, GUEST_INTERRUPTIBILITY);
-    uint32_t vmcs_err = 0;
-    if ((vmcs_err = load_vmcs(vcpu, &flags))) {
-        hax_panic_vcpu(vcpu, "load_vmcs while advance_rip: %x", vmcs_err);
-        hax_panic_log(vcpu);
-        return;
-    }
+    uint32_t interruptibility = vmx(vcpu, interruptibility_state).raw;
 
     if (interruptibility & 3u) {
         interruptibility &= ~3u;
-        vmwrite(vcpu, GUEST_INTERRUPTIBILITY, interruptibility);
-    }
-    state->_rip += vmread(vcpu, VM_EXIT_INFO_INSTRUCTION_LENGTH);
-    vmwrite(vcpu, GUEST_RIP, state->_rip);
-
-    if ((vmcs_err = put_vmcs(vcpu, &flags))) {
-        hax_panic_vcpu(vcpu, "put_vmcs while advance_rip: %x\n", vmcs_err);
-        hax_panic_log(vcpu);
-    }
-}
-
-static void advance_rip_step(struct vcpu_t *vcpu, int step)
-{
-    struct vcpu_state_t *state = vcpu->state;
-    preempt_flag flags;
-    uint32_t interruptibility = vmread(vcpu, GUEST_INTERRUPTIBILITY);
-    uint32_t vmcs_err = 0;
-    if ((vmcs_err = load_vmcs(vcpu, &flags))) {
-        hax_panic_vcpu(vcpu, "load_vmcs while advance_rip_step: %x\n",
-                       vmcs_err);
-        hax_panic_log(vcpu);
-        return;
+        vmx(vcpu, interruptibility_state).raw = interruptibility;
+        vcpu->interruptibility_dirty = 1;
     }
 
-    if (interruptibility & 3u) {
-        interruptibility &= ~3u;
-        vmwrite(vcpu, GUEST_INTERRUPTIBILITY, interruptibility);
-    }
-    if (step) {
-        state->_rip += step;
-        vmwrite(vcpu, GUEST_RIP, state->_rip);
-    }
-
-    if ((vmcs_err = put_vmcs(vcpu, &flags))) {
-        hax_panic_vcpu(vcpu, "put_vmcs() while advance_rip_step: %x\n",
-                       vmcs_err);
-        hax_panic_log(vcpu);
-    }
+    state->_rip += vmx(vcpu, exit_instr_length);
+    vcpu->rip_dirty = 1;
 }
 
 void vcpu_vmread_all(struct vcpu_t *vcpu)
@@ -1779,14 +1768,19 @@ void vcpu_vmread_all(struct vcpu_t *vcpu)
             return;
         }
 
-        state->_rip = vmread(vcpu, GUEST_RIP);
-        state->_rflags = vmread(vcpu, GUEST_RFLAGS);
+        if (!vcpu->rip_dirty)
+            state->_rip = vmread(vcpu, GUEST_RIP);
+
+        if (!vcpu->rflags_dirty)
+            state->_rflags = vmread(vcpu, GUEST_RFLAGS);
+
         state->_rsp = vmread(vcpu, GUEST_RSP);
 
         VMREAD_SEG(vcpu, CS, state->_cs);
         VMREAD_SEG(vcpu, DS, state->_ds);
         VMREAD_SEG(vcpu, ES, state->_es);
-        VMREAD_SEG(vcpu, FS, state->_fs);
+        if (!vcpu->fs_base_dirty)
+            VMREAD_SEG(vcpu, FS, state->_fs);
         VMREAD_SEG(vcpu, GS, state->_gs);
         VMREAD_SEG(vcpu, SS, state->_ss);
         VMREAD_SEG(vcpu, LDTR, state->_ldt);
@@ -1810,13 +1804,16 @@ void vcpu_vmwrite_all(struct vcpu_t *vcpu, int force_tlb_flush)
     struct vcpu_state_t *state = vcpu->state;
 
     vmwrite(vcpu, GUEST_RIP, state->_rip);
+    vcpu->rip_dirty = 0;
     vmwrite(vcpu, GUEST_RFLAGS, state->_rflags);
+    vcpu->rflags_dirty = 0;
     vmwrite(vcpu, GUEST_RSP, state->_rsp);
 
     VMWRITE_SEG(vcpu, CS, state->_cs);
     VMWRITE_SEG(vcpu, DS, state->_ds);
     VMWRITE_SEG(vcpu, ES, state->_es);
     VMWRITE_SEG(vcpu, FS, state->_fs);
+    vcpu->fs_base_dirty = 0;
     VMWRITE_SEG(vcpu, GS, state->_gs);
     VMWRITE_SEG(vcpu, SS, state->_ss);
     VMWRITE_SEG(vcpu, LDTR, state->_ldt);
@@ -2015,8 +2012,8 @@ static void vmwrite_cr(struct vcpu_t *vcpu)
         entry_ctls |= ENTRY_CONTROL_LONG_MODE_GUEST;
     }
     if (pcpu_ctls != vmx(vcpu, pcpu_ctls)) {
-        vmwrite(vcpu, VMX_PRIMARY_PROCESSOR_CONTROLS,
-                vmx(vcpu, pcpu_ctls) = pcpu_ctls);
+        vmx(vcpu, pcpu_ctls) = pcpu_ctls;
+        vcpu->pcpu_ctls_dirty = 1;
     }
     if (scpu_ctls != vmx(vcpu, scpu_ctls)) {
         vmwrite(vcpu, VMX_SECONDARY_PROCESSOR_CONTROLS,
@@ -2198,7 +2195,7 @@ void vcpu_write_rflags(void *obj, uint64_t value)
 {
     struct vcpu_t *vcpu = obj;
     vcpu->state->_rflags = value;
-    vmwrite(vcpu, GUEST_RFLAGS, vcpu->state->_rflags);
+    vcpu->rflags_dirty = 1;
 }
 
 static uint64_t vcpu_get_segment_base(void *obj, uint32_t segment)
@@ -2235,7 +2232,7 @@ static em_status_t vcpu_read_memory(void *obj, uint64_t ea, uint64_t *value,
     uint64_t pa;
 
     if (flags & EM_OPS_NO_TRANSLATION) {
-        pa = vmread(vcpu, VM_EXIT_INFO_GUEST_PHYSICAL_ADDRESS);
+        pa = vmx(vcpu, exit_gpa);
     } else {
         vcpu_translate(vcpu, ea, 0, &pa, NULL, false);
     }
@@ -2273,7 +2270,7 @@ static em_status_t vcpu_write_memory(void *obj, uint64_t ea, uint64_t *value,
     uint64_t pa;
 
     if (flags & EM_OPS_NO_TRANSLATION) {
-        pa = vmread(vcpu, VM_EXIT_INFO_GUEST_PHYSICAL_ADDRESS);
+        pa = vmx(vcpu, exit_gpa);
     } else {
         vcpu_translate(vcpu, ea, 0, &pa, NULL, false);
     }
@@ -2452,7 +2449,7 @@ static int exit_interrupt_window(struct vcpu_t *vcpu, struct hax_tunnel *htun)
             vmx(vcpu, exit_reason).basic_reason == VMX_EXIT_PENDING_INTERRUPT
             ? ~INTERRUPT_WINDOW_EXITING : ~NMI_WINDOW_EXITING;
 
-    vmwrite(vcpu, VMX_PRIMARY_PROCESSOR_CONTROLS, vmx(vcpu, pcpu_ctls));
+    vcpu->pcpu_ctls_dirty = 1;
     htun->_exit_reason = vmx(vcpu, exit_reason).basic_reason;
     return HAX_RESUME;
 }
@@ -3296,7 +3293,10 @@ static int handle_msr_read(struct vcpu_t *vcpu, uint32_t msr, uint64_t *val)
             break;
         }
         case IA32_FS_BASE: {
-            *val = vmread(vcpu, GUEST_FS_BASE);
+            if (vcpu->fs_base_dirty)
+                *val = vcpu->state->_fs.base;
+            else
+                *val = vmread(vcpu, GUEST_FS_BASE);
             break;
         }
         case IA32_GS_BASE: {
@@ -3567,7 +3567,14 @@ static int handle_msr_write(struct vcpu_t *vcpu, uint32_t msr, uint64_t val)
             break;
         }
         case IA32_FS_BASE: {
-            vmwrite(vcpu, GUEST_FS_BASE, val);
+            /*
+             * During Android emulator running, there are a lot of FS_BASE
+             * msr write. To avoid unnecessary vmcs loading/putting, don't
+             * write it to vmcs until right before next VM entry, when the
+             * VMCS region has been loaded into memory.
+             */
+            vcpu->state->_fs.base = val;
+            vcpu->fs_base_dirty = 1;
             break;
         }
         case IA32_GS_BASE: {
@@ -3672,7 +3679,7 @@ static int exit_ept_misconfiguration(struct vcpu_t *vcpu,
 
     htun->_exit_reason = vmx(vcpu, exit_reason).basic_reason;
 #ifdef CONFIG_HAX_EPT2
-    gpa = vmread(vcpu, VM_EXIT_INFO_GUEST_PHYSICAL_ADDRESS);
+    gpa = vmx(vcpu, exit_gpa);
     ret = ept_handle_misconfiguration(&vcpu->vm->gpa_space, &vcpu->vm->ept_tree,
                                       gpa);
     if (ret > 0) {
@@ -3704,7 +3711,7 @@ static int exit_ept_violation(struct vcpu_t *vcpu, struct hax_tunnel *htun)
         return HAX_RESUME;
     }
 
-    gpa = vmread(vcpu, VM_EXIT_INFO_GUEST_PHYSICAL_ADDRESS);
+    gpa = vmx(vcpu, exit_gpa);
 
 #ifdef CONFIG_HAX_EPT2
     ret = ept_handle_access_violation(&vcpu->vm->gpa_space, &vcpu->vm->ept_tree,
@@ -3862,11 +3869,11 @@ int vcpu_set_regs(struct vcpu_t *vcpu, struct vcpu_state_t *ustate)
 
     if (state->_rip != ustate->_rip) {
         state->_rip = ustate->_rip;
-        vmwrite(vcpu, GUEST_RIP, state->_rip);
+        vcpu->rip_dirty = 1;
     }
     if (state->_rflags != ustate->_rflags) {
         state->_rflags = ustate->_rflags;
-        vmwrite(vcpu, GUEST_RFLAGS, state->_rflags);
+        vcpu->rflags_dirty = 1;
     }
     if (rsp_dirty) {
         state->_rsp = ustate->_rsp;

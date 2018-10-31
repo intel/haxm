@@ -98,6 +98,8 @@ struct vcpu_vmx_data {
     exit_reason_t exit_reason;
     exit_qualification_t exit_qualification;
     interruptibility_state_t interruptibility_state;
+
+    uint64_t exit_gpa;
 };
 
 /* Information saved by instruction decoder and used by post-MMIO handler */
@@ -193,7 +195,12 @@ struct vcpu_t {
         uint64_t vmcs_pending_guest_cr3          : 1;
         uint64_t debug_control_dirty             : 1;
         uint64_t dr_dirty                        : 1;
-        uint64_t padding                         : 51;
+        uint64_t rflags_dirty                    : 1;
+        uint64_t rip_dirty                       : 1;
+        uint64_t fs_base_dirty                   : 1;
+        uint64_t interruptibility_dirty          : 1;
+        uint64_t pcpu_ctls_dirty                 : 1;
+        uint64_t padding                         : 46;
     };
 
     /* For TSC offseting feature*/
