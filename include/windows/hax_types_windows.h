@@ -45,8 +45,8 @@ typedef unsigned char bool;
 #define is_leaf(x)  1
 #endif
 
-typedef KAFFINITY cpumap_t;
-inline cpumap_t cpu2cpumap(int cpu)
+typedef KAFFINITY hax_cpumap_t;
+inline hax_cpumap_t cpu2cpumap(int cpu)
 {
     return ((KAFFINITY)0x1 << cpu);
 }
@@ -134,7 +134,7 @@ typedef uint64_t mword;
 
 typedef mword HAX_VADDR_T;
 
-static inline void smp_mb(void)
+static inline void hax_smp_mb(void)
 {
     KeMemoryBarrier();
 }

@@ -48,7 +48,7 @@ uint32_t vcpu_get_pending_intrs(struct vcpu_t *vcpu)
 
     for (i = 7; i >= 0; i--) {
         if (intr_pending[i]) {
-            offset = __fls(intr_pending[i]);
+            offset = asm_fls(intr_pending[i]);
             break;
         }
     }

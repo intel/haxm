@@ -39,8 +39,6 @@
 // declaration
 struct vcpu_t;
 
-extern int hax_page_size;
-
 #define HAX_CUR_VERSION    0x0004
 #define HAX_COMPAT_VERSION 0x0001
 
@@ -207,7 +205,7 @@ void hax_set_page(phax_page page);
 
 static inline uint64_t hax_page2pa(phax_page page)
 {
-    return hax_page2pfn(page) << PAGE_SHIFT;
+    return hax_page2pfn(page) << HAX_PAGE_SHIFT;
 }
 
 #define hax_page_pa hax_page2pa
@@ -232,15 +230,15 @@ static inline unsigned char *hax_page_va(struct hax_page *page)
 #define HAX_MAX_CPUS (sizeof(uint64_t) * 8)
 
 /* Host SMP */
-extern cpumap_t cpu_online_map;
+extern hax_cpumap_t cpu_online_map;
 extern int max_cpus;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-int smp_call_function(cpumap_t *cpus, void(*scfunc)(void *param), void *param);
-extern int cpu_number(void);
+int hax_smp_call_function(hax_cpumap_t *cpus, void(*scfunc)(void *param),
+                          void *param);
 
 uint32_t hax_cpuid(void);
 int proc_event_pending(struct vcpu_t *vcpu);

@@ -89,7 +89,7 @@ static inline smpc_dpc_exit(void) { return 1; }
 #endif
 
 /* According to DDK, the IoAllocateMdl can support at most
- * 64M - page_size * (sizeof(MDL))/sizeof(ULONG_PTR), so take 32M here
+ * 64M - PAGE_SIZE * (sizeof(MDL))/sizeof(ULONG_PTR), so take 32M here
  */
 #if (NTDDI_VERSION <= NTDDI_WS03)
 #define HAX_RAM_ENTRY_SIZE 0x2000000

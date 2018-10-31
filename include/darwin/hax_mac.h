@@ -205,4 +205,14 @@ static inline bool cpu_is_online(int cpu)
     return !!(((uint64_t)1 << cpu) & cpu_online_map);
 }
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+extern int cpu_number(void);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif  // HAX_DARWIN_HAX_MAC_H_

@@ -61,12 +61,12 @@ struct hax_t *hax;
 extern hax_atomic_t vmx_cpu_num, vmx_enabled_num;
 static void hax_enable_vmx(void)
 {
-    smp_call_function(&cpu_online_map, cpu_init_vmx, NULL);
+    hax_smp_call_function(&cpu_online_map, cpu_init_vmx, NULL);
 }
 
 static void hax_disable_vmx(void)
 {
-    smp_call_function(&cpu_online_map, cpu_exit_vmx, NULL);
+    hax_smp_call_function(&cpu_online_map, cpu_exit_vmx, NULL);
 }
 
 static void free_cpu_vmxon_region(void)
@@ -410,7 +410,7 @@ static void hax_pmu_init(void)
     int ref_cpu_id = -1;
 
     // Execute cpu_pmu_init() on each logical processor of the host CPU
-    smp_call_function(&cpu_online_map, cpu_pmu_init, NULL);
+    hax_smp_call_function(&cpu_online_map, cpu_pmu_init, NULL);
 
     // Find the common APM version supported by all host logical processors
     // TODO: Theoretically we should do the same for other APM parameters

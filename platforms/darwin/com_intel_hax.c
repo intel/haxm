@@ -99,7 +99,7 @@ error:
     return -1;
 }
 
-cpumap_t cpu_online_map;
+hax_cpumap_t cpu_online_map;
 int max_cpus;
 
 void get_online_map(void *param)
@@ -125,7 +125,7 @@ static void init_cpu_info(void)
     uint64_t possible_map, omap = 0;
 
     possible_map = ~0ULL;
-    smp_call_function(&possible_map, get_online_map, &omap);
+    hax_smp_call_function(&possible_map, get_online_map, &omap);
     printf("possible map %llx cpu_online_map %llx\n", possible_map, omap);
     cpu_online_map = omap;
     max_cpus = real_ncpus;

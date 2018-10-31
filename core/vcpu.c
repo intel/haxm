@@ -565,7 +565,7 @@ static void vcpu_init(struct vcpu_t *vcpu)
 
     vcpu->ref_count = 1;
 
-    vcpu->tsc_offset = 0ULL - rdtsc();
+    vcpu->tsc_offset = 0ULL - ia32_rdtsc();
 
     // Prepare the vcpu state to Power-up
     state->_rflags = 2;
@@ -3247,7 +3247,7 @@ static int handle_msr_read(struct vcpu_t *vcpu, uint32_t msr, uint64_t *val)
 
     switch (msr) {
         case IA32_TSC: {
-            *val = vcpu->tsc_offset + rdtsc();
+            *val = vcpu->tsc_offset + ia32_rdtsc();
             break;
         }
         case IA32_FEATURE_CONTROL: {
@@ -3503,7 +3503,7 @@ static int handle_msr_write(struct vcpu_t *vcpu, uint32_t msr, uint64_t val)
 
     switch (msr) {
         case IA32_TSC: {
-            vcpu->tsc_offset = val - rdtsc();
+            vcpu->tsc_offset = val - ia32_rdtsc();
             if (vmx(vcpu, pcpu_ctls) & USE_TSC_OFFSETTING) {
                 vmwrite(vcpu, VMX_TSC_OFFSET, vcpu->tsc_offset);
             }
@@ -4160,9 +4160,9 @@ int vcpu_pause(struct vcpu_t *vcpu)
         return -1;
 
     vcpu->paused = 1;
-    smp_mb();
+    hax_smp_mb();
     if (vcpu->is_running) {
-        smp_call_function(&cpu_online_map, _vcpu_take_off, NULL);
+        hax_smp_call_function(&cpu_online_map, _vcpu_take_off, NULL);
     }
 
     return 0;
@@ -4171,7 +4171,7 @@ int vcpu_pause(struct vcpu_t *vcpu)
 int vcpu_takeoff(struct vcpu_t *vcpu)
 {
     int cpu_id;
-    cpumap_t targets;
+    hax_cpumap_t targets;
 
     // Don't change the sequence unless you are sure
     if (vcpu->is_running) {
@@ -4179,7 +4179,7 @@ int vcpu_takeoff(struct vcpu_t *vcpu)
         assert(cpu_id != hax_cpuid());
         targets = cpu2cpumap(cpu_id);
         // If not considering Windows XP, definitely we don't need this
-        smp_call_function(&targets, _vcpu_take_off, NULL);
+        hax_smp_call_function(&targets, _vcpu_take_off, NULL);
     }
 
     return 0;

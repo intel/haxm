@@ -33,7 +33,7 @@
 
 int default_hax_log_level = 3;
 int max_cpus;
-cpumap_t cpu_online_map;
+hax_cpumap_t cpu_online_map;
 
 int hax_log_level(int level, const char *fmt,  ...)
 {
@@ -55,7 +55,7 @@ struct smp_call_parameter
     void (*func)(void *);
     void *param;
     /* Not used in DPC model*/
-    cpumap_t *cpus;
+    hax_cpumap_t *cpus;
 };
 
 #ifdef SMPC_DPCS
@@ -70,12 +70,12 @@ void smp_cfunction_dpc(
         __in_opt PVOID  SystemArgument1,
         __in_opt PVOID  SystemArgument2)
 {
-    cpumap_t *done;
+    hax_cpumap_t *done;
     void (*action)(void *parap);
     struct smp_call_parameter *p;
 
     p = (struct smp_call_parameter *)SystemArgument2;
-    done = (cpumap_t*)SystemArgument1;
+    done = (hax_cpumap_t*)SystemArgument1;
     action = p->func;
     action(p->param);
     hax_test_and_set_bit(hax_cpuid(), (uint64_t*)done);
@@ -84,17 +84,17 @@ void smp_cfunction_dpc(
 /* IPI function is not exported to in XP, we use DPC to trigger the smp
  * call function. However, as the DPC is not happen immediately, not
  * sure how to handle such situation. Currently simply delay
- * The smp_call_function has to be synced, since we use global dpc, however,
+ * The hax_smp_call_function has to be synced, since we use global dpc, however,
  * we can't use spinlock here since spinlock will increase IRQL to DISPATCH
  * and cause potential deadloop. Another choice is to allocate the DPC in the
- * smp_call_function instead of globla dpc.
+ * hax_smp_call_function instead of globla dpc.
  */
-int smp_call_function(cpumap_t *cpus, void (*scfunc)(void *), void * param)
+int hax_smp_call_function(hax_cpumap_t *cpus, void (*scfunc)(void *), void * param)
 {
     int i, self;
     BOOLEAN result;
     struct _KDPC *cur_dpc;
-    cpumap_t done;
+    hax_cpumap_t done;
     struct smp_call_parameter *sp;
     KIRQL old_irql;
     LARGE_INTEGER delay;
@@ -181,7 +181,7 @@ static ULONG_PTR smp_cfunction(ULONG_PTR param)
 {
     int cpu_id;
     void (*action)(void *parap) ;
-    cpumap_t *hax_cpus;
+    hax_cpumap_t *hax_cpus;
     struct smp_call_parameter *p;
 
     p = (struct smp_call_parameter *)param;
@@ -192,7 +192,7 @@ static ULONG_PTR smp_cfunction(ULONG_PTR param)
         action(p->param);
     return (ULONG_PTR)NULL;
 }
-int smp_call_function(cpumap_t *cpus, void (*scfunc)(void *), void * param)
+int hax_smp_call_function(hax_cpumap_t *cpus, void (*scfunc)(void *), void * param)
 {
     struct smp_call_parameter sp;
     sp.func = scfunc;

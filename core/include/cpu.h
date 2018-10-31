@@ -108,12 +108,12 @@ struct per_cpu_data {
 
     /*
      * These fields are used to record the result of certain VMX instructions
-     * when they are used in a function wrapped by smp_call_function(). This is
+     * when they are used in a function wrapped by hax_smp_call_function(). This is
      * because it is not safe to call hax_error(), etc. (whose underlying
      * implementation may use a lock) from the wrapped function to log a
      * failure; doing so may cause a deadlock and thus a host reboot, especially
      * on macOS, where mp_rendezvous_no_intrs() (the legacy Darwin API used by
-     * HAXM to implement smp_call_function()) is known to be prone to deadlocks:
+     * HAXM to implement hax_smp_call_function()) is known to be prone to deadlocks:
      * https://lists.apple.com/archives/darwin-kernel/2006/Dec/msg00006.html
      */
     vmx_result_t    vmxon_res;
