@@ -32,7 +32,5 @@
 #define HAX_CORE_DUMP_VMCS_H_
 
 void dump_vmcs(struct vcpu_t *vcpu);
-void dump_vmcs_exit(void);
-int dump_vmcs_init(void);
 
 #endif  // HAX_CORE_DUMP_VMCS_H_

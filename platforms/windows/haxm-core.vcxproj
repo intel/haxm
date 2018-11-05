@@ -133,7 +133,6 @@
     <ClCompile Include="..\..\core\ramblock.c" />
     <ClCompile Include="..\..\core\vcpu.c" />
     <ClCompile Include="..\..\core\vm.c" />
-    <ClCompile Include="..\..\core\vmcs_names.c" />
     <ClCompile Include="..\..\core\vmx.c" />
     <ClCompile Include="..\..\core\vtlb.c" />
     <ResourceCompile Include="@(RcSourceFiles)" Exclude="@(ResourceCompile)" />

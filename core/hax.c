@@ -268,9 +268,6 @@ static int hax_vmx_init(void)
     if ((ret = hax_vmx_enable_check()) < 0)
         goto out_5;
 
-    if (dump_vmcs_init())
-        goto out_5;
-
     return 0;
 out_5:
     hax_disable_vmx();
@@ -294,7 +291,6 @@ static int hax_vmx_exit(void)
     hax_free_pages(msr_bitmap_page);
     hax_free_pages(io_bitmap_page_b);
     hax_free_pages(io_bitmap_page_a);
-    dump_vmcs_exit();
     return 0;
 }
 

@@ -33,9 +33,6 @@
 #include "include/compiler.h"
 #include "../include/hax.h"
 
-extern unsigned char **vmcs_names;
-extern uint32_t vmcs_hash(uint32_t enc);
-
 static uint32_t dump_vmcs_list[] = {
     VMX_PIN_CONTROLS,
     VMX_PRIMARY_PROCESSOR_CONTROLS,
@@ -180,194 +177,166 @@ static uint32_t dump_vmcs_list[] = {
     GUEST_ACTIVITY_STATE,
 };
 
-static int encode_type(uint32_t encode)
+static const char *get_vmcs_component_name(int num)
 {
-    return (encode >> 13) & 0x3;
-}
+    // Intel SDM Vol. 3C: Table 24-17. Structure of VMCS Component Encoding
+#define HASH(x) \
+    (((x) & 0x003E) >> 1) /* Index */ | \
+    (((x) & 0x0C00) >> 4) /* Type  */ | \
+    (((x) & 0x6000) >> 5) /* Width */
+#define CASE(x) \
+    case HASH(x): \
+        return #x
 
-#define VMCS_NAME_NUMBER 256
-/* including the trailing 0 */
-#define VMCS_NAME_MAX_ENTRY 0x40
-
-unsigned char *get_vmcsname_entry(int num)
-{
-    unsigned char *entry;
-    entry = (unsigned char *)vmcs_names + num * VMCS_NAME_MAX_ENTRY;
-    return entry;
+    switch (HASH(num)) {
+    CASE(VMX_PIN_CONTROLS);
+    CASE(VMX_PRIMARY_PROCESSOR_CONTROLS);
+    CASE(VMX_SECONDARY_PROCESSOR_CONTROLS);
+    CASE(VMX_EXCEPTION_BITMAP);
+    CASE(VMX_PAGE_FAULT_ERROR_CODE_MASK);
+    CASE(VMX_PAGE_FAULT_ERROR_CODE_MATCH);
+    CASE(VMX_EXIT_CONTROLS);
+    CASE(VMX_EXIT_MSR_STORE_COUNT);
+    CASE(VMX_EXIT_MSR_LOAD_COUNT);
+    CASE(VMX_ENTRY_CONTROLS);
+    CASE(VMX_ENTRY_MSR_LOAD_COUNT);
+    CASE(VMX_ENTRY_INTERRUPT_INFO);
+    CASE(VMX_ENTRY_EXCEPTION_ERROR_CODE);
+    CASE(VMX_ENTRY_INSTRUCTION_LENGTH);
+    CASE(VMX_TPR_THRESHOLD);
+    CASE(VMX_CR0_MASK);
+    CASE(VMX_CR4_MASK);
+    CASE(VMX_CR0_READ_SHADOW);
+    CASE(VMX_CR4_READ_SHADOW);
+    CASE(VMX_CR3_TARGET_COUNT);
+    CASE(VMX_CR3_TARGET_VAL_BASE);
+    CASE(VMX_VPID);
+    CASE(VMX_IO_BITMAP_A);
+    CASE(VMX_IO_BITMAP_B);
+    CASE(VMX_MSR_BITMAP);
+    CASE(VMX_EXIT_MSR_STORE_ADDRESS);
+    CASE(VMX_EXIT_MSR_LOAD_ADDRESS);
+    CASE(VMX_ENTRY_MSR_LOAD_ADDRESS);
+    CASE(VMX_TSC_OFFSET);
+    CASE(VMX_VAPIC_PAGE);
+    CASE(VMX_APIC_ACCESS_PAGE);
+    CASE(VMX_EPTP);
+    CASE(VMX_PREEMPTION_TIMER);
+    CASE(VMX_INSTRUCTION_ERROR_CODE);
+    CASE(VM_EXIT_INFO_REASON);
+    CASE(VM_EXIT_INFO_INTERRUPT_INFO);
+    CASE(VM_EXIT_INFO_EXCEPTION_ERROR_CODE);
+    CASE(VM_EXIT_INFO_IDT_VECTORING);
+    CASE(VM_EXIT_INFO_IDT_VECTORING_ERROR_CODE);
+    CASE(VM_EXIT_INFO_INSTRUCTION_LENGTH);
+    CASE(VM_EXIT_INFO_INSTRUCTION_INFO);
+    CASE(VM_EXIT_INFO_QUALIFICATION);
+    CASE(VM_EXIT_INFO_IO_ECX);
+    CASE(VM_EXIT_INFO_IO_ESI);
+    CASE(VM_EXIT_INFO_IO_EDI);
+    CASE(VM_EXIT_INFO_IO_EIP);
+    CASE(VM_EXIT_INFO_GUEST_LINEAR_ADDRESS);
+    CASE(VM_EXIT_INFO_GUEST_PHYSICAL_ADDRESS);
+    CASE(HOST_RIP);
+    CASE(HOST_RSP);
+    CASE(HOST_CR0);
+    CASE(HOST_CR3);
+    CASE(HOST_CR4);
+    CASE(HOST_CS_SELECTOR);
+    CASE(HOST_DS_SELECTOR);
+    CASE(HOST_ES_SELECTOR);
+    CASE(HOST_FS_SELECTOR);
+    CASE(HOST_GS_SELECTOR);
+    CASE(HOST_SS_SELECTOR);
+    CASE(HOST_TR_SELECTOR);
+    CASE(HOST_FS_BASE);
+    CASE(HOST_GS_BASE);
+    CASE(HOST_TR_BASE);
+    CASE(HOST_GDTR_BASE);
+    CASE(HOST_IDTR_BASE);
+    CASE(HOST_SYSENTER_CS);
+    CASE(HOST_SYSENTER_ESP);
+    CASE(HOST_SYSENTER_EIP);
+    CASE(HOST_PAT);
+    CASE(HOST_EFER);
+    CASE(HOST_PERF_GLOBAL_CTRL);
+    CASE(GUEST_RIP);
+    CASE(GUEST_RFLAGS);
+    CASE(GUEST_RSP);
+    CASE(GUEST_CR0);
+    CASE(GUEST_CR3);
+    CASE(GUEST_CR4);
+    CASE(GUEST_ES_SELECTOR);
+    CASE(GUEST_CS_SELECTOR);
+    CASE(GUEST_SS_SELECTOR);
+    CASE(GUEST_DS_SELECTOR);
+    CASE(GUEST_FS_SELECTOR);
+    CASE(GUEST_GS_SELECTOR);
+    CASE(GUEST_LDTR_SELECTOR);
+    CASE(GUEST_TR_SELECTOR);
+    CASE(GUEST_ES_AR);
+    CASE(GUEST_CS_AR);
+    CASE(GUEST_SS_AR);
+    CASE(GUEST_DS_AR);
+    CASE(GUEST_FS_AR);
+    CASE(GUEST_GS_AR);
+    CASE(GUEST_LDTR_AR);
+    CASE(GUEST_TR_AR);
+    CASE(GUEST_ES_BASE);
+    CASE(GUEST_CS_BASE);
+    CASE(GUEST_SS_BASE);
+    CASE(GUEST_DS_BASE);
+    CASE(GUEST_FS_BASE);
+    CASE(GUEST_GS_BASE);
+    CASE(GUEST_LDTR_BASE);
+    CASE(GUEST_TR_BASE);
+    CASE(GUEST_GDTR_BASE);
+    CASE(GUEST_IDTR_BASE);
+    CASE(GUEST_ES_LIMIT);
+    CASE(GUEST_CS_LIMIT);
+    CASE(GUEST_SS_LIMIT);
+    CASE(GUEST_DS_LIMIT);
+    CASE(GUEST_FS_LIMIT);
+    CASE(GUEST_GS_LIMIT);
+    CASE(GUEST_LDTR_LIMIT);
+    CASE(GUEST_TR_LIMIT);
+    CASE(GUEST_GDTR_LIMIT);
+    CASE(GUEST_IDTR_LIMIT);
+    CASE(GUEST_VMCS_LINK_PTR);
+    CASE(GUEST_DEBUGCTL);
+    CASE(GUEST_PAT);
+    CASE(GUEST_EFER);
+    CASE(GUEST_PERF_GLOBAL_CTRL);
+    CASE(GUEST_PDPTE0);
+    CASE(GUEST_PDPTE1);
+    CASE(GUEST_PDPTE2);
+    CASE(GUEST_PDPTE3);
+    CASE(GUEST_DR7);
+    CASE(GUEST_PENDING_DBE);
+    CASE(GUEST_SYSENTER_CS);
+    CASE(GUEST_SYSENTER_ESP);
+    CASE(GUEST_SYSENTER_EIP);
+    CASE(GUEST_SMBASE);
+    CASE(GUEST_INTERRUPTIBILITY);
+    CASE(GUEST_ACTIVITY_STATE);
+    default:
+        return "";
+    }
+#undef HASH
+#undef CASE
 }
 
 void dump_vmcs(struct vcpu_t *vcpu)
 {
     uint32_t i, enc, n;
-    unsigned char *name;
+    const char *name;
 
     uint32_t *list = dump_vmcs_list;
     n = ARRAY_ELEMENTS(dump_vmcs_list);
 
     for (i = 0; i < n; i++) {
         enc = list[i];
-        name = get_vmcsname_entry(vmcs_hash(enc));
-        vmread_dump(vcpu, enc, (char *)name);
+        name = get_vmcs_component_name(enc);
+        vmread_dump(vcpu, enc, name);
     }
-}
-
-static void setup_vmcs_name(int item, char *s)
-{
-    char *dest;
-    int i = 0;
-    int len = strlen(s) + 1;
-
-    if (!vmcs_names)
-        return;
-    dest = (char *)vmcs_names + item * VMCS_NAME_MAX_ENTRY;
-
-    if (len >= VMCS_NAME_MAX_ENTRY)
-        len = VMCS_NAME_MAX_ENTRY;
-
-    while(((*dest++ = *s++) != '\0') && (i < len))
-        i++;
-}
-
-void dump_vmcs_exit(void)
-{
-    if (!vmcs_names)
-        return;
-    hax_vfree(vmcs_names, VMCS_NAME_NUMBER * VMCS_NAME_MAX_ENTRY);
-}
-
-int dump_vmcs_init(void)
-{
-    vmcs_names = hax_vmalloc( VMCS_NAME_NUMBER * VMCS_NAME_MAX_ENTRY, 0);
-
-    if (!vmcs_names)
-        return -ENOMEM;
-
-    setup_vmcs_name(10, "VMX_PIN_CONTROLS");
-    setup_vmcs_name(6, "VMX_PRIMARY_PROCESSOR_CONTROLS");
-    setup_vmcs_name(35, "VMX_SECONDARY_PROCESSOR_CONTROLS");
-    setup_vmcs_name(2, "VMX_EXCEPTION_BITMAP");
-    setup_vmcs_name(18, "VMX_PAGE_FAULT_ERROR_CODE_MASK");
-    setup_vmcs_name(14, "VMX_PAGE_FAULT_ERROR_CODE_MATCH");
-    setup_vmcs_name(62, "VMX_EXIT_CONTROLS");
-    setup_vmcs_name(87, "VMX_EXIT_MSR_STORE_COUNT");
-    setup_vmcs_name(132, "VMX_EXIT_MSR_LOAD_COUNT");
-    setup_vmcs_name(140, "VMX_ENTRY_CONTROLS");
-    setup_vmcs_name(136, "VMX_ENTRY_MSR_LOAD_COUNT");
-    setup_vmcs_name(147, "VMX_ENTRY_INTERRUPT_INFO");
-    setup_vmcs_name(77, "VMX_ENTRY_EXCEPTION_ERROR_CODE");
-    setup_vmcs_name(69, "VMX_ENTRY_INSTRUCTION_LENGTH");
-    setup_vmcs_name(73, "VMX_TPR_THRESHOLD");
-    setup_vmcs_name(51, "VMX_CR0_MASK");
-    setup_vmcs_name(47, "VMX_CR4_MASK");
-    setup_vmcs_name(43, "VMX_CR0_READ_SHADOW");
-    setup_vmcs_name(59, "VMX_CR4_READ_SHADOW");
-    setup_vmcs_name(39, "VMX_CR3_TARGET_COUNT");
-    setup_vmcs_name(55, "VMX_CR3_TARGET_VAL_BASE");
-    setup_vmcs_name(56, "VMX_VPID");
-    setup_vmcs_name(114, "VMX_IO_BITMAP_A");
-    setup_vmcs_name(110, "VMX_IO_BITMAP_B");
-    setup_vmcs_name(106, "VMX_MSR_BITMAP");
-    setup_vmcs_name(122, "VMX_EXIT_MSR_STORE_ADDRESS");
-    setup_vmcs_name(118, "VMX_EXIT_MSR_LOAD_ADDRESS");
-    setup_vmcs_name(143, "VMX_ENTRY_MSR_LOAD_ADDRESS");
-    setup_vmcs_name(236, "VMX_TSC_OFFSET");
-    setup_vmcs_name(244, "VMX_VAPIC_PAGE");
-    setup_vmcs_name(240, "VMX_APIC_ACCESS_PAGE");
-    setup_vmcs_name(173, "VMX_EPTP");
-    setup_vmcs_name(48, "VMX_PREEMPTION_TIMER");
-    setup_vmcs_name(50, "VMX_INSTRUCTION_ERROR_CODE");
-    setup_vmcs_name(46, "VM_EXIT_INFO_REASON");
-    setup_vmcs_name(42, "VM_EXIT_INFO_INTERRUPT_INFO");
-    setup_vmcs_name(58, "VM_EXIT_INFO_EXCEPTION_ERROR_CODE");
-    setup_vmcs_name(54, "VM_EXIT_INFO_IDT_VECTORING");
-    setup_vmcs_name(79, "VM_EXIT_INFO_IDT_VECTORING_ERROR_CODE");
-    setup_vmcs_name(102, "VM_EXIT_INFO_INSTRUCTION_LENGTH");
-    setup_vmcs_name(127, "VM_EXIT_INFO_INSTRUCTION_INFO");
-    setup_vmcs_name(115, "VM_EXIT_INFO_QUALIFICATION");
-    setup_vmcs_name(111, "VM_EXIT_INFO_IO_ECX");
-    setup_vmcs_name(107, "VM_EXIT_INFO_IO_ESI");
-    setup_vmcs_name(123, "VM_EXIT_INFO_IO_EDI");
-    setup_vmcs_name(119, "VM_EXIT_INFO_IO_EIP");
-    setup_vmcs_name(144, "VM_EXIT_INFO_GUEST_LINEAR_ADDRESS");
-    setup_vmcs_name(53, "VM_EXIT_INFO_GUEST_PHYSICAL_ADDRESS");
-    setup_vmcs_name(148, "HOST_RIP");
-    setup_vmcs_name(137, "HOST_RSP");
-    setup_vmcs_name(11, "HOST_CR0");
-    setup_vmcs_name(7, "HOST_CR3");
-    setup_vmcs_name(3, "HOST_CR4");
-    setup_vmcs_name(96, "HOST_CS_SELECTOR");
-    setup_vmcs_name(108, "HOST_DS_SELECTOR");
-    setup_vmcs_name(100, "HOST_ES_SELECTOR");
-    setup_vmcs_name(104, "HOST_FS_SELECTOR");
-    setup_vmcs_name(129, "HOST_GS_SELECTOR");
-    setup_vmcs_name(92, "HOST_SS_SELECTOR");
-    setup_vmcs_name(152, "HOST_TR_SELECTOR");
-    setup_vmcs_name(19, "HOST_FS_BASE");
-    setup_vmcs_name(15, "HOST_GS_BASE");
-    setup_vmcs_name(40, "HOST_TR_BASE");
-    setup_vmcs_name(63, "HOST_GDTR_BASE");
-    setup_vmcs_name(88, "HOST_IDTR_BASE");
-    setup_vmcs_name(41, "HOST_SYSENTER_CS");
-    setup_vmcs_name(133, "HOST_SYSENTER_ESP");
-    setup_vmcs_name(141, "HOST_SYSENTER_EIP");
-    setup_vmcs_name(33, "GUEST_RIP");
-    setup_vmcs_name(44, "GUEST_RFLAGS");
-    setup_vmcs_name(71, "GUEST_RSP");
-    setup_vmcs_name(8, "GUEST_CR0");
-    setup_vmcs_name(4, "GUEST_CR3");
-    setup_vmcs_name(0, "GUEST_CR4");
-    setup_vmcs_name(74, "GUEST_ES_SELECTOR");
-    setup_vmcs_name(70, "GUEST_CS_SELECTOR");
-    setup_vmcs_name(66, "GUEST_SS_SELECTOR");
-    setup_vmcs_name(82, "GUEST_DS_SELECTOR");
-    setup_vmcs_name(78, "GUEST_FS_SELECTOR");
-    setup_vmcs_name(103, "GUEST_GS_SELECTOR");
-    setup_vmcs_name(126, "GUEST_LDTR_SELECTOR");
-    setup_vmcs_name(151, "GUEST_TR_SELECTOR");
-    setup_vmcs_name(135, "GUEST_ES_AR");
-    setup_vmcs_name(146, "GUEST_CS_AR");
-    setup_vmcs_name(76, "GUEST_SS_AR");
-    setup_vmcs_name(68, "GUEST_DS_AR");
-    setup_vmcs_name(72, "GUEST_FS_AR");
-    setup_vmcs_name(34, "GUEST_GS_AR");
-    setup_vmcs_name(45, "GUEST_LDTR_AR");
-    setup_vmcs_name(31, "GUEST_TR_AR");
-    setup_vmcs_name(16, "GUEST_ES_BASE");
-    setup_vmcs_name(12, "GUEST_CS_BASE");
-    setup_vmcs_name(37, "GUEST_SS_BASE");
-    setup_vmcs_name(60, "GUEST_DS_BASE");
-    setup_vmcs_name(85, "GUEST_FS_BASE");
-    setup_vmcs_name(130, "GUEST_GS_BASE");
-    setup_vmcs_name(138, "GUEST_LDTR_BASE");
-    setup_vmcs_name(134, "GUEST_TR_BASE");
-    setup_vmcs_name(145, "GUEST_GDTR_BASE");
-    setup_vmcs_name(75, "GUEST_IDTR_BASE");
-    setup_vmcs_name(9, "GUEST_ES_LIMIT");
-    setup_vmcs_name(5, "GUEST_CS_LIMIT");
-    setup_vmcs_name(1, "GUEST_SS_LIMIT");
-    setup_vmcs_name(17, "GUEST_DS_LIMIT");
-    setup_vmcs_name(13, "GUEST_FS_LIMIT");
-    setup_vmcs_name(38, "GUEST_GS_LIMIT");
-    setup_vmcs_name(61, "GUEST_LDTR_LIMIT");
-    setup_vmcs_name(86, "GUEST_TR_LIMIT");
-    setup_vmcs_name(131, "GUEST_GDTR_LIMIT");
-    setup_vmcs_name(139, "GUEST_IDTR_LIMIT");
-    setup_vmcs_name(28, "GUEST_VMCS_LINK_PTR");
-    setup_vmcs_name(24, "GUEST_DEBUGCTL");
-    setup_vmcs_name(20, "GUEST_PAT");
-    setup_vmcs_name(36, "GUEST_EFER");
-    setup_vmcs_name(32, "GUEST_PERF_GLOBAL_CTRL");
-    setup_vmcs_name(57, "GUEST_PDPTE0");
-    setup_vmcs_name(80, "GUEST_PDPTE1");
-    setup_vmcs_name(105, "GUEST_PDPTE2");
-    setup_vmcs_name(150, "GUEST_PDPTE3");
-    setup_vmcs_name(67, "GUEST_DR7");
-    setup_vmcs_name(30, "GUEST_PENDING_DBE");
-    setup_vmcs_name(49, "GUEST_SYSENTER_CS");
-    setup_vmcs_name(26, "GUEST_SYSENTER_ESP");
-    setup_vmcs_name(22, "GUEST_SYSENTER_EIP");
-    setup_vmcs_name(52, "GUEST_SMBASE");
-    setup_vmcs_name(27, "GUEST_INTERRUPTIBILITY");
-    setup_vmcs_name(23, "GUEST_ACTIVITY_STATE");
-    return 0;
 }

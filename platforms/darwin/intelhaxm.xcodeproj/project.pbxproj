@@ -68,7 +68,6 @@
 		B98ECFC913A059BB00485DDB /* vmx.h in Headers */ = {isa = PBXBuildFile; fileRef = B98ECFB013A059BB00485DDB /* vmx.h */; };
 		B98ECFCB13A059BB00485DDB /* vcpu.c in Sources */ = {isa = PBXBuildFile; fileRef = B98ECFB213A059BB00485DDB /* vcpu.c */; };
 		B98ECFCC13A059BB00485DDB /* vm.c in Sources */ = {isa = PBXBuildFile; fileRef = B98ECFB313A059BB00485DDB /* vm.c */; };
-		B98ECFCD13A059BB00485DDB /* vmcs_names.c in Sources */ = {isa = PBXBuildFile; fileRef = B98ECFB413A059BB00485DDB /* vmcs_names.c */; };
 		B98ECFCE13A059BB00485DDB /* vmx.c in Sources */ = {isa = PBXBuildFile; fileRef = B98ECFB513A059BB00485DDB /* vmx.c */; };
 		CF0539AD1EE536CB00FAD569 /* chunk.c in Sources */ = {isa = PBXBuildFile; fileRef = CF0539AC1EE536CB00FAD569 /* chunk.c */; };
 		CF148D601EE6BAEB0097A058 /* memslot.c in Sources */ = {isa = PBXBuildFile; fileRef = CF148D5F1EE6BAEB0097A058 /* memslot.c */; };
@@ -157,7 +156,6 @@
 		B98ECFB013A059BB00485DDB /* vmx.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = vmx.h; sourceTree = "<group>"; };
 		B98ECFB213A059BB00485DDB /* vcpu.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = vcpu.c; path = ../../core/vcpu.c; sourceTree = SOURCE_ROOT; };
 		B98ECFB313A059BB00485DDB /* vm.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = vm.c; path = ../../core/vm.c; sourceTree = SOURCE_ROOT; };
-		B98ECFB413A059BB00485DDB /* vmcs_names.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = vmcs_names.c; path = ../../core/vmcs_names.c; sourceTree = SOURCE_ROOT; };
 		B98ECFB513A059BB00485DDB /* vmx.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = vmx.c; path = ../../core/vmx.c; sourceTree = SOURCE_ROOT; };
 		CF0539AC1EE536CB00FAD569 /* chunk.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = chunk.c; path = ../../core/chunk.c; sourceTree = "<group>"; };
 		CF148D5F1EE6BAEB0097A058 /* memslot.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = memslot.c; path = ../../core/memslot.c; sourceTree = "<group>"; };
@@ -239,7 +237,6 @@
 				FA8F651D208BAD9A00C8E91F /* emulate.c */,
 				FA8F651F208BC1BA00C8E91F /* emulate_ops.asm */,
 				B98ECFB313A059BB00485DDB /* vm.c */,
-				B98ECFB413A059BB00485DDB /* vmcs_names.c */,
 				B98ECFB513A059BB00485DDB /* vmx.c */,
 				43C9A9E6138DDA93000A1071 /* hax_host.h */,
 				1A224C3CFF42312311CA2CB7 /* com_intel_hax.c */,
@@ -445,7 +442,6 @@
 				FA8F651E208BAD9A00C8E91F /* emulate.c in Sources */,
 				CFB6FDDB1ED43C540048A750 /* ramblock.c in Sources */,
 				CFD697471ED2DC9700F10631 /* gpa_space.c in Sources */,
-				B98ECFCD13A059BB00485DDB /* vmcs_names.c in Sources */,
 				B98ECFCE13A059BB00485DDB /* vmx.c in Sources */,
 				43440F3113A3B69A002E1442 /* hax_mem_alloc.cpp in Sources */,
 				43440F3213A3B69A002E1442 /* hax_wrapper.cpp in Sources */,

@@ -650,7 +650,7 @@ mword ASMCALL asm_vmread(uint32_t component);
 void ASMCALL asm_vmwrite(uint32_t component, mword val);
 
 uint64_t vmread(struct vcpu_t *vcpu, component_index_t component);
-uint64_t vmread_dump(struct vcpu_t *vcpu, unsigned enc, char *name);
+uint64_t vmread_dump(struct vcpu_t *vcpu, unsigned enc, const char *name);
 void vmx_vmwrite(struct vcpu_t *vcpu, const char *name,
                  component_index_t component, uint64_t source_val);
 
