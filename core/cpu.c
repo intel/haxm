@@ -34,7 +34,7 @@
 #include "include/cpuid.h"
 #include "include/vcpu.h"
 #include "include/debug.h"
-#include "include/dump_vmcs.h"
+#include "include/dump.h"
 #include "include/vtlb.h"
 #include "include/intr.h"
 #include "include/ept.h"
@@ -136,26 +136,7 @@ void cpu_init_vmx(void *arg)
     if ((cpu_data->cpu_id == 0 ||
          memcmp(&vmx_info, &hax_cpu_data[0]->vmx_info,
                 sizeof(vmx_info)) != 0)) {
-        hax_log("HAX: VMCS Rev %d\n", vmx_info._vmcs_revision_id);
-
-        hax_log("HAX: VMX basic info      : %016llx\n", vmx_info._basic_info);
-        hax_log("HAX: VMX misc info       : %08llx\n", vmx_info._miscellaneous);
-        hax_log("HAX: VMX revision control: %d\n", vmx_info._vmcs_revision_id);
-        hax_log("HAX: VMX exit ctls   : %x, %x\n", vmx_info.exit_ctls_0,
-                vmx_info.exit_ctls_1);
-        hax_log("HAX: VMX entry ctls  : %x, %x\n", vmx_info.entry_ctls_0,
-                vmx_info.entry_ctls_1);
-        hax_log("HAX: VMX pin ctls    : %x, %x\n", vmx_info.pin_ctls_0,
-                vmx_info.pin_ctls_1);
-        hax_log("HAX: VMX cpu prim ctrls  : %x, %x\n", vmx_info.pcpu_ctls_0,
-                vmx_info.pcpu_ctls_1);
-        hax_log("HAX: VMX cpu sec ctrl    : %x, %x\n", vmx_info.scpu_ctls_0,
-                vmx_info.scpu_ctls_1);
-        hax_log("HAX: VMX fixed CR0 bits  : %llx, %llx\n", vmx_info._cr0_fixed_0,
-                vmx_info._cr0_fixed_1);
-        hax_log("HAX: VMX fixed CR4 bits  : %llx, %llx\n", vmx_info._cr4_fixed_0,
-                vmx_info._cr4_fixed_1);
-        hax_log("HAX: VMX EPT/VPID caps   : %016llx\n", vmx_info._ept_cap);
+        dump_vmx_info(&vmx_info);
     }
 #endif
 
@@ -282,44 +263,6 @@ static int cpu_vmexit_handler(struct vcpu_t *vcpu, exit_reason_t exit_reason,
     }
     return ret;
 }
-/*Remove this function. It only for debug*/
-/*void dump_cs_ds(uint16_t cs, uint16_t ds)
-{
-    struct system_desc_t desc;
-    struct seg_desc_t *seg_desc;
-
-    get_kernel_gdt(&desc);
-
-    seg_desc = (struct seg_desc_t *)((mword)desc._base) + (cs >> 3);
-
-    hax_debug("\nsel: %x\n", cs >> 3);
-    hax_debug("type: %x\n", seg_desc->_type);
-    hax_debug("s: %x\n", seg_desc->_s);
-    hax_debug("present: %x\n", seg_desc->_present);
-    hax_debug("avl: %x\n", seg_desc->_avl);
-    hax_debug("long: %x\n", seg_desc->_longmode);
-    hax_debug("d/b: %x\n", seg_desc->_d);
-    hax_debug("g: %x\n", seg_desc->_granularity);
-    hax_debug("base0: %x\n", seg_desc->_base0);
-    hax_debug("limit: %x\n", seg_desc->_limit0);
-    hax_debug("dpl: %x\n", seg_desc->_limit0);
-
-    hax_debug("raw: %llx\n", seg_desc->_raw);
-    seg_desc = (struct seg_desc_t *)((mword)desc._base) + (ds >> 3);
-
-    hax_debug("\nsel: %x\n", ds >> 3);
-    hax_debug("type: %x\n", seg_desc->_type);
-    hax_debug("s: %x\n", seg_desc->_s);
-    hax_debug("present: %x\n", seg_desc->_present);
-    hax_debug("avl: %x\n", seg_desc->_avl);
-    hax_debug("long: %x\n", seg_desc->_longmode);
-    hax_debug("d/b: %x\n", seg_desc->_d);
-    hax_debug("g: %x\n", seg_desc->_granularity);
-    hax_debug("base0: %x\n", seg_desc->_base0);
-    hax_debug("limit: %x\n", seg_desc->_limit0);
-    hax_debug("dpl: %x\n", seg_desc->_dpl);
-    hax_debug("raw: %llx\n", seg_desc->_raw);
-}*/
 
 #ifdef CONFIG_DARWIN
 __attribute__ ((__noinline__))

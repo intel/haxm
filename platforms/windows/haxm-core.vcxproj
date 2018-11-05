@@ -118,7 +118,7 @@
     <ClCompile Include="..\..\core\chunk.c" />
     <ClCompile Include="..\..\core\cpu.c" />
     <ClCompile Include="..\..\core\cpuid.c" />
-    <ClCompile Include="..\..\core\dump_vmcs.c" />
+    <ClCompile Include="..\..\core\dump.c" />
     <ClCompile Include="..\..\core\emulate.c" />
     <ClCompile Include="..\..\core\ept.c" />
     <ClCompile Include="..\..\core\ept2.c" />
@@ -159,9 +159,6 @@
     <None Exclude="@(None)" Include="*.ico;*.cur;*.bmp;*.dlg;*.rct;*.gif;*.jpg;*.jpeg;*.wav;*.jpe;*.tiff;*.tif;*.png;*.rc2" />
     <None Exclude="@(None)" Include="*.def;*.bat;*.hpj;*.asmx" />
     <None Include="packages.haxm-core.config" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Exclude="@(ClInclude)" Include="*.h;*.hpp;*.hxx;*.hm;*.inl;*.xsd" />
   </ItemGroup>
   <!-- /Necessary to pick up proper files from local directory when in the IDE-->
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

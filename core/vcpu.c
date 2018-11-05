@@ -38,7 +38,7 @@
 #include "include/cpuid.h"
 #include "include/vm.h"
 #include "include/debug.h"
-#include "include/dump_vmcs.h"
+#include "include/dump.h"
 
 #include "include/intr.h"
 #include "include/vtlb.h"

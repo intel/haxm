@@ -28,9 +28,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef HAX_CORE_DUMP_VMCS_H_
-#define HAX_CORE_DUMP_VMCS_H_
+#ifndef HAX_CORE_DUMP_H_
+#define HAX_CORE_DUMP_H_
 
 void dump_vmcs(struct vcpu_t *vcpu);
 
-#endif  // HAX_CORE_DUMP_VMCS_H_
+void dump_vmx_info(struct info_t *info);
+
+#endif  // HAX_CORE_DUMP_H_

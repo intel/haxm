@@ -35,7 +35,6 @@
 #include "include/config.h"
 #include "include/hax_driver.h"
 #include "include/vm.h"
-#include "include/dump_vmcs.h"
 #include "../include/hax.h"
 #include "../include/hax_release_ver.h"
 
@@ -595,5 +594,3 @@ int hax_module_exit(void)
 
     return 0;
 }
-
-int hax_put_vcpu(struct vcpu_t *vcpu);
