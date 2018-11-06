@@ -33,11 +33,22 @@
 
 const char *name_vmcs_component(int value)
 {
+    // The following macro compactifies the VMCS component encoding to 9 bits,
+    // thus all major compilers will optimize the switch-case via jump tables.
+    // Compilers will ensure this is a perfect hash function, by preventing
+    // the two identical cases to exist.
+    // The original encoding is described by:
     // Intel SDM Vol. 3C: Table 24-17. Structure of VMCS Component Encoding
+    // Our compact encoding is described by:
+    // [W WTTI IIII]  W=Width, T=Type, I=Index
+
+    // As of this writing, no VMCS component is encoded with an Index of more
+    // than 5 bits (Intel SDM Vol. 3D, Appendix B: Field Encoding in VMCS),
+    // even though 9 bits are allocated to Index.
 #define HASH(x) \
     (((x) & 0x003E) >> 1) /* Index */ | \
-    (((x) & 0x0C00) >> 4) /* Type  */ | \
-    (((x) & 0x6000) >> 5) /* Width */
+    (((x) & 0x0C00) >> 5) /* Type  */ | \
+    (((x) & 0x6000) >> 6) /* Width */
 #define CASE(x) \
     case HASH(x): \
         return #x

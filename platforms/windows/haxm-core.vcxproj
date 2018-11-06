@@ -113,7 +113,6 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <!-- We only add items (e.g. form ClSourceFiles) that do not already exist (e.g in the ClCompile list), this avoids duplication -->
     <ClCompile Include="..\..\core\name.c" />
     <ClCompile Include="..\..\core\chunk.c" />
     <ClCompile Include="..\..\core\cpu.c" />
@@ -135,6 +134,7 @@
     <ClCompile Include="..\..\core\vm.c" />
     <ClCompile Include="..\..\core\vmx.c" />
     <ClCompile Include="..\..\core\vtlb.c" />
+    <!-- We only add items (e.g. form ClSourceFiles) that do not already exist (e.g in the ClCompile list), this avoids duplication -->
     <ClCompile Include="@(ClSourceFiles)" Exclude="@(ClCompile)" />
     <ResourceCompile Include="@(RcSourceFiles)" Exclude="@(ResourceCompile)" />
     <Midl Include="@(IdlSourceFiles)" Exclude="@(Midl)" />

@@ -132,7 +132,7 @@ void cpu_init_vmx(void *arg)
     /* get VMX capabilities */
     vmx_read_info(&vmx_info);
 #if 0
-    //hax_log("-----------cpu %d---------------\n", cpu_data->cpu_id);
+    //hax_info("-----------cpu %d---------------\n", cpu_data->cpu_id);
 
     if ((cpu_data->cpu_id == 0 ||
          memcmp(&vmx_info, &hax_cpu_data[0]->vmx_info,
@@ -142,13 +142,13 @@ void cpu_init_vmx(void *arg)
 #endif
 
     if (vmx_info._vmcs_region_length > HAX_PAGE_SIZE)
-        hax_log("VMCS of %d bytes not supported by this Hypervisor. "
+        hax_info("VMCS of %d bytes not supported by this Hypervisor. "
                 "Max supported %u bytes\n",
                 vmx_info._vmcs_region_length, (uint32_t)HAX_PAGE_SIZE);
     vmxon = (vmcs_t *)hax_page_va(cpu_data->vmxon_page);
     vmxon->_revision_id = vmx_info._vmcs_revision_id;
 
-    //hax_log("enabled VMX mode (vmxon = %p)\n",
+    //hax_info("enabled VMX mode (vmxon = %p)\n",
     //        hax_page_va(cpu_data->vmxon_page));
 
     vmx_read_info(&cpu_data->vmx_info);
@@ -654,7 +654,7 @@ static void cpu_vmentry_failed(struct vcpu_t *vcpu, vmx_result_t result)
     reason = vmread(vcpu, VM_EXIT_INFO_REASON);
     if (result == VMX_FAIL_VALID) {
         error = vmread(vcpu, VMX_INSTRUCTION_ERROR_CODE);
-        hax_error("VMfailValid. Prev exit: %llx. Error code: %lld (%s)\n",
+        hax_error("VMfailValid. Prev exit: %llx. Error code: %llu (%s)\n",
                   reason, error, name_vmx_error(error));
     } else {
         hax_error("VMfailInvalid. Prev exit: %llx no error code\n",

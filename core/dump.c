@@ -195,30 +195,30 @@ void dump_vmcs(struct vcpu_t *vcpu)
 
 void dump_vmx_info(struct info_t *info)
 {
-    hax_log("VMCS Rev %d\n", info->_vmcs_revision_id);
+    hax_info("VMCS Rev %d\n", info->_vmcs_revision_id);
 
-    hax_log("VMX basic info       : 0x%016llX\n",
-            info->_basic_info);
-    hax_log("VMX misc info        : 0x%08llX\n",
-            info->_miscellaneous);
-    hax_log("VMX revision control : %d\n",
-            info->_vmcs_revision_id);
-    hax_log("VMX exit ctls        : 0x%X, 0x%X\n",
-            info->exit_ctls_0, info->exit_ctls_1);
-    hax_log("VMX entry ctls       : 0x%X, 0x%X\n",
-            info->entry_ctls_0, info->entry_ctls_1);
-    hax_log("VMX pin ctls         : 0x%X, 0x%X\n",
-            info->pin_ctls_0, info->pin_ctls_1);
-    hax_log("VMX cpu prim ctrls   : 0x%X, 0x%X\n",
-            info->pcpu_ctls_0, info->pcpu_ctls_1);
-    hax_log("VMX cpu sec ctrl     : 0x%X, 0x%X\n",
-            info->scpu_ctls_0, info->scpu_ctls_1);
-    hax_log("VMX fixed CR0 bits   : 0x%llX, %llX\n",
-            info->_cr0_fixed_0, info->_cr0_fixed_1);
-    hax_log("VMX fixed CR4 bits   : 0x%llX, %llX\n",
-            info->_cr4_fixed_0, info->_cr4_fixed_1);
-    hax_log("VMX EPT/VPID caps    : 0x%016llX\n",
-            info->_ept_cap);
+    hax_info("VMX basic info       : 0x%016llX\n",
+             info->_basic_info);
+    hax_info("VMX misc info        : 0x%016llX\n",
+             info->_miscellaneous);
+    hax_info("VMX revision control : %u\n",
+             info->_vmcs_revision_id);
+    hax_info("VMX exit ctls        : 0x%X, 0x%X\n",
+             info->exit_ctls_0, info->exit_ctls_1);
+    hax_info("VMX entry ctls       : 0x%X, 0x%X\n",
+             info->entry_ctls_0, info->entry_ctls_1);
+    hax_info("VMX pin ctls         : 0x%X, 0x%X\n",
+             info->pin_ctls_0, info->pin_ctls_1);
+    hax_info("VMX cpu prim ctrls   : 0x%X, 0x%X\n",
+             info->pcpu_ctls_0, info->pcpu_ctls_1);
+    hax_info("VMX cpu sec ctrl     : 0x%X, 0x%X\n",
+             info->scpu_ctls_0, info->scpu_ctls_1);
+    hax_info("VMX fixed CR0 bits   : 0x%llX, %llX\n",
+             info->_cr0_fixed_0, info->_cr0_fixed_1);
+    hax_info("VMX fixed CR4 bits   : 0x%llX, %llX\n",
+             info->_cr4_fixed_0, info->_cr4_fixed_1);
+    hax_info("VMX EPT/VPID caps    : 0x%016llX\n",
+             info->_ept_cap);
 }
 
 /*Remove this function. It only for debug*/

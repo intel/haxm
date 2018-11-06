@@ -191,7 +191,7 @@ NTSTATUS HaxClose(PDEVICE_OBJECT DeviceObject, PIRP Irp)
     NTSTATUS ret = STATUS_SUCCESS;
     devext = (struct hax_dev_ext *)DeviceObject->DeviceExtension;
 
-    hax_log("HaxClose device %x at process %p\n", devext->type,
+    hax_info("HaxClose device %x at process %p\n", devext->type,
             (ULONG_PTR)PsGetCurrentThread());
     switch (devext->type) {
         case HAX_DEVEXT_TYPE_UP:
@@ -201,7 +201,7 @@ NTSTATUS HaxClose(PDEVICE_OBJECT DeviceObject, PIRP Irp)
         case HAX_DEVEXT_TYPE_VM:
             vm = &devext->vmdev_ext;
             cvm = vm->cvm;
-            hax_log("Close VM %x\n", vm->vm_id);
+            hax_info("Close VM %x\n", vm->vm_id);
             if (cvm)
                 hax_put_vm(cvm);
             break;
@@ -433,7 +433,7 @@ NTSTATUS HaxVcpuControl(PDEVICE_OBJECT DeviceObject,
         default:
             hax_error("Unknow vcpu ioctl %lx\n",
                       irpSp->Parameters.DeviceIoControl.IoControlCode);
-            hax_log("set regs ioctl %lx get regs %lx", HAX_VCPU_SET_REGS,
+            hax_info("set regs ioctl %lx get regs %lx", HAX_VCPU_SET_REGS,
                     HAX_VCPU_GET_REGS );
             ret = STATUS_INVALID_PARAMETER;
             break;
@@ -487,7 +487,7 @@ NTSTATUS HaxVmControl(PDEVICE_OBJECT DeviceObject, struct hax_vm_windows *ext,
             vm_id = vm->vm_id;
             cvcpu = vcpu_create(cvm, vm, vcpu_id);
             if (!cvcpu) {
-                hax_log("Failed to create vcpu %x on vm %x\n", vcpu_id, vm_id);
+                hax_info("Failed to create vcpu %x on vm %x\n", vcpu_id, vm_id);
                 ret = STATUS_UNSUCCESSFUL;
                 goto done;
             }
@@ -744,7 +744,7 @@ VOID HaxUnloadDriver(__in PDRIVER_OBJECT DriverObject)
     RtlInitUnicodeString(&ntWin32NameString, DOS_DEVICE_NAME);
     IoDeleteSymbolicLink(&ntWin32NameString);
     IoDeleteDevice(HaxDeviceObject);
-    hax_log("Unload the driver\n");
+    hax_info("Unload the driver\n");
     hax_host_exit();
     write_event(HaxDriverUnloaded, DriverObject, NULL, 0);
     HaxDeviceObject = NULL;
