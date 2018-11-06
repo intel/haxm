@@ -28,10 +28,10 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "include/dump.h"
 #include "include/compiler.h"
 #include "include/name.h"
 #include "include/vmx.h"
+#include "include/dump.h"
 #include "../include/hax.h"
 
 static uint32_t dump_vmcs_list[] = {
