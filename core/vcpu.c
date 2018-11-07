@@ -38,7 +38,7 @@
 #include "include/cpuid.h"
 #include "include/vm.h"
 #include "include/debug.h"
-#include "include/dump_vmcs.h"
+#include "include/dump.h"
 
 #include "include/intr.h"
 #include "include/vtlb.h"
@@ -408,7 +408,7 @@ struct vcpu_t *vcpu_create(struct vm_t *vm, void *vm_host, int vcpu_id)
     memset(vcpu, 0, sizeof(struct vcpu_t));
 
     if (hax_vcpu_setup_hax_tunnel(vcpu, &info) < 0) {
-        hax_error("HAX: cannot setup hax_tunnel for vcpu.\n");
+        hax_error("cannot setup hax_tunnel for vcpu.\n");
         goto fail_1;
     }
 
@@ -465,7 +465,7 @@ struct vcpu_t *vcpu_create(struct vm_t *vm, void *vm_host, int vcpu_id)
     // Initialize emulator
     vcpu_init_emulator(vcpu);
 
-    hax_debug("HAX: vcpu %d is created.\n", vcpu->vcpu_id);
+    hax_debug("vcpu %d is created.\n", vcpu->vcpu_id);
     return vcpu;
 fail_7:
     vcpu_vtlb_free(vcpu);
@@ -484,7 +484,7 @@ fail_2:
 fail_1:
     hax_vfree(vcpu, sizeof(struct vcpu_t));
 fail_0:
-    hax_error("HAX: Cannot allocate memory to create vcpu.\n");
+    hax_error("Cannot allocate memory to create vcpu.\n");
     return NULL;
 }
 
@@ -525,7 +525,7 @@ static int _vcpu_teardown(struct vcpu_t *vcpu)
     hax_mutex_free(vcpu->tmutex);
     hax_vfree(vcpu, sizeof(struct vcpu_t));
 
-    hax_info("HAX: vcpu %d is teardown.\n", vcpu_id);
+    hax_info("vcpu %d is teardown.\n", vcpu_id);
     return 0;
 }
 
@@ -1472,7 +1472,7 @@ static void fill_common_vmcs(struct vcpu_t *vcpu)
 
 static void vcpu_prepare(struct vcpu_t *vcpu)
 {
-    hax_debug("HAX: vcpu_prepare current %x, CPU %x\n", vcpu->vcpu_id,
+    hax_debug("vcpu_prepare current %x, CPU %x\n", vcpu->vcpu_id,
               hax_cpuid());
     hax_mutex_lock(vcpu->tmutex);
     fill_common_vmcs(vcpu);

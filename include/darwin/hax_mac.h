@@ -191,8 +191,6 @@ extern int default_hax_log_level;
                 printf("haxm_debug: " x);          \
         }
 
-#define hax_log hax_info
-
 #define hax_panic panic
 
 #define hax_panic_vcpu(v, x...) {     \

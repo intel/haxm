@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 Intel Corporation
+ * Copyright (c) 2018 Kryptos Logic
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -28,11 +28,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef HAX_CORE_DUMP_VMCS_H_
-#define HAX_CORE_DUMP_VMCS_H_
+#ifndef HAX_CORE_NAME_H_
+#define HAX_CORE_NAME_H_
 
-void dump_vmcs(struct vcpu_t *vcpu);
-void dump_vmcs_exit(void);
-int dump_vmcs_init(void);
+const char *name_vmcs_component(int value);
+const char *name_vmx_error(int value);
+const char *name_vmx_exit(int value);
 
-#endif  // HAX_CORE_DUMP_VMCS_H_
+#endif  // HAX_CORE_NAME_H_

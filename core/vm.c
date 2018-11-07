@@ -226,7 +226,7 @@ int hax_vm_core_open(struct vm_t *vm)
 int hax_teardown_vm(struct vm_t *vm)
 {
     if (!hax_list_empty(&(vm->vcpu_list))) {
-        hax_log("Try to teardown non-empty vm\n");
+        hax_info("Try to teardown non-empty vm\n");
         return -1;
     }
 #ifdef HAX_ARCH_X86_32

@@ -113,12 +113,11 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <!-- We only add items (e.g. form ClSourceFiles) that do not already exist (e.g in the ClCompile list), this avoids duplication -->
-    <ClCompile Include="@(ClSourceFiles)" Exclude="@(ClCompile)" />
+    <ClCompile Include="..\..\core\name.c" />
     <ClCompile Include="..\..\core\chunk.c" />
     <ClCompile Include="..\..\core\cpu.c" />
     <ClCompile Include="..\..\core\cpuid.c" />
-    <ClCompile Include="..\..\core\dump_vmcs.c" />
+    <ClCompile Include="..\..\core\dump.c" />
     <ClCompile Include="..\..\core\emulate.c" />
     <ClCompile Include="..\..\core\ept.c" />
     <ClCompile Include="..\..\core\ept2.c" />
@@ -133,9 +132,10 @@
     <ClCompile Include="..\..\core\ramblock.c" />
     <ClCompile Include="..\..\core\vcpu.c" />
     <ClCompile Include="..\..\core\vm.c" />
-    <ClCompile Include="..\..\core\vmcs_names.c" />
     <ClCompile Include="..\..\core\vmx.c" />
     <ClCompile Include="..\..\core\vtlb.c" />
+    <!-- We only add items (e.g. form ClSourceFiles) that do not already exist (e.g in the ClCompile list), this avoids duplication -->
+    <ClCompile Include="@(ClSourceFiles)" Exclude="@(ClCompile)" />
     <ResourceCompile Include="@(RcSourceFiles)" Exclude="@(ResourceCompile)" />
     <Midl Include="@(IdlSourceFiles)" Exclude="@(Midl)" />
     <MessageCompile Include="@(McSourceFiles)" Exclude="@(MessageCompile)" />
@@ -160,9 +160,6 @@
     <None Exclude="@(None)" Include="*.ico;*.cur;*.bmp;*.dlg;*.rct;*.gif;*.jpg;*.jpeg;*.wav;*.jpe;*.tiff;*.tif;*.png;*.rc2" />
     <None Exclude="@(None)" Include="*.def;*.bat;*.hpj;*.asmx" />
     <None Include="packages.haxm-core.config" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Exclude="@(ClInclude)" Include="*.h;*.hpp;*.hxx;*.hm;*.inl;*.xsd" />
   </ItemGroup>
   <!-- /Necessary to pick up proper files from local directory when in the IDE-->
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

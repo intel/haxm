@@ -200,9 +200,6 @@ void hax_error(char *fmt, ...);
 void hax_warning(char *fmt, ...);
 void hax_info(char *fmt, ...);
 void hax_debug(char *fmt, ...);
-void hax_log(char *fmt, ...);
-
-#define hax_log hax_info
 
 #define hax_panic DbgPrint
 

@@ -35,7 +35,6 @@
 #include "include/config.h"
 #include "include/hax_driver.h"
 #include "include/vm.h"
-#include "include/dump_vmcs.h"
 #include "../include/hax.h"
 #include "../include/hax_release_ver.h"
 
@@ -268,9 +267,6 @@ static int hax_vmx_init(void)
     if ((ret = hax_vmx_enable_check()) < 0)
         goto out_5;
 
-    if (dump_vmcs_init())
-        goto out_5;
-
     return 0;
 out_5:
     hax_disable_vmx();
@@ -294,7 +290,6 @@ static int hax_vmx_exit(void)
     hax_free_pages(msr_bitmap_page);
     hax_free_pages(io_bitmap_page_b);
     hax_free_pages(io_bitmap_page_a);
-    dump_vmcs_exit();
     return 0;
 }
 
@@ -599,5 +594,3 @@ int hax_module_exit(void)
 
     return 0;
 }
-
-int hax_put_vcpu(struct vcpu_t *vcpu);

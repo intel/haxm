@@ -34,7 +34,8 @@
 #include "include/cpuid.h"
 #include "include/vcpu.h"
 #include "include/debug.h"
-#include "include/dump_vmcs.h"
+#include "include/dump.h"
+#include "include/name.h"
 #include "include/vtlb.h"
 #include "include/intr.h"
 #include "include/ept.h"
@@ -131,42 +132,23 @@ void cpu_init_vmx(void *arg)
     /* get VMX capabilities */
     vmx_read_info(&vmx_info);
 #if 0
-    //hax_log("-----------cpu %d---------------\n", cpu_data->cpu_id);
+    //hax_info("-----------cpu %d---------------\n", cpu_data->cpu_id);
 
     if ((cpu_data->cpu_id == 0 ||
          memcmp(&vmx_info, &hax_cpu_data[0]->vmx_info,
                 sizeof(vmx_info)) != 0)) {
-        hax_log("HAX: VMCS Rev %d\n", vmx_info._vmcs_revision_id);
-
-        hax_log("HAX: VMX basic info      : %016llx\n", vmx_info._basic_info);
-        hax_log("HAX: VMX misc info       : %08llx\n", vmx_info._miscellaneous);
-        hax_log("HAX: VMX revision control: %d\n", vmx_info._vmcs_revision_id);
-        hax_log("HAX: VMX exit ctls   : %x, %x\n", vmx_info.exit_ctls_0,
-                vmx_info.exit_ctls_1);
-        hax_log("HAX: VMX entry ctls  : %x, %x\n", vmx_info.entry_ctls_0,
-                vmx_info.entry_ctls_1);
-        hax_log("HAX: VMX pin ctls    : %x, %x\n", vmx_info.pin_ctls_0,
-                vmx_info.pin_ctls_1);
-        hax_log("HAX: VMX cpu prim ctrls  : %x, %x\n", vmx_info.pcpu_ctls_0,
-                vmx_info.pcpu_ctls_1);
-        hax_log("HAX: VMX cpu sec ctrl    : %x, %x\n", vmx_info.scpu_ctls_0,
-                vmx_info.scpu_ctls_1);
-        hax_log("HAX: VMX fixed CR0 bits  : %llx, %llx\n", vmx_info._cr0_fixed_0,
-                vmx_info._cr0_fixed_1);
-        hax_log("HAX: VMX fixed CR4 bits  : %llx, %llx\n", vmx_info._cr4_fixed_0,
-                vmx_info._cr4_fixed_1);
-        hax_log("HAX: VMX EPT/VPID caps   : %016llx\n", vmx_info._ept_cap);
+        dump_vmx_info(&vmx_info);
     }
 #endif
 
     if (vmx_info._vmcs_region_length > HAX_PAGE_SIZE)
-        hax_log("HAX: VMCS of %d bytes not supported by this Hypervisor. "
+        hax_info("VMCS of %d bytes not supported by this Hypervisor. "
                 "Max supported %u bytes\n",
                 vmx_info._vmcs_region_length, (uint32_t)HAX_PAGE_SIZE);
     vmxon = (vmcs_t *)hax_page_va(cpu_data->vmxon_page);
     vmxon->_revision_id = vmx_info._vmcs_revision_id;
 
-    //hax_log("HAX: enabled VMX mode (vmxon = %p)\n",
+    //hax_info("enabled VMX mode (vmxon = %p)\n",
     //        hax_page_va(cpu_data->vmxon_page));
 
     vmx_read_info(&cpu_data->vmx_info);
@@ -282,44 +264,6 @@ static int cpu_vmexit_handler(struct vcpu_t *vcpu, exit_reason_t exit_reason,
     }
     return ret;
 }
-/*Remove this function. It only for debug*/
-/*void dump_cs_ds(uint16_t cs, uint16_t ds)
-{
-    struct system_desc_t desc;
-    struct seg_desc_t *seg_desc;
-
-    get_kernel_gdt(&desc);
-
-    seg_desc = (struct seg_desc_t *)((mword)desc._base) + (cs >> 3);
-
-    hax_debug("\nsel: %x\n", cs >> 3);
-    hax_debug("type: %x\n", seg_desc->_type);
-    hax_debug("s: %x\n", seg_desc->_s);
-    hax_debug("present: %x\n", seg_desc->_present);
-    hax_debug("avl: %x\n", seg_desc->_avl);
-    hax_debug("long: %x\n", seg_desc->_longmode);
-    hax_debug("d/b: %x\n", seg_desc->_d);
-    hax_debug("g: %x\n", seg_desc->_granularity);
-    hax_debug("base0: %x\n", seg_desc->_base0);
-    hax_debug("limit: %x\n", seg_desc->_limit0);
-    hax_debug("dpl: %x\n", seg_desc->_limit0);
-
-    hax_debug("raw: %llx\n", seg_desc->_raw);
-    seg_desc = (struct seg_desc_t *)((mword)desc._base) + (ds >> 3);
-
-    hax_debug("\nsel: %x\n", ds >> 3);
-    hax_debug("type: %x\n", seg_desc->_type);
-    hax_debug("s: %x\n", seg_desc->_s);
-    hax_debug("present: %x\n", seg_desc->_present);
-    hax_debug("avl: %x\n", seg_desc->_avl);
-    hax_debug("long: %x\n", seg_desc->_longmode);
-    hax_debug("d/b: %x\n", seg_desc->_d);
-    hax_debug("g: %x\n", seg_desc->_granularity);
-    hax_debug("base0: %x\n", seg_desc->_base0);
-    hax_debug("limit: %x\n", seg_desc->_limit0);
-    hax_debug("dpl: %x\n", seg_desc->_dpl);
-    hax_debug("raw: %llx\n", seg_desc->_raw);
-}*/
 
 #ifdef CONFIG_DARWIN
 __attribute__ ((__noinline__))
@@ -450,7 +394,7 @@ int cpu_vmx_execute(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 
         res = cpu_vmx_run(vcpu, htun);
         if (res) {
-            hax_debug("cpu_vmx_run error, code:%xlx\n", res);
+            hax_error("cpu_vmx_run error, code:%x\n", res);
             if ((vmcs_err = put_vmcs(vcpu, &flags))) {
                 hax_panic_vcpu(vcpu, "put_vmcs fail: %x\n", vmcs_err);
                 hax_panic_log(vcpu);
@@ -601,7 +545,7 @@ uint32_t load_vmcs(struct vcpu_t *vcpu, preempt_flag *flags)
 
 
     if (asm_vmptrld(&vmcs_phy) != VMX_SUCCEED) {
-        hax_error("HAX: vmptrld failed (%08llx)\n", vmcs_phy);
+        hax_error("vmptrld failed (%08llx)\n", vmcs_phy);
         cpu_vmxroot_leave();
         log_vmxon_err_type3 = 1;
         hax_enable_preemption(flags);
@@ -625,7 +569,7 @@ void restore_host_cr4_vmxe(struct per_cpu_data *cpu_data)
         if (cpu_data->vmm_flag & VMXON_HAX) {
             // TODO: Need to understand why this happens (on both Windows and
             // macOS)
-            hax_debug("HAX: VMM flag (VMON_HAX) is not clear!\n");
+            hax_debug("VMM flag (VMON_HAX) is not clear!\n");
         }
         set_cr4(get_cr4() | CR4_VMXE);
     } else {
@@ -649,7 +593,7 @@ uint32_t put_vmcs(struct vcpu_t *vcpu, preempt_flag *flags)
         vmcs_phy = hax_page_pa(cpu_data->vmcs_page);
 
     if (asm_vmclear(&vmcs_phy) != VMX_SUCCEED) {
-        hax_error("HAX: vmclear failed (%llx)\n", vmcs_phy);
+        hax_error("vmclear failed (%llx)\n", vmcs_phy);
         log_vmclear_err = 1;
     }
 
@@ -700,22 +644,22 @@ void load_vmcs_common(struct vcpu_t *vcpu)
 
 static void cpu_vmentry_failed(struct vcpu_t *vcpu, vmx_result_t result)
 {
-    hax_debug("HAX: VM entry failed: result=%x RIP=%08lx\n",
-              result, (mword)vmread(vcpu, GUEST_RIP));
+    uint64_t error, reason;
+
+    hax_error("VM entry failed: RIP=%08lx\n",
+              (mword)vmread(vcpu, GUEST_RIP));
 
     //dump_vmcs();
 
+    reason = vmread(vcpu, VM_EXIT_INFO_REASON);
     if (result == VMX_FAIL_VALID) {
-        hax_log("HAX: Prev exit: %llx error code: %llx\n",
-                vmread(vcpu, VM_EXIT_INFO_REASON),
-                vmread(vcpu, VMX_INSTRUCTION_ERROR_CODE));
+        error = vmread(vcpu, VMX_INSTRUCTION_ERROR_CODE);
+        hax_error("VMfailValid. Prev exit: %llx. Error code: %llu (%s)\n",
+                  reason, error, name_vmx_error(error));
     } else {
-        hax_log("HAX: Prev exit: %llx no error code\n",
-                vmread(vcpu, VM_EXIT_INFO_REASON));
+        hax_error("VMfailInvalid. Prev exit: %llx no error code\n",
+                  reason);
     }
-
-    hax_log("HAX: VM entry failed\n");
-    hax_log("end of cpu_vmentry_failed\n");
 }
 
 vmx_result_t cpu_vmxroot_leave(void)
