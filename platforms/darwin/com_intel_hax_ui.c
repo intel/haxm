@@ -213,13 +213,13 @@ static int hax_vcpu_ioctl(dev_t dev, ulong cmd, caddr_t data, int flag,
             ret = vcpu_get_fpu(mvcpu2cvcpu(vcpu), fl);
             break;
         }
-        case HAX_VCPU_SET_REGS: {
+        case HAX_VCPU_IOCTL_SET_REGS: {
             struct vcpu_state_t *vc_state;
             vc_state = (struct vcpu_state_t *)data;
             ret = vcpu_set_regs(mvcpu2cvcpu(vcpu), vc_state);
             break;
         }
-        case HAX_VCPU_GET_REGS: {
+        case HAX_VCPU_IOCTL_GET_REGS: {
             struct vcpu_state_t *vc_state;
             vc_state = (struct vcpu_state_t *)data;
             ret = vcpu_get_regs(mvcpu2cvcpu(vcpu), vc_state);
@@ -231,7 +231,7 @@ static int hax_vcpu_ioctl(dev_t dev, ulong cmd, caddr_t data, int flag,
             vcpu_interrupt(mvcpu2cvcpu(vcpu), vector);
             break;
         }
-        case HAX_IOCTL_VCPU_DEBUG: {
+        case HAX_VCPU_IOCTL_DEBUG: {
             struct hax_debug_t *hax_debug;
             hax_debug = (struct hax_debug_t *)data;
             vcpu_debug(cvcpu, hax_debug);
@@ -245,8 +245,8 @@ static int hax_vcpu_ioctl(dev_t dev, ulong cmd, caddr_t data, int flag,
             proc_name(pid, task_name, sizeof(task_name));
             hax_error("Unknown vcpu ioctl 0x%lx, pid=%d ('%s')\n", cmd, pid,
                       task_name);
-            //printf("set regs ioctl %lx get regs %lx", HAX_VCPU_SET_REGS,
-            //       HAX_VCPU_GET_REGS);
+            //printf("set regs ioctl %lx get regs %lx", HAX_VCPU_IOCTL_SET_REGS,
+            //       HAX_VCPU_IOCTL_GET_REGS);
             ret = -ENOSYS;
             break;
         }

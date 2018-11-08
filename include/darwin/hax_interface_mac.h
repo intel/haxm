@@ -62,13 +62,13 @@
 
 #define HAX_VCPU_IOCTL_SETUP_TUNNEL _IOWR(0, 0xc5, struct hax_tunnel_info)
 #define HAX_VCPU_IOCTL_INTERRUPT _IOWR(0, 0xc6, uint32_t)
-#define HAX_VCPU_SET_REGS _IOWR(0, 0xc7, struct vcpu_state_t)
-#define HAX_VCPU_GET_REGS _IOWR(0, 0xc8, struct vcpu_state_t)
+#define HAX_VCPU_IOCTL_SET_REGS _IOWR(0, 0xc7, struct vcpu_state_t)
+#define HAX_VCPU_IOCTL_GET_REGS _IOWR(0, 0xc8, struct vcpu_state_t)
 
 /* API 2.0 */
 #define HAX_VM_IOCTL_NOTIFY_QEMU_VERSION _IOW(0, 0x84, struct hax_qemu_version)
 
-#define HAX_IOCTL_VCPU_DEBUG _IOW(0, 0xc9, struct hax_debug_t)
+#define HAX_VCPU_IOCTL_DEBUG _IOW(0, 0xc9, struct hax_debug_t)
 
 #define HAX_KERNEL64_CS 0x80
 #define HAX_KERNEL32_CS 0x08

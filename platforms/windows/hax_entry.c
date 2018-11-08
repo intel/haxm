@@ -384,7 +384,7 @@ NTSTATUS HaxVcpuControl(PDEVICE_OBJECT DeviceObject,
             infret = sizeof(struct fx_layout);
             break;
         }
-        case HAX_VCPU_SET_REGS: {
+        case HAX_VCPU_IOCTL_SET_REGS: {
             struct vcpu_state_t *vc_state;
             if(inBufLength < sizeof(struct vcpu_state_t)) {
                 ret = STATUS_INVALID_PARAMETER;
@@ -395,7 +395,7 @@ NTSTATUS HaxVcpuControl(PDEVICE_OBJECT DeviceObject,
                 ret = STATUS_UNSUCCESSFUL;
             break;
         }
-        case HAX_VCPU_GET_REGS: {
+        case HAX_VCPU_IOCTL_GET_REGS: {
             struct vcpu_state_t *vc_state;
             if(outBufLength < sizeof(struct vcpu_state_t)) {
                 ret = STATUS_INVALID_PARAMETER;
@@ -422,7 +422,7 @@ NTSTATUS HaxVcpuControl(PDEVICE_OBJECT DeviceObject,
             vcpu_takeoff(cvcpu);
             break;
         }
-        case HAX_IOCTL_VCPU_DEBUG: {
+        case HAX_VCPU_IOCTL_DEBUG: {
             if (inBufLength < sizeof(struct hax_debug_t)) {
                 ret = STATUS_INVALID_PARAMETER;
                 goto done;
@@ -433,8 +433,8 @@ NTSTATUS HaxVcpuControl(PDEVICE_OBJECT DeviceObject,
         default:
             hax_error("Unknow vcpu ioctl %lx\n",
                       irpSp->Parameters.DeviceIoControl.IoControlCode);
-            hax_info("set regs ioctl %lx get regs %lx", HAX_VCPU_SET_REGS,
-                    HAX_VCPU_GET_REGS );
+            hax_info("set regs ioctl %lx get regs %lx", HAX_VCPU_IOCTL_SET_REGS,
+                    HAX_VCPU_IOCTL_GET_REGS );
             ret = STATUS_INVALID_PARAMETER;
             break;
     }

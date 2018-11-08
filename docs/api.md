@@ -664,7 +664,7 @@ caller is smaller than the size of `struct vcpu_state_t`.
 TODO: Describe
 
 * Since: API v1
-* Parameter: `struct vcpu_state_t regs` (q.v. `HAX_VCPU_SET_REGS`)
+* Parameter: `struct vcpu_state_t regs` (q.v. `HAX_VCPU_IOCTL_SET_REGS`)
   * (Output) `regs`:
 * Error codes:
   * `STATUS_INVALID_PARAMETER` (Windows): The output buffer provided by the

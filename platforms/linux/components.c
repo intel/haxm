@@ -408,7 +408,7 @@ static long hax_vcpu_ioctl(struct file *filp, unsigned int cmd,
         }
         break;
     }
-    case HAX_VCPU_SET_REGS: {
+    case HAX_VCPU_IOCTL_SET_REGS: {
         struct vcpu_state_t vc_state;
         if (copy_from_user(&vc_state, argp, sizeof(vc_state))) {
             ret = -EFAULT;
@@ -417,7 +417,7 @@ static long hax_vcpu_ioctl(struct file *filp, unsigned int cmd,
         ret = vcpu_set_regs(cvcpu, &vc_state);
         break;
     }
-    case HAX_VCPU_GET_REGS: {
+    case HAX_VCPU_IOCTL_GET_REGS: {
         struct vcpu_state_t vc_state;
         ret = vcpu_get_regs(cvcpu, &vc_state);
         if (copy_to_user(argp, &vc_state, sizeof(vc_state))) {
@@ -435,7 +435,7 @@ static long hax_vcpu_ioctl(struct file *filp, unsigned int cmd,
         vcpu_interrupt(cvcpu, vector);
         break;
     }
-    case HAX_IOCTL_VCPU_DEBUG: {
+    case HAX_VCPU_IOCTL_DEBUG: {
         struct hax_debug_t hax_debug;
         if (copy_from_user(&hax_debug, argp, sizeof(hax_debug))) {
             ret = -EFAULT;
