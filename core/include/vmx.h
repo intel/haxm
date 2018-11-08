@@ -681,7 +681,7 @@ void vmx_vmwrite(struct vcpu_t *vcpu, const char *name,
             vmwrite(vcpu, GUEST_##seg##_AR, tmp_ar);               \
         }
 
-#elif defined(HAX_PLATFORM_DARWIN)
+#else
 #define VMWRITE_SEG(vcpu, seg, val) ({                             \
             uint32_t tmp_ar = val.ar;                              \
             if (tmp_ar == 0)                                       \

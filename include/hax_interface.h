@@ -42,6 +42,9 @@
 #ifdef HAX_PLATFORM_DARWIN
 #include "darwin/hax_interface_mac.h"
 #endif
+#ifdef HAX_PLATFORM_LINUX
+#include "linux/hax_interface_linux.h"
+#endif
 #ifdef HAX_PLATFORM_WINDOWS
 #include "windows/hax_interface_windows.h"
 #endif
