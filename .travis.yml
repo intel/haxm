@@ -13,6 +13,20 @@ matrix:
         - cd platforms/darwin
         - xcodebuild -configuration Debug -sdk macosx10.14
 
+    - name: "haxm-linux"
+      os: linux
+      dist: trusty
+      sudo: false
+      before_install:
+        - sudo apt-get update
+        - sudo apt-get install -y linux-headers-`uname -r`
+        - wget http://mirrors.kernel.org/ubuntu/pool/universe/n/nasm/nasm_2.13.02-0.1_amd64.deb
+        - sudo apt-get install -y dpkg
+        - sudo dpkg -i nasm_2.13.02-0.1_amd64.deb
+      script:
+        - cd platforms/linux
+        - make -j$(nproc)
+
   exclude: # TODO: Currently TravisCI does not support full VS/EWDK on Windows
     - name: "haxm-windows"
       os: windows

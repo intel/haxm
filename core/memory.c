@@ -342,7 +342,7 @@ int hax_vm_set_ram(struct vm_t *vm, struct hax_set_ram_info *info)
             hva = 0;
 #endif
 #endif
-            cur_va += page_size;
+            cur_va += HAX_PAGE_SIZE;
         }
 
         if (!hax_core_set_p2m(vm, gpfn, hpfn, hva, info->flags)) {

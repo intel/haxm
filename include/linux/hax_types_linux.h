@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2011 Intel Corporation
+ * Copyright (c) 2018 Kryptos Logic
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -28,50 +29,41 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef HAX_WINDOWS_HAX_TYPES_WINDOWS_H_
-#define HAX_WINDOWS_HAX_TYPES_WINDOWS_H_
+#ifndef HAX_LINUX_HAX_TYPES_LINUX_H_
+#define HAX_LINUX_HAX_TYPES_LINUX_H_
 
-//#include <ntddk.h>
-#include <ntifs.h>
-#include <errno.h>
-
-#if defined(_WIN32) && !defined(__cplusplus)
-#define inline __inline
-typedef unsigned char bool;
-#define true 1
-#define false 0
-
-/* Remove this later */
-#define is_leaf(x)  1
-#endif
-
-typedef KAFFINITY hax_cpumap_t;
-inline hax_cpumap_t cpu2cpumap(int cpu)
-{
-    return ((KAFFINITY)0x1 << cpu);
-}
-
-typedef KIRQL preempt_flag;
+#include <linux/types.h>
+#include <linux/string.h>
+#include <linux/errno.h>
 
 // Signed Types
-typedef signed char         int8_t;
-typedef signed short        int16_t;
-typedef signed int          int32_t;
-typedef signed long long    int64_t;
+typedef int8_t  int8;
+typedef int16_t int16;
+typedef int32_t int32;
+typedef int64_t int64;
 
 // Unsigned Types
-typedef unsigned char       uint8_t;
-typedef unsigned short      uint16_t;
-typedef unsigned int        uint32_t;
-typedef unsigned long long  uint64_t;
-typedef unsigned int        uint;
-typedef unsigned long       ulong;
-typedef unsigned long       ulong_t;
+typedef uint8_t  uint8;
+typedef uint16_t uint16;
+typedef uint32_t uint32;
+typedef uint64_t uint64;
+
+typedef unsigned int  uint;
+typedef unsigned long ulong;
+typedef unsigned long ulong_t;
+
+#if defined(__i386__)
+typedef uint32_t mword;
+#endif
+#if defined (__x86_64__)
+typedef uint64_t mword;
+#endif
+typedef mword HAX_VADDR_T;
 
 #include "../hax_list.h"
 struct hax_page {
     void *kva;
-    PMDL pmdl;
+    struct page *page;
     uint64_t pa;
     uint32_t order;
     uint32_t flags;
@@ -79,64 +71,47 @@ struct hax_page {
 };
 
 typedef struct hax_memdesc_user {
-    PMDL pmdl;
+    int nr_pages;
+    struct page **pages;
 } hax_memdesc_user;
 
 typedef struct hax_kmap_user {
-    PMDL pmdl;
+    void *kva;
 } hax_kmap_user;
 
 typedef struct hax_memdesc_phys {
-    PMDL pmdl;
+    struct page *ppage;
 } hax_memdesc_phys;
 
 typedef struct hax_kmap_phys {
-    PVOID kva;
-    // size == PAGE_SIZE_4K
+    void *kva;
 } hax_kmap_phys;
 
-typedef struct {
-    KSPIN_LOCK lock;
-    uint32_t flags;
-    KIRQL old_irq;
-} hax_spinlock;
+typedef struct hax_spinlock hax_spinlock;
 
-typedef FAST_MUTEX *hax_mutex;
+typedef int hax_cpumap_t;
 
-/* In DDK, the InterlockedXXX using ULONG, which is in fact 32bit */
-typedef LONG hax_atomic_t;
+static inline hax_cpumap_t cpu2cpumap(int cpu)
+{
+    return (0x1 << cpu);
+}
+
+/* Remove this later */
+#define is_leaf(x)  1
+
+typedef mword preempt_flag;
+typedef void *hax_mutex;
+typedef uint32_t hax_atomic_t;
 
 /* Return the value before add */
-static hax_atomic_t hax_atomic_add(volatile hax_atomic_t *atom, ULONG value)
-{
-    return InterlockedExchangeAdd(atom, value);
-}
+hax_atomic_t hax_atomic_add(volatile hax_atomic_t *atom, uint32_t value);
 
 /* Return the value before the increment */
-static hax_atomic_t hax_atomic_inc(volatile hax_atomic_t *atom)
-{
-    return InterlockedIncrement(atom) - 1;
-}
+hax_atomic_t hax_atomic_inc(volatile hax_atomic_t *atom);
 
 /* Return the value before the decrement */
-static hax_atomic_t hax_atomic_dec(volatile hax_atomic_t *atom)
-{
-    return InterlockedDecrement(atom) + 1;
-}
+hax_atomic_t hax_atomic_dec(volatile hax_atomic_t *atom);    
 
-#if defined(_X86_)
-typedef uint32_t mword;
-#endif
+void hax_smp_mb(void);
 
-#if defined (_AMD64_)
-typedef uint64_t mword;
-#endif
-
-typedef mword HAX_VADDR_T;
-
-static inline void hax_smp_mb(void)
-{
-    KeMemoryBarrier();
-}
-
-#endif  // HAX_WINDOWS_HAX_TYPES_WINDOWS_H_
+#endif  // HAX_LINUX_HAX_TYPES_LINUX_H_

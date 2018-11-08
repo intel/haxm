@@ -78,12 +78,12 @@ void ASMCALL asm_fxrstor(mword *addr);
 void ASMCALL asm_cpuid(union cpuid_args_t *state);
 
 void ASMCALL __nmi(void);
-uint32_t ASMCALL __fls(uint32_t bit32);
+uint32_t ASMCALL asm_fls(uint32_t bit32);
 
 uint64_t ia32_rdmsr(uint32_t reg);
 void ia32_wrmsr(uint32_t reg, uint64_t val);
 
-uint64_t rdtsc(void);
+uint64_t ia32_rdtsc(void);
 
 void fxinit(void);
 void fxsave(mword *addr);

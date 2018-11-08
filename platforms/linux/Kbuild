@@ -1,0 +1,37 @@
+ccflags-y += -Wno-unused-function
+obj-m := haxm.o
+
+# haxm
+haxm-y += ../../core/chunk.o
+haxm-y += ../../core/cpu.o
+haxm-y += ../../core/cpuid.o
+haxm-y += ../../core/dump.o
+haxm-y += ../../core/emulate.o
+haxm-y += ../../core/emulate_ops.o
+haxm-y += ../../core/ept.o
+haxm-y += ../../core/ept2.o
+haxm-y += ../../core/ept_tree.o
+haxm-y += ../../core/gpa_space.o
+haxm-y += ../../core/hax.o
+haxm-y += ../../core/ia32.o
+haxm-y += ../../core/ia32_ops.o
+haxm-y += ../../core/intr_exc.o
+haxm-y += ../../core/memory.o
+haxm-y += ../../core/memslot.o
+haxm-y += ../../core/name.o
+haxm-y += ../../core/page_walker.o
+haxm-y += ../../core/ramblock.o
+haxm-y += ../../core/vcpu.o
+haxm-y += ../../core/vm.o
+haxm-y += ../../core/vmx.o
+haxm-y += ../../core/vmx_ops.o
+haxm-y += ../../core/vtlb.o
+
+# haxm-linux
+haxm-y += components.o
+haxm-y += hax_entry.o
+haxm-y += hax_event.o
+haxm-y += hax_host_mem.o
+haxm-y += hax_mem_alloc.o
+haxm-y += hax_mm.o
+haxm-y += hax_wrapper.o

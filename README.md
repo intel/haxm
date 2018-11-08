@@ -13,6 +13,7 @@ release, you can get it [here][github-haxm-latest-release].
 ## Usage
 
 Detailed instructions for building and testing HAXM can be found at:
+* [Manual for Linux](docs/manual-linux.md)
 * [Manual for macOS](docs/manual-macos.md)
 * [Manual for Windows](docs/manual-windows.md)
 

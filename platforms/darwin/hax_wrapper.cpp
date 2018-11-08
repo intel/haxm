@@ -66,18 +66,16 @@ extern "C" int hax_log_level(int level, const char *fmt, ...)
 struct smp_call_parameter {
     void (*func)(void *);
     void *param;
-    cpumap_t *cpus;
+    hax_cpumap_t *cpus;
 };
 
 extern "C" void mp_rendezvous_no_intrs(void (*action_func)(void *), void *arg);
-
-extern "C" int cpu_number(void);
 
 void smp_cfunction(void *param)
 {
     int cpu_id;
     void (*action)(void *parap);
-    cpumap_t *hax_cpus;
+    hax_cpumap_t *hax_cpus;
     struct smp_call_parameter *p;
 
     p = (struct smp_call_parameter *)param;
@@ -89,7 +87,7 @@ void smp_cfunction(void *param)
         action(p->param);
 }
 
-extern "C" int smp_call_function(cpumap_t *cpus, void (*scfunc)(void *),
+extern "C" int hax_smp_call_function(hax_cpumap_t *cpus, void (*scfunc)(void *),
                                  void *param)
 {
     struct smp_call_parameter sp;

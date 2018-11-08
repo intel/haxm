@@ -520,7 +520,7 @@ uint32_t load_vmcs(struct vcpu_t *vcpu, preempt_flag *flags)
     /* when wake up from sleep, we need the barrier, as vm operation
      * are not serialized instructions.
      */
-    smp_mb();
+    hax_smp_mb();
 
     cpu_data = current_cpu_data();
 

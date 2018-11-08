@@ -1,2 +1,6 @@
 # macOS
 .DS_Store
+
+# Linux
+*.o
+*.cmd

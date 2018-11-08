@@ -1,0 +1,7 @@
+# Build
+*.ko
+*.mod.c
+.tmp_versions
+.cache.mk
+modules.order
+Module.symvers

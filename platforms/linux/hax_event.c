@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Alexandro Sanchez Bach <alexandro@phi.nz>
+ * Copyright (c) 2018 Kryptos Logic
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -28,51 +28,10 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef HAX_CORE_EMULATE_OPS_H_
-#define HAX_CORE_EMULATE_OPS_H_
+#include "../../include/hax.h"
 
-#define FASTOP_ALIGN  0x10
-#define FASTOP_OFFSET(size) ( \
-    ((size) == 8) ? (3 * FASTOP_ALIGN) : \
-    ((size) == 4) ? (2 * FASTOP_ALIGN) : \
-    ((size) == 2) ? (1 * FASTOP_ALIGN) : \
-                    (0 * FASTOP_ALIGN))
-
-/* Instruction handlers */
-typedef void(ASMCALL em_handler_t)(void);
-em_handler_t em_not;
-em_handler_t em_neg;
-em_handler_t em_inc;
-em_handler_t em_dec;
-em_handler_t em_add;
-em_handler_t em_or;
-em_handler_t em_adc;
-em_handler_t em_sbb;
-em_handler_t em_and;
-em_handler_t em_sub;
-em_handler_t em_xor;
-em_handler_t em_test;
-em_handler_t em_xadd;
-em_handler_t em_cmp;
-em_handler_t em_cmp_r;
-em_handler_t em_bsf;
-em_handler_t em_bsr;
-em_handler_t em_bt;
-em_handler_t em_bts;
-em_handler_t em_btr;
-em_handler_t em_btc;
-em_handler_t em_rol;
-em_handler_t em_ror;
-em_handler_t em_rcl;
-em_handler_t em_rcr;
-em_handler_t em_shl;
-em_handler_t em_shr;
-em_handler_t em_sar;
-em_handler_t em_bextr;
-em_handler_t em_andn;
-
-/* Dispatch handlers */
-void ASMCALL fastop_dispatch(void *handler, uint64_t *dst,
-                             uint64_t *src1, uint64_t *src2, uint64_t *flags);
-
-#endif /* HAX_CORE_EMULATE_OPS_H_ */
+int hax_notify_host_event(enum hax_notify_event event, uint32_t *param,
+                          uint32_t size)
+{
+    return 0;
+}

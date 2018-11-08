@@ -328,7 +328,7 @@ static void invept_smpfunc(struct invept_bundle *bundle)
 {
     struct per_cpu_data *cpu_data;
 
-    smp_mb();
+    hax_smp_mb();
     cpu_data = current_cpu_data();
     cpu_data->invept_res = VMX_SUCCEED;
 
@@ -373,7 +373,7 @@ void invept(hax_vm_t *hax_vm, uint type)
 
     bundle.type = type;
     bundle.desc = &desc;
-    smp_call_function(&cpu_online_map, (void (*)(void *))invept_smpfunc,
+    hax_smp_call_function(&cpu_online_map, (void (*)(void *))invept_smpfunc,
                       &bundle);
 
     /*

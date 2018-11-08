@@ -70,7 +70,7 @@ void ia32_wrmsr(uint32_t reg, uint64_t val)
 #endif
 }
 
-uint64_t rdtsc(void)
+uint64_t ia32_rdtsc(void)
 {
 #ifdef HAX_ARCH_X86_32
     struct qword_val val = { 0 };

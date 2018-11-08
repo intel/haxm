@@ -50,6 +50,13 @@
 #define HAX_COMPILER_CLANG
 #define PACKED     __attribute__ ((packed))
 #define ALIGNED(x) __attribute__ ((aligned(x)))
+// GCC
+#elif defined(__GNUC__)
+#define HAX_COMPILER_GCC
+#define PACKED     __attribute__ ((packed))
+#define ALIGNED(x) __attribute__ ((aligned(x)))
+#define __cdecl    __attribute__ ((__cdecl__,regparm(0)))
+#define __stdcall  __attribute__ ((__stdcall__))
 // MSVC
 #elif defined(_MSC_VER)
 #define HAX_COMPILER_MSVC
@@ -67,6 +74,10 @@
 #if defined(__MACH__)
 #define HAX_PLATFORM_DARWIN
 #include "darwin/hax_types_mac.h"
+// Linux
+#elif defined(__linux__)
+#define HAX_PLATFORM_LINUX
+#include "linux/hax_types_linux.h"
 // Windows
 #elif defined(_WIN32)
 #define HAX_PLATFORM_WINDOWS

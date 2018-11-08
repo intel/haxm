@@ -38,7 +38,7 @@
 
 /*
  * According to DDK, the IoAllocateMdl can support at mos
- * 64M - page_size * (sizeof(MDL)) / sizeof(ULONG_PTR), so
+ * 64M - PAGE_SIZE * (sizeof(MDL)) / sizeof(ULONG_PTR), so
  * take 32M here
  */
 #if (NTDDI_VERSION <= NTDDI_WS03)
