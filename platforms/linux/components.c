@@ -350,7 +350,8 @@ static long hax_vcpu_ioctl(struct file *filp, unsigned int cmd,
         /* nr_msr needs to be verified */
         if (msrs.nr_msr >= 0x20) {
             hax_error("MSRS invalid!\n");
-            return -EFAULT;
+            ret = -EFAULT;
+            break;
         }
         for (i = 0; i < msrs.nr_msr; i++, msr++) {
             fail = vcpu_set_msr(cvcpu, msr->entry, msr->value);
@@ -373,7 +374,8 @@ static long hax_vcpu_ioctl(struct file *filp, unsigned int cmd,
         msr = msrs.entries;
         if(msrs.nr_msr >= 0x20) {
             hax_error("MSRS invalid!\n");
-            return -EFAULT;
+            ret = -EFAULT;
+            break;
         }
         for (i = 0; i < msrs.nr_msr; i++, msr++) {
             fail = vcpu_get_msr(cvcpu, msr->entry, &msr->value);
@@ -546,7 +548,8 @@ static long hax_vm_ioctl(struct file *filp, unsigned int cmd,
         if (info.reserved) {
             hax_error("IOCTL_ADD_RAMBLOCK: vm_id=%d, reserved=0x%llx\n",
                       vm->id, info.reserved);
-            return -EINVAL;
+            ret = -EINVAL;
+            break;
         }
         hax_info("IOCTL_ADD_RAMBLOCK: vm_id=%d, start_va=0x%llx, size=0x%llx\n",
                  vm->id, info.start_va, info.size);
@@ -572,7 +575,8 @@ static long hax_vm_ioctl(struct file *filp, unsigned int cmd,
         if (info.reserved1 || info.reserved2) {
             hax_error("IOCTL_SET_RAM2: vm_id=%d, reserved1=0x%x reserved2=0x%llx\n",
                       vm->id, info.reserved1, info.reserved2);
-            return -EINVAL;
+            ret = -EINVAL;
+            break;
         }
         ret = hax_vm_set_ram2(cvm, &info);
         break;
@@ -586,7 +590,8 @@ static long hax_vm_ioctl(struct file *filp, unsigned int cmd,
         if (info.reserved) {
             hax_error("IOCTL_PROTECT_RAM: vm_id=%d, reserved=0x%x\n",
                       vm->id, info.reserved);
-            return -EINVAL;
+            ret = -EINVAL;
+            break;
         }
         ret = hax_vm_protect_ram(cvm, &info);
         break;
