@@ -345,24 +345,7 @@ and its presence requires `va` to be set to 0.
 * Error codes:
   * `STATUS_INVALID_PARAMETER` (Windows): The input buffer provided by the
 caller is smaller than the size of `struct hax_set_ram_info`, or any of the
-input parameters .
-
-#### HAX\_VM\_IOCTL\_NOTIFY\_QEMU\_VERSION
-TODO: Describe
-
-* Since: API v2
-* Parameter: `struct hax_qemu_version qversion`, where
-  ```
-  struct hax_qemu_version {
-      uint32_t cur_version;
-      uint32_t least_version;
-  } __attribute__ ((__packed__));
-  ```
-  * (Input) `cur_version`:
-  * (Input) `least_version`:
-* Error codes:
-  * `STATUS_INVALID_PARAMETER` (Windows): The input buffer provided by the
-caller is smaller than the size of `struct hax_qemu_version`.
+input parameters.
 
 ### VCPU IOCTLs
 #### HAX\_VCPU\_IOCTL\_SETUP\_TUNNEL

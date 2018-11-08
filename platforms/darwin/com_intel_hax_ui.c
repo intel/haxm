@@ -140,10 +140,12 @@ static int hax_vcpu_ioctl(dev_t dev, ulong cmd, caddr_t data, int flag,
     }
 
     switch (cmd) {
+        case HAX_VCPU_IOCTL_RUN__LEGACY:
         case HAX_VCPU_IOCTL_RUN: {
             ret = vcpu_execute(cvcpu);
             break;
         }
+        case HAX_VCPU_IOCTL_SETUP_TUNNEL__LEGACY:
         case HAX_VCPU_IOCTL_SETUP_TUNNEL: {
             struct hax_tunnel_info info, *uinfo;
             uinfo = (struct hax_tunnel_info *)data;
@@ -153,6 +155,7 @@ static int hax_vcpu_ioctl(dev_t dev, ulong cmd, caddr_t data, int flag,
             uinfo->size = info.size;
             break;
         }
+        case HAX_VCPU_IOCTL_SET_MSRS__LEGACY:
         case HAX_VCPU_IOCTL_SET_MSRS: {
             struct hax_msr_data *msrs;
             struct vmx_msr *msr;
@@ -178,6 +181,7 @@ static int hax_vcpu_ioctl(dev_t dev, ulong cmd, caddr_t data, int flag,
             msrs->done = i;
             break;
         }
+        case HAX_VCPU_IOCTL_GET_MSRS__LEGACY:
         case HAX_VCPU_IOCTL_GET_MSRS: {
             struct hax_msr_data *msrs;
             struct vmx_msr *msr;
@@ -201,36 +205,42 @@ static int hax_vcpu_ioctl(dev_t dev, ulong cmd, caddr_t data, int flag,
             msrs->done = i;
             break;
         }
+        case HAX_VCPU_IOCTL_SET_FPU__LEGACY:
         case HAX_VCPU_IOCTL_SET_FPU: {
             struct fx_layout *fl;
             fl = (struct fx_layout *)data;
             ret = vcpu_put_fpu(mvcpu2cvcpu(vcpu), fl);
             break;
         }
+        case HAX_VCPU_IOCTL_GET_FPU__LEGACY:
         case HAX_VCPU_IOCTL_GET_FPU: {
             struct fx_layout *fl;
             fl = (struct fx_layout *)data;
             ret = vcpu_get_fpu(mvcpu2cvcpu(vcpu), fl);
             break;
         }
+        case HAX_VCPU_IOCTL_SET_REGS__LEGACY:
         case HAX_VCPU_IOCTL_SET_REGS: {
             struct vcpu_state_t *vc_state;
             vc_state = (struct vcpu_state_t *)data;
             ret = vcpu_set_regs(mvcpu2cvcpu(vcpu), vc_state);
             break;
         }
+        case HAX_VCPU_IOCTL_GET_REGS__LEGACY:
         case HAX_VCPU_IOCTL_GET_REGS: {
             struct vcpu_state_t *vc_state;
             vc_state = (struct vcpu_state_t *)data;
             ret = vcpu_get_regs(mvcpu2cvcpu(vcpu), vc_state);
             break;
         }
+        case HAX_VCPU_IOCTL_INTERRUPT__LEGACY:
         case HAX_VCPU_IOCTL_INTERRUPT: {
             uint8_t vector;
             vector = (uint8_t)(*(uint32_t *)data);
             vcpu_interrupt(mvcpu2cvcpu(vcpu), vector);
             break;
         }
+        case HAX_VCPU_IOCTL_DEBUG__LEGACY:
         case HAX_VCPU_IOCTL_DEBUG: {
             struct hax_debug_t *hax_debug;
             hax_debug = (struct hax_debug_t *)data;
@@ -366,8 +376,8 @@ static int hax_vm_ioctl(dev_t dev, ulong cmd, caddr_t data, int flag,
     }
 
     switch (cmd) {
-        case HAX_VM_IOCTL_VCPU_CREATE:
-        case HAX_VM_IOCTL_VCPU_CREATE_ORIG: {
+        case HAX_VM_IOCTL_VCPU_CREATE__LEGACY:
+        case HAX_VM_IOCTL_VCPU_CREATE: {
             uint32_t vcpu_id, vm_id;
             struct vcpu_t *cvcpu;
 
@@ -383,6 +393,7 @@ static int hax_vm_ioctl(dev_t dev, ulong cmd, caddr_t data, int flag,
             }
             break;
         }
+        case HAX_VM_IOCTL_ALLOC_RAM__LEGACY:
         case HAX_VM_IOCTL_ALLOC_RAM: {
             struct hax_alloc_ram_info *info;
             info = (struct hax_alloc_ram_info *)data;
@@ -392,6 +403,7 @@ static int hax_vm_ioctl(dev_t dev, ulong cmd, caddr_t data, int flag,
             ret = hax_vm_add_ramblock(cvm, info->va, info->size);
             break;
         }
+        case HAX_VM_IOCTL_ADD_RAMBLOCK__LEGACY:
         case HAX_VM_IOCTL_ADD_RAMBLOCK: {
             struct hax_ramblock_info *info;
             info = (struct hax_ramblock_info *)data;
@@ -407,6 +419,7 @@ static int hax_vm_ioctl(dev_t dev, ulong cmd, caddr_t data, int flag,
             ret = hax_vm_add_ramblock(cvm, info->start_va, info->size);
             break;
         }
+        case HAX_VM_IOCTL_SET_RAM__LEGACY:
         case HAX_VM_IOCTL_SET_RAM: {
             struct hax_set_ram_info *info;
             info = (struct hax_set_ram_info *)data;
@@ -427,6 +440,7 @@ static int hax_vm_ioctl(dev_t dev, ulong cmd, caddr_t data, int flag,
             ret = hax_vm_set_ram2(cvm, info);
             break;
         }
+        case HAX_VM_IOCTL_PROTECT_RAM__LEGACY:
         case HAX_VM_IOCTL_PROTECT_RAM: {
             struct hax_protect_ram_info *info;
             info = (struct hax_protect_ram_info *)data;
@@ -440,24 +454,8 @@ static int hax_vm_ioctl(dev_t dev, ulong cmd, caddr_t data, int flag,
             break;
         }
 #endif
-        case HAX_VM_IOCTL_NOTIFY_QEMU_VERSION: {
-            int pid;
-            /* MAXCOMLEN + 1 == 17 (see bsd/sys/param.h) */
-            char task_name[17];
-            struct hax_qemu_version *info;
-
-            pid = proc_pid(p);
-            proc_name(pid, task_name, sizeof(task_name));
-            /*
-             * This message is informational, but hax_warning() makes sure it is
-             * printed by default, which helps us identify QEMU PIDs, in case
-             * we ever receive unknown ioctl()s from other processes.
-             */
-            hax_warning("%s: Got HAX_VM_IOCTL_NOTIFY_QEMU_VERSION, pid=%d"
-                        " ('%s')\n", __func__, pid, task_name);
-            info = (struct hax_qemu_version *)data;
-
-            ret = hax_vm_set_qemuversion(cvm, info);
+        case HAX_VM_IOCTL_NOTIFY_QEMU_VERSION__LEGACY: {
+            // TODO: Currently no-op. Remove after grace period (2020-01-01)
             break;
         }
         default: {
@@ -531,6 +529,7 @@ static int hax_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
     int ret = 0;
 
     switch (cmd) {
+        case HAX_IOCTL_VERSION__LEGACY:
         case HAX_IOCTL_VERSION: {
             struct hax_module_version *version;
             version = (struct hax_module_version *)data;
@@ -538,12 +537,14 @@ static int hax_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
             version->compat_version = HAX_COMPAT_VERSION;
             break;
         }
+        case HAX_IOCTL_CAPABILITY__LEGACY:
         case HAX_IOCTL_CAPABILITY: {
             struct hax_capabilityinfo *capab;
             capab = (struct hax_capabilityinfo *)data;
             hax_get_capability(capab, sizeof(struct hax_capabilityinfo), NULL);
             break;
         }
+        case HAX_IOCTL_SET_MEMLIMIT__LEGACY:
         case HAX_IOCTL_SET_MEMLIMIT: {
             struct hax_set_memlimit *memlimit;
             memlimit = (struct hax_set_memlimit*)data;
@@ -551,6 +552,7 @@ static int hax_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
                                    NULL);
             break;
         }
+        case HAX_IOCTL_CREATE_VM__LEGACY:
         case HAX_IOCTL_CREATE_VM: {
             int vm_id;
             struct vm_t *cvm;

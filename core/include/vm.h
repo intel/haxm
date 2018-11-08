@@ -60,9 +60,6 @@ struct vm_t {
 #define VM_STATE_FLAGS_OPENED      0x1
 #define VM_STATE_FLAGS_MEM_ALLOC   0x2
     uint64_t flags;
-#define VM_FEATURES_FASTMMIO_BASIC 0x1
-#define VM_FEATURES_FASTMMIO_EXTRA 0x2
-    uint32_t features;
     int vm_id;
 #define VPID_SEED_BITS 64
     uint8_t vpid_seed[VPID_SEED_BITS / 8];

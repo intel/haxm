@@ -31,6 +31,13 @@
 #ifndef HAX_WINDOWS_HAX_INTERFACE_WINDOWS_H_
 #define HAX_WINDOWS_HAX_INTERFACE_WINDOWS_H_
 
+#define HAX_DEVICE_TYPE 0x8000
+
+#define HAX_LEGACY_IOCTL(access, code_posix, code_windows, type) \
+    CTL_CODE(0x4000, code, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define HAX_IOCTL(access, code, type) \
+    CTL_CODE(HAX_DEVICE_TYPE, (0x800 | code), METHOD_BUFFERED, FILE_ANY_ACCESS)
+
 /*
  * This is for MAC compatible mode, so should not be used
  * But how can we make sure it is really not used??

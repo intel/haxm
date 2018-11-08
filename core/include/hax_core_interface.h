@@ -89,7 +89,6 @@ struct vm_t * hax_get_vm(int vm_id, int refer);
 int hax_vm_core_open(struct vm_t *vm);
 /* Corresponding hax_get_vm with refer == 1 */
 int hax_put_vm(struct vm_t *vm);
-int hax_vm_set_qemuversion(struct vm_t *vm, struct hax_qemu_version *ver);
 
 struct vm_t * hax_create_vm(int *vm_id);
 int hax_teardown_vm(struct vm_t *vm);

@@ -37,7 +37,6 @@
 #include "hax_win.h"
 
 // vcpu.h
-int vcpu_takeoff(struct vcpu_t *vcpu);
 void vcpu_debug(struct vcpu_t *vcpu, struct hax_debug_t *debug);
 
 #define NT_DEVICE_NAME L"\\Device\\HAX"
@@ -278,10 +277,12 @@ NTSTATUS HaxVcpuControl(PDEVICE_OBJECT DeviceObject,
     }
 
     switch (irpSp->Parameters.DeviceIoControl.IoControlCode) {
+        case HAX_VCPU_IOCTL_RUN__LEGACY:
         case HAX_VCPU_IOCTL_RUN:
             if (vcpu_execute(cvcpu))
                 ret = STATUS_UNSUCCESSFUL;
             break;
+        case HAX_VCPU_IOCTL_SETUP_TUNNEL__LEGACY:
         case HAX_VCPU_IOCTL_SETUP_TUNNEL: {
             struct hax_tunnel_info info, *uinfo;
             if (outBufLength < sizeof(struct hax_tunnel_info )) {
@@ -296,6 +297,7 @@ NTSTATUS HaxVcpuControl(PDEVICE_OBJECT DeviceObject,
             infret = sizeof(struct hax_tunnel_info);
             break;
         }
+        case HAX_VCPU_IOCTL_SET_MSRS__LEGACY:
         case HAX_VCPU_IOCTL_SET_MSRS: {
             struct hax_msr_data *msrs, *outmsrs;
             struct vmx_msr *msr;
@@ -330,6 +332,7 @@ NTSTATUS HaxVcpuControl(PDEVICE_OBJECT DeviceObject,
             infret = sizeof(struct hax_msr_data);
             break;
         }
+        case HAX_VCPU_IOCTL_GET_MSRS__LEGACY:
         case HAX_VCPU_IOCTL_GET_MSRS: {
             struct hax_msr_data *msrs;
             struct vmx_msr *msr;
@@ -361,6 +364,7 @@ NTSTATUS HaxVcpuControl(PDEVICE_OBJECT DeviceObject,
             infret = sizeof(struct hax_msr_data);
             break;
         }
+        case HAX_VCPU_IOCTL_SET_FPU__LEGACY:
         case HAX_VCPU_IOCTL_SET_FPU: {
             struct fx_layout *fl;
             if (inBufLength < sizeof(struct fx_layout)) {
@@ -372,6 +376,7 @@ NTSTATUS HaxVcpuControl(PDEVICE_OBJECT DeviceObject,
             vcpu_put_fpu(cvcpu, fl);
             break;
         }
+        case HAX_VCPU_IOCTL_GET_FPU__LEGACY:
         case HAX_VCPU_IOCTL_GET_FPU: {
             struct fx_layout *fl;
             if (outBufLength < sizeof(struct fx_layout)) {
@@ -384,6 +389,7 @@ NTSTATUS HaxVcpuControl(PDEVICE_OBJECT DeviceObject,
             infret = sizeof(struct fx_layout);
             break;
         }
+        case HAX_VCPU_IOCTL_SET_REGS__LEGACY:
         case HAX_VCPU_IOCTL_SET_REGS: {
             struct vcpu_state_t *vc_state;
             if(inBufLength < sizeof(struct vcpu_state_t)) {
@@ -395,6 +401,7 @@ NTSTATUS HaxVcpuControl(PDEVICE_OBJECT DeviceObject,
                 ret = STATUS_UNSUCCESSFUL;
             break;
         }
+        case HAX_VCPU_IOCTL_GET_REGS__LEGACY:
         case HAX_VCPU_IOCTL_GET_REGS: {
             struct vcpu_state_t *vc_state;
             if(outBufLength < sizeof(struct vcpu_state_t)) {
@@ -408,6 +415,7 @@ NTSTATUS HaxVcpuControl(PDEVICE_OBJECT DeviceObject,
             infret = sizeof(struct vcpu_state_t);
             break;
         }
+        case HAX_VCPU_IOCTL_INTERRUPT__LEGACY:
         case HAX_VCPU_IOCTL_INTERRUPT: {
             uint8_t vector;
             if (inBufLength < sizeof(uint32_t)) {
@@ -418,10 +426,7 @@ NTSTATUS HaxVcpuControl(PDEVICE_OBJECT DeviceObject,
             vcpu_interrupt(cvcpu, vector);
             break;
         }
-        case HAX_VCPU_IOCTL_KICKOFF: {
-            vcpu_takeoff(cvcpu);
-            break;
-        }
+        case HAX_VCPU_IOCTL_DEBUG__LEGACY:
         case HAX_VCPU_IOCTL_DEBUG: {
             if (inBufLength < sizeof(struct hax_debug_t)) {
                 ret = STATUS_INVALID_PARAMETER;
@@ -478,6 +483,7 @@ NTSTATUS HaxVmControl(PDEVICE_OBJECT DeviceObject, struct hax_vm_windows *ext,
     }
 
     switch (irpSp->Parameters.DeviceIoControl.IoControlCode) {
+        case HAX_VM_IOCTL_VCPU_CREATE__LEGACY:
         case HAX_VM_IOCTL_VCPU_CREATE: {
             if (inBufLength < sizeof(uint32_t)) {
                 ret = STATUS_INVALID_PARAMETER;
@@ -494,6 +500,7 @@ NTSTATUS HaxVmControl(PDEVICE_OBJECT DeviceObject, struct hax_vm_windows *ext,
             ret = STATUS_SUCCESS;
             break;
         }
+        case HAX_VM_IOCTL_ALLOC_RAM__LEGACY:
         case HAX_VM_IOCTL_ALLOC_RAM: {
             struct hax_alloc_ram_info *info;
             if (inBufLength < sizeof(struct hax_alloc_ram_info)) {
@@ -508,6 +515,7 @@ NTSTATUS HaxVmControl(PDEVICE_OBJECT DeviceObject, struct hax_vm_windows *ext,
             }
             break;
         }
+        case HAX_VM_IOCTL_ADD_RAMBLOCK__LEGACY:
         case HAX_VM_IOCTL_ADD_RAMBLOCK: {
             struct hax_ramblock_info *info;
             if (inBufLength < sizeof(struct hax_ramblock_info)) {
@@ -530,6 +538,7 @@ NTSTATUS HaxVmControl(PDEVICE_OBJECT DeviceObject, struct hax_vm_windows *ext,
             }
             break;
         }
+        case HAX_VM_IOCTL_SET_RAM__LEGACY:
         case HAX_VM_IOCTL_SET_RAM: {
             struct hax_set_ram_info *info;
             int res;
@@ -551,6 +560,7 @@ NTSTATUS HaxVmControl(PDEVICE_OBJECT DeviceObject, struct hax_vm_windows *ext,
             break;
         }
 #ifdef CONFIG_HAX_EPT2
+        case HAX_VM_IOCTL_SET_RAM2__LEGACY:
         case HAX_VM_IOCTL_SET_RAM2: {
             struct hax_set_ram_info2 *info;
             int res;
@@ -578,6 +588,7 @@ NTSTATUS HaxVmControl(PDEVICE_OBJECT DeviceObject, struct hax_vm_windows *ext,
             }
             break;
         }
+        case HAX_VM_IOCTL_PROTECT_RAM__LEGACY:
         case HAX_VM_IOCTL_PROTECT_RAM: {
             struct hax_protect_ram_info *info;
             int res;
@@ -600,17 +611,8 @@ NTSTATUS HaxVmControl(PDEVICE_OBJECT DeviceObject, struct hax_vm_windows *ext,
             break;
         }
 #endif
-        case HAX_VM_IOCTL_NOTIFY_QEMU_VERSION: {
-            struct hax_qemu_version *info;
-
-            if (inBufLength < sizeof(struct hax_qemu_version)) {
-                ret = STATUS_INVALID_PARAMETER;
-                goto done;
-            }
-            info = (struct hax_qemu_version *)inBuf;
-
-            // hax_vm_set_qemuversion() cannot fail
-            hax_vm_set_qemuversion(cvm, info);
+        case HAX_VM_IOCTL_NOTIFY_QEMU_VERSION__LEGACY: {
+            // TODO: Currently no-op. Remove after grace period (2020-01-01)
             break;
         }
         default:
@@ -648,6 +650,7 @@ NTSTATUS HaxDeviceControl(PDEVICE_OBJECT DeviceObject,
     outBuf = Irp->AssociatedIrp.SystemBuffer;
 
     switch (irpSp->Parameters.DeviceIoControl.IoControlCode) {
+        case HAX_IOCTL_VERSION__LEGACY:
         case HAX_IOCTL_VERSION:
             if (outBufLength < sizeof(struct hax_module_version)) {
                 ret = STATUS_INVALID_PARAMETER;
@@ -657,6 +660,7 @@ NTSTATUS HaxDeviceControl(PDEVICE_OBJECT DeviceObject,
             /* I assume the outbuf and inbuf is same buffer, right? */
             infret = sizeof(struct hax_module_version);
             break;
+        case HAX_IOCTL_CAPABILITY__LEGACY:
         case HAX_IOCTL_CAPABILITY:
             if (outBufLength < sizeof(struct hax_capabilityinfo)) {
                 ret = STATUS_INVALID_PARAMETER;
@@ -674,6 +678,7 @@ NTSTATUS HaxDeviceControl(PDEVICE_OBJECT DeviceObject,
             ret = STATUS_SUCCESS;
             break;
 
+        case HAX_IOCTL_SET_MEMLIMIT__LEGACY:
         case HAX_IOCTL_SET_MEMLIMIT:
             if (inBufLength < sizeof(struct hax_set_memlimit)) {
                 ret = STATUS_INVALID_PARAMETER;
@@ -685,6 +690,7 @@ NTSTATUS HaxDeviceControl(PDEVICE_OBJECT DeviceObject,
             }
             ret = STATUS_SUCCESS;
             break;
+        case HAX_IOCTL_CREATE_VM__LEGACY:
         case HAX_IOCTL_CREATE_VM:
             if (outBufLength < sizeof(uint32_t)) {
                 Irp->IoStatus.Information = 0;

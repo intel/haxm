@@ -49,6 +49,124 @@
 #include "windows/hax_interface_windows.h"
 #endif
 
+#define HAX_IOCTL_PLATFORM   0x40
+#define HAX_IOCTL_EXTENSION  0x80
+
+/* Legacy API
+ * TODO: Remove all legacy calls after grace period (2020-01-01).
+ */
+#define HAX_IOCTL_VERSION__LEGACY \
+    HAX_LEGACY_IOCTL(HAX_IOWR, 0x20, 0x900, struct hax_module_version)
+#define HAX_IOCTL_CREATE_VM__LEGACY \
+    HAX_LEGACY_IOCTL(HAX_IOWR, 0x21, 0x901, uint32_t)
+#define HAX_IOCTL_DESTROY_VM__LEGACY \
+    HAX_LEGACY_IOCTL(HAX_IOW,  0x22, 0x902, uint32_t)
+#define HAX_IOCTL_CAPABILITY__LEGACY \
+    HAX_LEGACY_IOCTL(HAX_IOR,  0x23, 0x910, struct hax_capabilityinfo)
+#define HAX_IOCTL_SET_MEMLIMIT__LEGACY \
+    HAX_LEGACY_IOCTL(HAX_IOWR, 0x24, 0x911, struct hax_set_memlimit)
+
+#define HAX_VM_IOCTL_VCPU_CREATE__LEGACY \
+    HAX_LEGACY_IOCTL(HAX_IOWR, 0x80, 0x902, uint32_t)
+#define HAX_VM_IOCTL_ALLOC_RAM__LEGACY \
+    HAX_LEGACY_IOCTL(HAX_IOWR, 0x81, 0x903, struct hax_alloc_ram_info)
+#define HAX_VM_IOCTL_SET_RAM__LEGACY \
+    HAX_LEGACY_IOCTL(HAX_IOWR, 0x82, 0x904, struct hax_set_ram_info)
+#define HAX_VM_IOCTL_VCPU_DESTROY__LEGACY \
+    HAX_LEGACY_IOCTL(HAX_IOR,  0x83, 0x905, uint32_t)
+#define HAX_VM_IOCTL_ADD_RAMBLOCK__LEGACY \
+    HAX_LEGACY_IOCTL(HAX_IOW,  0x85, 0x913, struct hax_ramblock_info)
+#define HAX_VM_IOCTL_SET_RAM2__LEGACY \
+    HAX_LEGACY_IOCTL(HAX_IOWR, 0x86, 0x914, struct hax_set_ram_info2)
+#define HAX_VM_IOCTL_PROTECT_RAM__LEGACY \
+    HAX_LEGACY_IOCTL(HAX_IOWR, 0x87, 0x915, struct hax_protect_ram_info)
+
+#define HAX_VCPU_IOCTL_RUN__LEGACY \
+    HAX_LEGACY_IOCTL(HAX_IO,   0xc0, 0x906, HAX_UNUSED)
+#define HAX_VCPU_IOCTL_SETUP_TUNNEL__LEGACY \
+    HAX_LEGACY_IOCTL(HAX_IOWR, 0xc5, 0x90b, struct hax_tunnel_info)
+#define HAX_VCPU_IOCTL_GET_REGS__LEGACY \
+    HAX_LEGACY_IOCTL(HAX_IOWR, 0xc8, 0x90e, struct vcpu_state_t)
+#define HAX_VCPU_IOCTL_SET_REGS__LEGACY \
+    HAX_LEGACY_IOCTL(HAX_IOWR, 0xc7, 0x90d, struct vcpu_state_t)
+#define HAX_VCPU_IOCTL_GET_FPU__LEGACY \
+    HAX_LEGACY_IOCTL(HAX_IOR,  0xc4, 0x90a, struct fx_layout)
+#define HAX_VCPU_IOCTL_SET_FPU__LEGACY \
+    HAX_LEGACY_IOCTL(HAX_IOW,  0xc3, 0x909, struct fx_layout)
+#define HAX_VCPU_IOCTL_GET_MSRS__LEGACY \
+    HAX_LEGACY_IOCTL(HAX_IOWR, 0xc2, 0x908, struct hax_msr_data)
+#define HAX_VCPU_IOCTL_SET_MSRS__LEGACY \
+    HAX_LEGACY_IOCTL(HAX_IOWR, 0xc1, 0x907, struct hax_msr_data)
+#define HAX_VCPU_IOCTL_INTERRUPT__LEGACY \
+    HAX_LEGACY_IOCTL(HAX_IOWR, 0xc6, 0x90c, uint32_t)
+
+// API 2.0
+#define HAX_VM_IOCTL_NOTIFY_QEMU_VERSION__LEGACY \
+    HAX_LEGACY_IOCTL(HAX_IOW,  0x84, 0x910, struct hax_qemu_version)
+#define HAX_VCPU_IOCTL_DEBUG__LEGACY \
+    HAX_LEGACY_IOCTL(HAX_IOW,  0xc9, 0x916, struct hax_debug_t)
+
+/* API
+ * ===
+ * Each platform generates their own IOCTL-value by using the macro
+ * HAX_IOCTL(access, code, type) with the following arguments:
+ * - access: Arguments usage from userland perspective.
+ *   - HAX_IO:    Driver ignores user arguments.
+ *   - HAX_IOR:   Driver writes user arguments (read by user).
+ *   - HAX_IOW:   Driver reads user arguments (written by user).
+ *   - HAX_IOWR:  Driver reads+writes user arguments (written+read by user).
+ * - code: Sequential number in range 0x00-0x3F, and maskable via:
+ *   - HAX_IOCTL_PLATFORM  (0x40)  Platform-specific ioctl.
+ *   - HAX_IOCTL_EXTENSION (0x80)  Extension-specific ioctl.
+ * - type: User argument type.
+ */
+#define HAX_IOCTL_VERSION \
+    HAX_IOCTL(HAX_IOWR, 0x00, struct hax_module_version)
+#define HAX_IOCTL_CREATE_VM \
+    HAX_IOCTL(HAX_IOWR, 0x01, uint32_t)
+#define HAX_IOCTL_DESTROY_VM \
+    HAX_IOCTL(HAX_IOW,  0x02, uint32_t)
+#define HAX_IOCTL_CAPABILITY \
+    HAX_IOCTL(HAX_IOR,  0x03, struct hax_capabilityinfo)
+#define HAX_IOCTL_SET_MEMLIMIT \
+    HAX_IOCTL(HAX_IOWR, 0x04, struct hax_set_memlimit)
+
+#define HAX_VM_IOCTL_VCPU_CREATE \
+    HAX_IOCTL(HAX_IOWR, 0x00, uint32_t)
+#define HAX_VM_IOCTL_ALLOC_RAM \
+    HAX_IOCTL(HAX_IOWR, 0x01, struct hax_alloc_ram_info)
+#define HAX_VM_IOCTL_SET_RAM \
+    HAX_IOCTL(HAX_IOWR, 0x02, struct hax_set_ram_info)
+#define HAX_VM_IOCTL_VCPU_DESTROY \
+    HAX_IOCTL(HAX_IOR,  0x03, uint32_t)
+#define HAX_VM_IOCTL_ADD_RAMBLOCK \
+    HAX_IOCTL(HAX_IOW,  0x04, struct hax_ramblock_info)
+#define HAX_VM_IOCTL_SET_RAM2 \
+    HAX_IOCTL(HAX_IOWR, 0x05, struct hax_set_ram_info2)
+#define HAX_VM_IOCTL_PROTECT_RAM \
+    HAX_IOCTL(HAX_IOWR, 0x06, struct hax_protect_ram_info)
+
+#define HAX_VCPU_IOCTL_RUN \
+    HAX_IOCTL(HAX_IO,   0x00, HAX_UNUSED)
+#define HAX_VCPU_IOCTL_SETUP_TUNNEL \
+    HAX_IOCTL(HAX_IOWR, 0x01, struct hax_tunnel_info)
+#define HAX_VCPU_IOCTL_GET_REGS \
+    HAX_IOCTL(HAX_IOWR, 0x02, struct vcpu_state_t)
+#define HAX_VCPU_IOCTL_SET_REGS \
+    HAX_IOCTL(HAX_IOWR, 0x03, struct vcpu_state_t)
+#define HAX_VCPU_IOCTL_GET_FPU \
+    HAX_IOCTL(HAX_IOR,  0x04, struct fx_layout)
+#define HAX_VCPU_IOCTL_SET_FPU \
+    HAX_IOCTL(HAX_IOW,  0x05, struct fx_layout)
+#define HAX_VCPU_IOCTL_GET_MSRS \
+    HAX_IOCTL(HAX_IOWR, 0x06, struct hax_msr_data)
+#define HAX_VCPU_IOCTL_SET_MSRS \
+    HAX_IOCTL(HAX_IOWR, 0x07, struct hax_msr_data)
+#define HAX_VCPU_IOCTL_INTERRUPT \
+    HAX_IOCTL(HAX_IOWR, 0x08, uint32_t)
+#define HAX_VCPU_IOCTL_DEBUG \
+    HAX_IOCTL(HAX_IOW,  0x09, struct hax_debug_t)
+
 #include "vcpu_state.h"
 
 struct vmx_msr {
@@ -262,6 +380,7 @@ struct hax_set_ram_info2 {
 // All accesses (R/W/X) are allowed
 #define HAX_RAM_PERM_RWX  0x7
 #define HAX_RAM_PERM_MASK 0x7
+
 struct hax_protect_ram_info {
     uint64_t pa_start;
     uint64_t size;
