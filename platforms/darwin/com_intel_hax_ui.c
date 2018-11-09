@@ -163,7 +163,8 @@ static int hax_vcpu_ioctl(dev_t dev, ulong cmd, caddr_t data, int flag,
             /* nr_msr needs to be verified */
             if (msrs->nr_msr >= 0x20) {
                 hax_error("MSRS invalid!\n");
-                return -EFAULT;
+                ret = -EFAULT;
+                break;
             }
             for (i = 0; i < msrs->nr_msr; i++, msr++) {
                 fail = vcpu_set_msr(mvcpu2cvcpu(vcpu), msr->entry, msr->value);
@@ -186,7 +187,8 @@ static int hax_vcpu_ioctl(dev_t dev, ulong cmd, caddr_t data, int flag,
             msr = msrs->entries;
             if(msrs->nr_msr >= 0x20) {
                 hax_error("MSRS invalid!\n");
-                return -EFAULT;
+                ret = -EFAULT;
+                break;
             }
 
             for (i = 0; i < msrs->nr_msr; i++, msr++) {
@@ -396,7 +398,8 @@ static int hax_vm_ioctl(dev_t dev, ulong cmd, caddr_t data, int flag,
             if (info->reserved) {
                 hax_error("IOCTL_ADD_RAMBLOCK: vm_id=%d, reserved=0x%llx\n",
                           vm_mac->vm_id, info->reserved);
-                return -EINVAL;
+                ret = -EINVAL;
+                break;
             }
             hax_info("IOCTL_ADD_RAMBLOCK: vm_id=%d, start_va=0x%llx,"
                      " size=0x%llx\n", vm_mac->vm_id, info->start_va,
@@ -418,7 +421,8 @@ static int hax_vm_ioctl(dev_t dev, ulong cmd, caddr_t data, int flag,
                 hax_error("IOCTL_SET_RAM2: vm_id=%d, reserved1=0x%x"
                           " reserved2=0x%llx\n",
                           vm_mac->vm_id, info->reserved1, info->reserved2);
-                return -EINVAL;
+                ret = -EINVAL;
+                break;
             }
             ret = hax_vm_set_ram2(cvm, info);
             break;
@@ -429,7 +433,8 @@ static int hax_vm_ioctl(dev_t dev, ulong cmd, caddr_t data, int flag,
             if (info->reserved) {
                 hax_error("IOCTL_PROTECT_RAM: vm_id=%d, reserved=0x%x\n",
                           vm_mac->vm_id, info->reserved);
-                return -EINVAL;
+                ret = -EINVAL;
+                break;
             }
             ret = hax_vm_protect_ram(cvm, info);
             break;
