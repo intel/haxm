@@ -120,40 +120,36 @@
  *   - HAX_IOCTL_EXTENSION (0x80)  Extension-specific ioctl.
  * - type: User argument type.
  */
-#define HAX_IOCTL_VERSION \
-    HAX_IOCTL(HAX_IOWR, 0x00, struct hax_module_version)
+#define HAX_IOCTL_GET_API_VERSION \
+    HAX_IOCTL(HAX_IOR,  0x00, struct hax_module_version)
 #define HAX_IOCTL_CREATE_VM \
-    HAX_IOCTL(HAX_IOWR, 0x01, uint32_t)
+    HAX_IOCTL(HAX_IOR,  0x01, uint32_t)
 #define HAX_IOCTL_DESTROY_VM \
     HAX_IOCTL(HAX_IOW,  0x02, uint32_t)
 #define HAX_IOCTL_CAPABILITY \
     HAX_IOCTL(HAX_IOR,  0x03, struct hax_capabilityinfo)
-#define HAX_IOCTL_SET_MEMLIMIT \
-    HAX_IOCTL(HAX_IOWR, 0x04, struct hax_set_memlimit)
 
-#define HAX_VM_IOCTL_VCPU_CREATE \
-    HAX_IOCTL(HAX_IOWR, 0x00, uint32_t)
-#define HAX_VM_IOCTL_ALLOC_RAM \
-    HAX_IOCTL(HAX_IOWR, 0x01, struct hax_alloc_ram_info)
+#define HAX_VM_IOCTL_CREATE_VCPU \
+    HAX_IOCTL(HAX_IOW,  0x00, uint32_t)
+#define HAX_VM_IOCTL_DESTROY_VCPU \
+    HAX_IOCTL(HAX_IOW,  0x01, uint32_t)
 #define HAX_VM_IOCTL_SET_RAM \
-    HAX_IOCTL(HAX_IOWR, 0x02, struct hax_set_ram_info)
-#define HAX_VM_IOCTL_VCPU_DESTROY \
-    HAX_IOCTL(HAX_IOR,  0x03, uint32_t)
+    HAX_IOCTL(HAX_IOW,  0x02, struct hax_set_ram_info)
 #define HAX_VM_IOCTL_ADD_RAMBLOCK \
-    HAX_IOCTL(HAX_IOW,  0x04, struct hax_ramblock_info)
+    HAX_IOCTL(HAX_IOW,  0x03, struct hax_ramblock_info)
 #define HAX_VM_IOCTL_SET_RAM2 \
-    HAX_IOCTL(HAX_IOWR, 0x05, struct hax_set_ram_info2)
+    HAX_IOCTL(HAX_IOW,  0x04, struct hax_set_ram_info2)
 #define HAX_VM_IOCTL_PROTECT_RAM \
-    HAX_IOCTL(HAX_IOWR, 0x06, struct hax_protect_ram_info)
+    HAX_IOCTL(HAX_IOW,  0x05, struct hax_protect_ram_info)
 
 #define HAX_VCPU_IOCTL_RUN \
     HAX_IOCTL(HAX_IO,   0x00, HAX_UNUSED)
 #define HAX_VCPU_IOCTL_SETUP_TUNNEL \
-    HAX_IOCTL(HAX_IOWR, 0x01, struct hax_tunnel_info)
+    HAX_IOCTL(HAX_IOR,  0x01, struct hax_tunnel_info)
 #define HAX_VCPU_IOCTL_GET_REGS \
-    HAX_IOCTL(HAX_IOWR, 0x02, struct vcpu_state_t)
+    HAX_IOCTL(HAX_IOR,  0x02, struct vcpu_state_t)
 #define HAX_VCPU_IOCTL_SET_REGS \
-    HAX_IOCTL(HAX_IOWR, 0x03, struct vcpu_state_t)
+    HAX_IOCTL(HAX_IOW,  0x03, struct vcpu_state_t)
 #define HAX_VCPU_IOCTL_GET_FPU \
     HAX_IOCTL(HAX_IOR,  0x04, struct fx_layout)
 #define HAX_VCPU_IOCTL_SET_FPU \
@@ -161,9 +157,9 @@
 #define HAX_VCPU_IOCTL_GET_MSRS \
     HAX_IOCTL(HAX_IOWR, 0x06, struct hax_msr_data)
 #define HAX_VCPU_IOCTL_SET_MSRS \
-    HAX_IOCTL(HAX_IOWR, 0x07, struct hax_msr_data)
+    HAX_IOCTL(HAX_IOW,  0x07, struct hax_msr_data)
 #define HAX_VCPU_IOCTL_INTERRUPT \
-    HAX_IOCTL(HAX_IOWR, 0x08, uint32_t)
+    HAX_IOCTL(HAX_IOW,  0x08, uint32_t)
 #define HAX_VCPU_IOCTL_DEBUG \
     HAX_IOCTL(HAX_IOW,  0x09, struct hax_debug_t)
 

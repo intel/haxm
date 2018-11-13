@@ -377,7 +377,7 @@ static int hax_vm_ioctl(dev_t dev, ulong cmd, caddr_t data, int flag,
 
     switch (cmd) {
         case HAX_VM_IOCTL_VCPU_CREATE__LEGACY:
-        case HAX_VM_IOCTL_VCPU_CREATE: {
+        case HAX_VM_IOCTL_CREATE_VCPU: {
             uint32_t vcpu_id, vm_id;
             struct vcpu_t *cvcpu;
 
@@ -393,8 +393,7 @@ static int hax_vm_ioctl(dev_t dev, ulong cmd, caddr_t data, int flag,
             }
             break;
         }
-        case HAX_VM_IOCTL_ALLOC_RAM__LEGACY:
-        case HAX_VM_IOCTL_ALLOC_RAM: {
+        case HAX_VM_IOCTL_ALLOC_RAM__LEGACY: {
             struct hax_alloc_ram_info *info;
             info = (struct hax_alloc_ram_info *)data;
             hax_info("IOCTL_ALLOC_RAM: vm_id=%d, va=0x%llx, size=0x%x,"
@@ -530,7 +529,7 @@ static int hax_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
 
     switch (cmd) {
         case HAX_IOCTL_VERSION__LEGACY:
-        case HAX_IOCTL_VERSION: {
+        case HAX_IOCTL_GET_API_VERSION: {
             struct hax_module_version *version;
             version = (struct hax_module_version *)data;
             version->cur_version = HAX_CUR_VERSION;
@@ -544,8 +543,7 @@ static int hax_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
             hax_get_capability(capab, sizeof(struct hax_capabilityinfo), NULL);
             break;
         }
-        case HAX_IOCTL_SET_MEMLIMIT__LEGACY:
-        case HAX_IOCTL_SET_MEMLIMIT: {
+        case HAX_IOCTL_SET_MEMLIMIT__LEGACY: {
             struct hax_set_memlimit *memlimit;
             memlimit = (struct hax_set_memlimit*)data;
             ret = hax_set_memlimit(memlimit, sizeof(struct hax_set_memlimit),

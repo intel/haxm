@@ -521,7 +521,7 @@ static long hax_vm_ioctl(struct file *filp, unsigned int cmd,
 
     switch (cmd) {
     case HAX_VM_IOCTL_VCPU_CREATE__LEGACY:
-    case HAX_VM_IOCTL_VCPU_CREATE: {
+    case HAX_VM_IOCTL_CREATE_VCPU: {
         uint32_t vcpu_id, vm_id;
         struct vcpu_t *cvcpu;
 
@@ -538,8 +538,7 @@ static long hax_vm_ioctl(struct file *filp, unsigned int cmd,
         }
         break;
     }
-    case HAX_VM_IOCTL_ALLOC_RAM__LEGACY:
-    case HAX_VM_IOCTL_ALLOC_RAM: {
+    case HAX_VM_IOCTL_ALLOC_RAM__LEGACY: {
         struct hax_alloc_ram_info info;
         if (copy_from_user(&info, argp, sizeof(info))) {
             ret = -EFAULT;

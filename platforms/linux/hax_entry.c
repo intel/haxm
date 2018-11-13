@@ -70,7 +70,7 @@ static long hax_dev_ioctl(struct file *filp, unsigned int cmd,
 
     switch (cmd) {
     case HAX_IOCTL_VERSION__LEGACY:
-    case HAX_IOCTL_VERSION: {
+    case HAX_IOCTL_GET_API_VERSION: {
         struct hax_module_version version = {};
         version.cur_version = HAX_CUR_VERSION;
         version.compat_version = HAX_COMPAT_VERSION;
@@ -86,8 +86,7 @@ static long hax_dev_ioctl(struct file *filp, unsigned int cmd,
             return -EFAULT;
         break;
     }
-    case HAX_IOCTL_SET_MEMLIMIT__LEGACY:
-    case HAX_IOCTL_SET_MEMLIMIT: {
+    case HAX_IOCTL_SET_MEMLIMIT__LEGACY: {
         struct hax_set_memlimit memlimit = {};
         if (copy_from_user(&memlimit, argp, sizeof(memlimit)))
             return -EFAULT;
