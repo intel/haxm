@@ -165,6 +165,14 @@ static const struct em_opcode_t opcode_group3[8] = {
     F(em_neg, op_modrm_rm, op_none, op_none, 0),
 };
 
+static const struct em_opcode_t opcode_group8[8] = {
+    X4(N),
+    F(em_bt, op_none, op_none, op_none, 0),
+    F(em_bts, op_none, op_none, op_none, 0),
+    F(em_btr, op_none, op_none, op_none, 0),
+    F(em_btc, op_none, op_none, op_none, 0),
+};
+
 static const struct em_opcode_t opcode_group11[8] = {
     I(em_mov, op_none, op_none, op_none, INSN_MOV),
 };
@@ -232,16 +240,25 @@ static const struct em_opcode_t opcode_table[256] = {
 };
 
 static const struct em_opcode_t opcode_table_0F[256] = {
-    /* 0x00 - 0xAF */
+    /* 0x00 - 0x9F */
     X16(N), X16(N), X16(N), X16(N),
     X16(N), X16(N), X16(N), X16(N),
-    X16(N), X16(N), X16(N),
-    /* 0xB0 - 0xBF */
+    X16(N), X16(N),
+    /* 0xA0 - 0xAF */
+    X3(N),
+    F(em_bt, op_modrm_rm, op_modrm_reg, op_none, INSN_MODRM),
+    X7(N),
+    F(em_bts, op_modrm_rm, op_modrm_reg, op_none, INSN_MODRM),
     X4(N),
+    /* 0xB0 - 0xBF */
+    X3(N),
+    F(em_btr, op_modrm_rm, op_modrm_reg, op_none, INSN_MODRM),
     X2(N),
     I(em_movzx, op_modrm_reg, op_modrm_rm8, op_none, INSN_MODRM | INSN_MOV),
     I(em_movzx, op_modrm_reg, op_modrm_rm16, op_none, INSN_MODRM | INSN_MOV),
-    X4(N),
+    X2(N),
+    G(opcode_group8, op_modrm_rm, op_simm8, op_none, 0),
+    F(em_btc, op_modrm_rm, op_modrm_reg, op_none, INSN_MODRM),
     X2(N),
     I(em_movsx, op_modrm_reg, op_modrm_rm8, op_none, INSN_MODRM | INSN_MOV),
     I(em_movsx, op_modrm_reg, op_modrm_rm16, op_none, INSN_MODRM | INSN_MOV),
