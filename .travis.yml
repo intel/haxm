@@ -27,7 +27,6 @@ matrix:
         - cd platforms/linux
         - make -j$(nproc)
 
-  exclude: # TODO: Currently TravisCI does not support full VS/EWDK on Windows
     - name: "haxm-windows"
       os: windows
       install:
@@ -40,4 +39,9 @@ matrix:
         - export MSVC=$(vswhere -latest -products "*" -requires Microsoft.Component.MSBuild -property installationPath)
         - export MSVC=$(echo /$MSVC | sed -e 's/\\/\//g' -e 's/://')
         - export PATH="$PATH:$MSVC/MSBuild/15.0/Bin/"
-        - MSBuild.exe haxm.sln //p:Configuration="Debug" //p:Platform="x64"
+        # TODO: Remove the following hack when no longer needed.
+        # NOTE: Officially WDK does not support VS Build Tools, only regular VS/EWDK installations,
+        #       but since those are not supported by TravisCI, we need to install targets manually.
+        - unzip "/c/Program Files (x86)/Windows Kits/10/Vsix/WDK.vsix" -d wdk
+        - cp -R wdk/\$VCTargets/* "$MSVC/Common7/IDE/VC/VCTargets"
+        - MSBuild.exe haxm-windows.vcxproj //p:Configuration="Debug" //p:Platform="x64"
