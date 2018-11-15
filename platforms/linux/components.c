@@ -363,6 +363,10 @@ static long hax_vcpu_ioctl(struct file *filp, unsigned int cmd,
             }
         }
         msrs.done = i;
+        if (copy_to_user(argp, &msrs, sizeof(msrs))) {
+            ret = -EFAULT;
+            break;
+        }
         break;
     }
     case HAX_VCPU_IOCTL_GET_MSRS__LEGACY:

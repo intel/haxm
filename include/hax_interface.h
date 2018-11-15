@@ -157,7 +157,7 @@
 #define HAX_VCPU_IOCTL_GET_MSRS \
     HAX_IOCTL(HAX_IOWR, 0x06, struct hax_msr_data)
 #define HAX_VCPU_IOCTL_SET_MSRS \
-    HAX_IOCTL(HAX_IOW,  0x07, struct hax_msr_data)
+    HAX_IOCTL(HAX_IOWR, 0x07, struct hax_msr_data)
 #define HAX_VCPU_IOCTL_INTERRUPT \
     HAX_IOCTL(HAX_IOW,  0x08, uint32_t)
 #define HAX_VCPU_IOCTL_DEBUG \
