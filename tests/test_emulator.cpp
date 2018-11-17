@@ -489,6 +489,18 @@ protected:
     }
 
     template <int N>
+    void test_bt(const char* insn_name,
+                 const std::vector<test_alu_2op_t>& tests) {
+        if (N == 64 && sizeof(void*) < 8) {
+            return;
+        }
+        test_insn_rN_rN<N>(insn_name, tests, false);
+        test_insn_rN_iN<N>(insn_name, tests, false);
+        test_insn_mN_iN<N>(insn_name, tests, false);
+        test_insn_mN_rN<N>(insn_name, tests, false);
+    }
+
+    template <int N>
     void test_test(const std::vector<test_alu_2op_t>& tests) {
         if (N == 64 && sizeof(void*) < 8) {
             return;
@@ -595,6 +607,90 @@ TEST_F(EmulatorTest, insn_bextr) {
           0x00000000'0000FFF0, 0 }};
     test_insn_rN_rN_rN<64>("bextr", tests64);
     test_insn_rN_mN_rN<64>("bextr", tests64);
+}
+
+TEST_F(EmulatorTest, insn_bt) {
+    test_bt<16>("bt", {
+        { 0xFFFE, 0x00, RFLAGS_CF,
+          0xFFFE, 0 },
+        { 0x0200, 0x09, 0,
+          0x0200, RFLAGS_CF },
+        });
+    test_bt<32>("bt", {
+        { 0xFF7FFFFF, 0x17, 0,
+          0xFF7FFFFF, 0 },
+        { 0xFFFF0000, 0x3F, RFLAGS_CF,
+          0xFFFF0000, RFLAGS_CF },
+        });
+    test_bt<64>("bt", {
+        { 0x00000000'FFFFFFFFULL, 0x20, RFLAGS_CF,
+          0x00000000'FFFFFFFFULL, 0 },
+        { 0x80000000'00000000ULL, 0x7F, 0,
+          0x80000000'00000000ULL, RFLAGS_CF },
+        });
+}
+
+TEST_F(EmulatorTest, insn_btc) {
+    test_bt<16>("btc", {
+        { 0xFFFE, 0x00, RFLAGS_CF,
+          0xFFFF, 0 },
+        { 0x0200, 0x09, 0,
+          0x0000, RFLAGS_CF },
+        });
+    test_bt<32>("btc", {
+        { 0xFF7FFFFF, 0x17, 0,
+          0xFFFFFFFF, 0 },
+        { 0xFFFF0000, 0x3F, RFLAGS_CF,
+          0x7FFF0000, RFLAGS_CF },
+        });
+    test_bt<64>("btc", {
+        { 0x00000000'FFFFFFFFULL, 0x20, RFLAGS_CF,
+          0x00000001'FFFFFFFFULL, 0 },
+        { 0x80000000'00000000ULL, 0x7F, 0,
+          0x00000000'00000000ULL, RFLAGS_CF },
+        });
+}
+
+TEST_F(EmulatorTest, insn_btr) {
+    test_bt<16>("btr", {
+        { 0xFFFE, 0x00, RFLAGS_CF,
+          0xFFFE, 0 },
+        { 0x0200, 0x09, 0,
+          0x0000, RFLAGS_CF },
+        });
+    test_bt<32>("btr", {
+        { 0xFF7FFFFF, 0x17, 0,
+          0xFF7FFFFF, 0 },
+        { 0xFFFF0000, 0x3F, RFLAGS_CF,
+          0x7FFF0000, RFLAGS_CF },
+        });
+    test_bt<64>("btr", {
+        { 0x00000000'FFFFFFFFULL, 0x20, RFLAGS_CF,
+          0x00000000'FFFFFFFFULL, 0 },
+        { 0x80000000'00000000ULL, 0x7F, 0,
+          0x00000000'00000000ULL, RFLAGS_CF },
+        });
+}
+
+TEST_F(EmulatorTest, insn_bts) {
+    test_bt<16>("bts", {
+        { 0xFFFE, 0x00, RFLAGS_CF,
+          0xFFFF, 0 },
+        { 0x0200, 0x09, 0,
+          0x0200, RFLAGS_CF },
+        });
+    test_bt<32>("bts", {
+        { 0xFF7FFFFF, 0x17, 0,
+          0xFFFFFFFF, 0 },
+        { 0xFFFF0000, 0x3F, RFLAGS_CF,
+          0xFFFF0000, RFLAGS_CF },
+        });
+    test_bt<64>("bts", {
+        { 0x00000000'FFFFFFFFULL, 0x20, RFLAGS_CF,
+          0x00000001'FFFFFFFFULL, 0 },
+        { 0x80000000'00000000ULL, 0x7F, 0,
+          0x80000000'00000000ULL, RFLAGS_CF },
+        });
 }
 
 TEST_F(EmulatorTest, insn_movs) {
