@@ -2034,8 +2034,8 @@ static void vcpu_enter_fpu_state(struct vcpu_t *vcpu)
     struct fx_layout *hfx = (struct fx_layout *)hax_page_va(hstate->hfxpage);
     struct fx_layout *gfx = (struct fx_layout *)hax_page_va(gstate->gfxpage);
 
-    fxsave((mword *)hfx);
-    fxrstor((mword *)gfx);
+    hax_fxsave((mword *)hfx);
+    hax_fxrstor((mword *)gfx);
 }
 
 static void vcpu_exit_fpu_state(struct vcpu_t *vcpu)
@@ -2045,8 +2045,8 @@ static void vcpu_exit_fpu_state(struct vcpu_t *vcpu)
     struct fx_layout *hfx = (struct fx_layout *)hax_page_va(hstate->hfxpage);
     struct fx_layout *gfx = (struct fx_layout *)hax_page_va(gstate->gfxpage);
 
-    fxsave((mword *)gfx);
-    fxrstor((mword *)hfx);
+    hax_fxsave((mword *)gfx);
+    hax_fxrstor((mword *)hfx);
 }
 
 // Instructions are never longer than 15 bytes:
