@@ -3050,7 +3050,7 @@ static int handle_string_io(struct vcpu_t *vcpu, exit_qualification_t *qual,
     struct vcpu_state_t *state = vcpu->state;
     uint64_t count, total_size;
     uint elem_size, n, copy_size;
-    vaddr_t gla, start_gva;
+    hax_vaddr_t gla, start_gva;
 
     // 1 indicates string I/O (i.e. OUTS or INS)
     htun->io._flags = 1;

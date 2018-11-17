@@ -56,7 +56,7 @@ struct gstate {
 };
 
 struct cvtlb {
-    vaddr_t va;
+    hax_vaddr_t va;
     hax_paddr_t ha;
     uint64_t flags;
     uint guest_order;
@@ -116,7 +116,7 @@ struct vcpu_post_mmio {
         /* Index to the register to write to (for VCPU_POST_MMIO_WRITE_REG) */
         uint8_t reg_index;
         /* GVA to write to (for VCPU_POST_MMIO_WRITE_MEM) */
-        vaddr_t va;
+        hax_vaddr_t va;
     };
     /* How to manipulate hax_fastmmio.value before use by |op| */
     enum {

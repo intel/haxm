@@ -70,7 +70,7 @@ static hax_paddr_t get_pageoffs(hax_paddr_t p, hax_paddr_t o, uint order)
     return ((~(uint64_t)0 << order) & p) | (~(~(uint64_t)0 << order) & o);
 }
 
-static hax_paddr_t get_pagebase(vaddr_t p, uint order)
+static hax_paddr_t get_pagebase(hax_vaddr_t p, uint order)
 {
     return (~(uint64_t)0 << order) & p;
 }
@@ -252,12 +252,12 @@ static inline uint pte32_get_idxmask(uint lvl)
     return 0x3ff;
 }
 
-static inline uint pte32_get_idx(uint lvl, vaddr_t va)
+static inline uint pte32_get_idx(uint lvl, hax_vaddr_t va)
 {
     return (va >> pte32_get_idxbit(lvl)) & pte32_get_idxmask(lvl);
 }
 
-static inline uint pae_get_idx(uint lvl, vaddr_t va)
+static inline uint pae_get_idx(uint lvl, hax_vaddr_t va)
 {
     return (va >> (12 + 9 * lvl)) & 0x1ff;
 }
@@ -430,7 +430,7 @@ static inline uint pte64_get_idxmask(uint lvl)
     return 0x1ff;
 }
 
-static inline uint pte64_get_idx(uint lvl, vaddr_t va)
+static inline uint pte64_get_idx(uint lvl, hax_vaddr_t va)
 {
     return (va >> pte64_get_idxbit(lvl)) & pte64_get_idxmask(lvl);
 }
