@@ -557,7 +557,7 @@ void hax_unmap_gpfn(void *va)
 #endif
 }
 #else // !HAX_ARCH_X86_64
-void * hax_map_gpfn(struct vm_t *vm, uint64_t gpfn, bool flag, paddr_t gcr3,
+void * hax_map_gpfn(struct vm_t *vm, uint64_t gpfn, bool flag, hax_paddr_t gcr3,
                     uint8_t level)
 {
 #ifdef HAX_ARCH_X86_64

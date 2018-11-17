@@ -93,7 +93,7 @@ struct vm_t {
 struct hva_entry {
     uint64_t gpfn;
     uint64_t hva;
-    paddr_t gcr3;
+    hax_paddr_t gcr3;
     bool is_kern;
     uint8_t level;
 };
@@ -127,7 +127,7 @@ uint64_t hax_gpfn_to_hpa(struct vm_t *vm, uint64_t gpfn);
 
 #ifndef CONFIG_HAX_EPT2
 #ifdef HAX_ARCH_X86_32
-void * hax_map_gpfn(struct vm_t *vm, uint64_t gpfn, bool flag, paddr_t cr3_cur,
+void * hax_map_gpfn(struct vm_t *vm, uint64_t gpfn, bool flag, hax_paddr_t cr3_cur,
                     uint8_t level);
 void hax_unmap_gpfn(struct vm_t *vm, void *va, uint64_t gpfn);
 #else

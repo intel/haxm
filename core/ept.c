@@ -77,7 +77,7 @@ static bool ept_has_cap(uint64_t cap)
 }
 
 // Get the PDE entry for the specified gpa in EPT
-static epte_t * ept_get_pde(struct hax_ept *ept, paddr_t gpa)
+static epte_t * ept_get_pde(struct hax_ept *ept, hax_paddr_t gpa)
 {
     epte_t *e;
     uint which_g = gpa >> 30;
@@ -93,12 +93,12 @@ static epte_t * ept_get_pde(struct hax_ept *ept, paddr_t gpa)
 }
 
 // ept_set_pte: caller can use it to setup p2m mapping for the guest.
-bool ept_set_pte(hax_vm_t *hax_vm, paddr_t gpa, paddr_t hpa, uint emt,
+bool ept_set_pte(hax_vm_t *hax_vm, hax_paddr_t gpa, hax_paddr_t hpa, uint emt,
                  uint mem_type, bool *is_modified)
 {
     bool ret = true;
     struct hax_page *page;
-    paddr_t pte_ha;
+    hax_paddr_t pte_ha;
     epte_t *pte;
     void *pte_base, *addr;
     struct hax_ept *ept = hax_vm->ept;
@@ -178,7 +178,7 @@ out_unlock:
     return ret;
 }
 
-static bool ept_lookup(struct vcpu_t *vcpu, paddr_t gpa, paddr_t *hpa)
+static bool ept_lookup(struct vcpu_t *vcpu, hax_paddr_t gpa, hax_paddr_t *hpa)
 {
     epte_t *pde, *pte;
     void *pte_base;
@@ -222,13 +222,13 @@ static bool ept_lookup(struct vcpu_t *vcpu, paddr_t gpa, paddr_t *hpa)
  */
 
 // TODO: Do we need to consider cross-page case ??
-bool ept_translate(struct vcpu_t *vcpu, paddr_t gpa, uint order, paddr_t *hpa)
+bool ept_translate(struct vcpu_t *vcpu, hax_paddr_t gpa, uint order, hax_paddr_t *hpa)
 {
     assert(order == PG_ORDER_4K);
     return ept_lookup(vcpu, gpa, hpa);
 }
 
-static eptp_t ept_construct_eptp(paddr_t addr)
+static eptp_t ept_construct_eptp(hax_paddr_t addr)
 {
     eptp_t eptp;
     eptp.val = 0;
@@ -241,7 +241,7 @@ static eptp_t ept_construct_eptp(paddr_t addr)
 bool ept_init(hax_vm_t *hax_vm)
 {
     uint i;
-    paddr_t hpa;
+    hax_paddr_t hpa;
     // Need Xiantao's check
     unsigned char *ept_addr;
     epte_t *e;

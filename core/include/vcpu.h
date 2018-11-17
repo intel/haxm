@@ -57,7 +57,7 @@ struct gstate {
 
 struct cvtlb {
     vaddr_t va;
-    paddr_t ha;
+    hax_paddr_t ha;
     uint64_t flags;
     uint guest_order;
     uint order;
@@ -277,7 +277,7 @@ int vcpu_unpause(struct vcpu_t *vcpu);
 int vcpu_takeoff(struct vcpu_t *vcpu);
 
 void *vcpu_vmcs_va(struct vcpu_t *vcpu);
-paddr_t vcpu_vmcs_pa(struct vcpu_t *vcpu);
+hax_paddr_t vcpu_vmcs_pa(struct vcpu_t *vcpu);
 int set_vcpu_tunnel(struct vcpu_t *vcpu, struct hax_tunnel *tunnel,
                     uint8_t *iobuf);
 

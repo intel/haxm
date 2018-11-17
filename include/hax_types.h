@@ -96,7 +96,7 @@
 /* Common typedef for all platforms */
 typedef uint64_t hax_pa_t;
 typedef uint64_t hax_pfn_t;
-typedef uint64_t paddr_t;
+typedef uint64_t hax_paddr_t;
 typedef uint64_t vaddr_t;
 
 #endif  // HAX_TYPES_H_

@@ -72,7 +72,7 @@ static void vtlb_free_all_entries(hax_mmu_t *mmu);
 static pagemode_t vcpu_get_pagemode(struct vcpu_t *vcpu);
 static pte64_t * vtlb_get_pde(hax_mmu_t *mmu, vaddr_t va, bool is_shadow);
 static uint32_t vcpu_mmu_walk(struct vcpu_t *vcpu, vaddr_t va, uint32_t access,
-                              paddr_t *pa, uint *order, uint64_t *flags,
+                              hax_paddr_t *pa, uint *order, uint64_t *flags,
                               bool update, bool prefetch);
 
 static void vtlb_update_pde(pte64_t *pde, pte64_t *shadow_pde,
@@ -414,10 +414,10 @@ void vtlb_invalidate(hax_mmu_t *mmu)
 }
 
 static uint vtlb_handle_page_fault(struct vcpu_t *vcpu, pagemode_t guest_mode,
-                                   paddr_t pdir, vaddr_t va, uint32_t access)
+                                   hax_paddr_t pdir, vaddr_t va, uint32_t access)
 {
     uint r;
-    paddr_t gpa;
+    hax_paddr_t gpa;
     vtlb_t tlb;
     uint need_invalidation = 0;
     hax_mmu_t *mmu = vcpu->mmu;
@@ -538,7 +538,7 @@ uint64_t vtlb_get_cr3(struct vcpu_t *vcpu)
  * the page fault error code.
  */
 static uint32_t vcpu_mmu_walk(struct vcpu_t *vcpu, vaddr_t va, uint32_t access,
-                              paddr_t *pa, uint *order, uint64_t *flags,
+                              hax_paddr_t *pa, uint *order, uint64_t *flags,
                               bool update, bool prefetch)
 {
     uint lvl, idx;
@@ -548,10 +548,10 @@ static uint32_t vcpu_mmu_walk(struct vcpu_t *vcpu, vaddr_t va, uint32_t access,
     bool writable;
 #endif // CONFIG_HAX_EPT2
     pte32_t *pte, old_pte;
-    paddr_t gpt_base;
+    hax_paddr_t gpt_base;
 #ifndef CONFIG_HAX_EPT2
 #ifdef HAX_ARCH_X86_32
-    paddr_t g_cr3 = 0;
+    hax_paddr_t g_cr3 = 0;
     bool is_kernel = false;
     int old_gpt_base;
 #endif
@@ -783,7 +783,7 @@ bool handle_vtlb(struct vcpu_t *vcpu)
 {
     uint32_t access = vmx(vcpu, exit_exception_error_code);
     pagemode_t mode = vcpu_get_pagemode(vcpu);
-    paddr_t pdir = vcpu->state->_cr3 & (mode == PM_PAE ? ~0x1fULL : ~0xfffULL);
+    hax_paddr_t pdir = vcpu->state->_cr3 & (mode == PM_PAE ? ~0x1fULL : ~0xfffULL);
     vaddr_t cr2 = vmx(vcpu, exit_qualification).address;
 
     uint32_t ret = vtlb_handle_page_fault(vcpu, mode, pdir, cr2, access);
@@ -942,7 +942,7 @@ uint32_t vcpu_read_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr, void *dst,
     void *hva, *hva_base;
 #ifdef HAX_ARCH_X86_32
     bool is_kernel = false;
-    paddr_t g_cr3 = 0;
+    hax_paddr_t g_cr3 = 0;
 #endif
 #endif // !CONFIG_HAX_EPT2
     // Flag == 1 is not currently used, but it could be enabled if useful.
@@ -956,7 +956,7 @@ uint32_t vcpu_read_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr, void *dst,
 #endif // !CONFIG_HAX_EPT2
 
     while (offset < size) {
-        paddr_t gpa;
+        hax_paddr_t gpa;
         uint64_t len = size - offset;
         uint r = vcpu_translate(vcpu, addr + offset, 0, &gpa, &len, flag != 2);
         if (r != 0) {
@@ -1035,7 +1035,7 @@ uint32_t vcpu_write_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr,
     void *hva, *hva_base;
 #ifdef HAX_ARCH_X86_32
     bool is_kernel = false;
-    paddr_t g_cr3 = 0;
+    hax_paddr_t g_cr3 = 0;
 #endif
 #endif // !CONFIG_HAX_EPT2
     assert(flag == 0 || flag == 1);
@@ -1050,7 +1050,7 @@ uint32_t vcpu_write_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr,
     assert(dst_buflen >= size);
 
     while (offset < size) {
-        paddr_t gpa;
+        hax_paddr_t gpa;
         uint64_t len = size - offset;
         uint r = vcpu_translate(vcpu, addr + offset, TF_WRITE, &gpa, &len,
                                 flag != 2);
@@ -1112,7 +1112,7 @@ uint32_t vcpu_write_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr,
  * @returns 0 if translation is successful, 0x80000000 OR'ed with the exception
  * number otherwise.
  */
-uint vcpu_translate(struct vcpu_t *vcpu, vaddr_t va, uint access, paddr_t *pa,
+uint vcpu_translate(struct vcpu_t *vcpu, vaddr_t va, uint access, hax_paddr_t *pa,
                     uint64_t *len, bool update)
 {
     pagemode_t mode = vcpu_get_pagemode(vcpu);
