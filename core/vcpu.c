@@ -1748,7 +1748,7 @@ static void advance_rip(struct vcpu_t *vcpu)
         vcpu->interruptibility_dirty = 1;
     }
 
-    state->_rip += vmx(vcpu, exit_instr_length);
+    state->_rip += vmcs_read(vcpu, VM_EXIT_INFO_INSTRUCTION_LENGTH);
     vcpu->rip_dirty = 1;
 }
 
@@ -2092,6 +2092,7 @@ static int vcpu_emulate_insn(struct vcpu_t *vcpu)
     em_mode_t mode;
     em_context_t *em_ctxt = &vcpu->emulate_ctxt;
     uint8_t instr[INSTR_MAX_LEN] = {0};
+    uint32_t exit_instr_length = vmcs_read(vcpu, VM_EXIT_INFO_INSTRUCTION_LENGTH);
     uint64_t cs_base = vcpu->state->_cs.base;
     uint64_t rip = vcpu->state->_rip;
     uint64_t va;
@@ -2138,16 +2139,16 @@ static int vcpu_emulate_insn(struct vcpu_t *vcpu)
         hax_panic_vcpu(vcpu, "em_decode_insn() failed: vcpu_id=%u,"
                        " len=%u, CS:IP=0x%llx:0x%llx, instr[0..5]="
                        "0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n", vcpu->vcpu_id,
-                       vcpu->vmx.exit_instr_length, cs_base, rip, instr[0],
-                       instr[1], instr[2], instr[3], instr[4], instr[5]);
+                       exit_instr_length, cs_base, rip, instr[0], instr[1],
+                       instr[2], instr[3], instr[4], instr[5]);
         dump_vmcs(vcpu);
         return HAX_RESUME;
     }
-    if (em_ctxt->len != vcpu->vmx.exit_instr_length) {
+    if (em_ctxt->len != exit_instr_length) {
         hax_debug("Inferred instruction length %u does not match VM-exit"
                   " instruction length %u (CS:IP=0x%llx:0x%llx, instr[0..5]="
                   "0x%x 0x%x 0x%x 0x%x 0x%x 0x%x)\n", em_ctxt->len,
-                  vcpu->vmx.exit_instr_length, cs_base, rip, instr[0], instr[1],
+                  exit_instr_length, cs_base, rip, instr[0], instr[1],
                   instr[2], instr[3], instr[4], instr[5]);
     }
     rc = em_emulate_insn(em_ctxt);
@@ -2155,8 +2156,8 @@ static int vcpu_emulate_insn(struct vcpu_t *vcpu)
         hax_panic_vcpu(vcpu, "em_emulate_insn() failed: vcpu_id=%u,"
                        " len=%u, CS:IP=0x%llx:0x%llx, instr[0..5]="
                        "0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n", vcpu->vcpu_id,
-                       vcpu->vmx.exit_instr_length, cs_base, rip, instr[0],
-                       instr[1], instr[2], instr[3], instr[4], instr[5]);
+                       exit_instr_length, cs_base, rip, instr[0], instr[1],
+                       instr[2], instr[3], instr[4], instr[5]);
         dump_vmcs(vcpu);
         return HAX_RESUME;
     }
@@ -2233,7 +2234,7 @@ static em_status_t vcpu_read_memory(void *obj, uint64_t ea, uint64_t *value,
     uint64_t pa;
 
     if (flags & EM_OPS_NO_TRANSLATION) {
-        pa = vmx(vcpu, exit_gpa);
+        pa = vmcs_read(vcpu, VM_EXIT_INFO_GUEST_PHYSICAL_ADDRESS);
     } else {
         vcpu_translate(vcpu, ea, 0, &pa, NULL, false);
     }
@@ -2271,7 +2272,7 @@ static em_status_t vcpu_write_memory(void *obj, uint64_t ea, uint64_t *value,
     uint64_t pa;
 
     if (flags & EM_OPS_NO_TRANSLATION) {
-        pa = vmx(vcpu, exit_gpa);
+        pa = vmcs_read(vcpu, VM_EXIT_INFO_GUEST_PHYSICAL_ADDRESS);
     } else {
         vcpu_translate(vcpu, ea, 0, &pa, NULL, false);
     }
@@ -2321,7 +2322,7 @@ static int exit_exc_nmi(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     struct vcpu_state_t *state = vcpu->state;
     interruption_info_t exit_intr_info;
 
-    exit_intr_info.raw = vmx(vcpu, exit_intr_info).raw;
+    exit_intr_info.raw = vmcs_read(vcpu, VM_EXIT_INFO_INTERRUPT_INFO);
     htun->_exit_reason = vmx(vcpu, exit_reason).basic_reason;
     hax_debug("exception vmexit vector:%x\n", exit_intr_info.vector);
 
@@ -3680,7 +3681,7 @@ static int exit_ept_misconfiguration(struct vcpu_t *vcpu,
 
     htun->_exit_reason = vmx(vcpu, exit_reason).basic_reason;
 #ifdef CONFIG_HAX_EPT2
-    gpa = vmx(vcpu, exit_gpa);
+    gpa = vmcs_read(vcpu, VM_EXIT_INFO_GUEST_PHYSICAL_ADDRESS);
     ret = ept_handle_misconfiguration(&vcpu->vm->gpa_space, &vcpu->vm->ept_tree,
                                       gpa);
     if (ret > 0) {
@@ -3712,7 +3713,7 @@ static int exit_ept_violation(struct vcpu_t *vcpu, struct hax_tunnel *htun)
         return HAX_RESUME;
     }
 
-    gpa = vmx(vcpu, exit_gpa);
+    gpa = vmcs_read(vcpu, VM_EXIT_INFO_GUEST_PHYSICAL_ADDRESS);
 
 #ifdef CONFIG_HAX_EPT2
     ret = ept_handle_access_violation(&vcpu->vm->gpa_space, &vcpu->vm->ept_tree,
@@ -3736,7 +3737,8 @@ static int exit_ept_violation(struct vcpu_t *vcpu, struct hax_tunnel *htun)
          * TODO: Handle this case properly.
          */
         hax_warning("%s: Unexpected EPT violation cause. Skipping instruction"
-                    " (len=%u)\n", __func__, vcpu->vmx.exit_instr_length);
+                    " (len=%u)\n", __func__,
+                    vmcs_read(vcpu, VM_EXIT_INFO_INSTRUCTION_LENGTH));
         advance_rip(vcpu);
         return HAX_EXIT;
     }

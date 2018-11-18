@@ -312,36 +312,6 @@ vmx_result_t cpu_vmx_run(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     return result;
 }
 
-void vcpu_handle_vmcs_pending(struct vcpu_t *vcpu)
-{
-    if (!vcpu || !vcpu->vmcs_pending)
-        return;
-    if (vcpu->vmcs_pending_entry_error_code) {
-        vmwrite(vcpu, VMX_ENTRY_EXCEPTION_ERROR_CODE,
-                vmx(vcpu, entry_exception_error_code));
-        vcpu->vmcs_pending_entry_error_code = 0;
-    }
-
-    if (vcpu->vmcs_pending_entry_instr_length) {
-        vmwrite(vcpu, VMX_ENTRY_INSTRUCTION_LENGTH,
-                vmx(vcpu, entry_instr_length));
-        vcpu->vmcs_pending_entry_instr_length = 0;
-    }
-
-    if (vcpu->vmcs_pending_entry_intr_info) {
-        vmwrite(vcpu, VMX_ENTRY_INTERRUPT_INFO,
-                vmx(vcpu, entry_intr_info).raw);
-        vcpu->vmcs_pending_entry_intr_info = 0;
-    }
-
-    if (vcpu->vmcs_pending_guest_cr3) {
-        vmwrite(vcpu, GUEST_CR3, vtlb_get_cr3(vcpu));
-        vcpu->vmcs_pending_guest_cr3 = 0;
-    }
-    vcpu->vmcs_pending = 0;
-    return;
-}
-
 /* Return the value same as ioctl value */
 int cpu_vmx_execute(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
@@ -416,16 +386,6 @@ int cpu_vmx_execute(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 
         vmx(vcpu, exit_qualification).raw = vmread(
                 vcpu, VM_EXIT_INFO_QUALIFICATION);
-        vmx(vcpu, exit_intr_info).raw = vmread(
-                vcpu, VM_EXIT_INFO_INTERRUPT_INFO);
-        vmx(vcpu, exit_exception_error_code) = vmread(
-                vcpu, VM_EXIT_INFO_EXCEPTION_ERROR_CODE);
-        vmx(vcpu, exit_idt_vectoring) = vmread(
-                vcpu, VM_EXIT_INFO_IDT_VECTORING);
-        vmx(vcpu, exit_instr_length) = vmread(
-                vcpu, VM_EXIT_INFO_INSTRUCTION_LENGTH);
-        vmx(vcpu, exit_gpa) = vmread(
-                vcpu, VM_EXIT_INFO_GUEST_PHYSICAL_ADDRESS);
         vmx(vcpu, interruptibility_state).raw = vmread(
                 vcpu, GUEST_INTERRUPTIBILITY);
 

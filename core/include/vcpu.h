@@ -154,10 +154,6 @@ struct vcpu_t {
 #define GS_STALE      0
 #define GS_VALID      1
         uint64_t cur_state                       : 1;
-        uint64_t vmcs_pending                    : 1;
-        uint64_t vmcs_pending_entry_error_code   : 1;
-        uint64_t vmcs_pending_entry_instr_length : 1;
-        uint64_t vmcs_pending_entry_intr_info    : 1;
         uint64_t vmcs_pending_guest_cr3          : 1;
         uint64_t debug_control_dirty             : 1;
         uint64_t dr_dirty                        : 1;

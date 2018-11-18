@@ -35,6 +35,7 @@
 #include "include/hax_core_interface.h"
 #include "include/ia32.h"
 #include "include/ia32_defs.h"
+#include "include/vtlb.h"
 
 static void _vmx_vmwrite(struct vcpu_t *vcpu, const char *name,
                          component_index_t component,
@@ -304,7 +305,7 @@ void get_interruption_info_t(interruption_info_t *info, uint8_t v, uint8_t t)
 #define COMP_PENDING(cache_r, cache_w, width, name) \
     COMP_PENDING_##cache_w(name)
 
-void vmcs_write_pending(struct vcpu_t* vcpu)
+void vcpu_handle_vmcs_pending(struct vcpu_t* vcpu)
 {
     if (!vcpu || !vcpu->vmx.vmcs_cache_w.dirty)
         return;
@@ -312,4 +313,9 @@ void vmcs_write_pending(struct vcpu_t* vcpu)
 #define COMP COMP_PENDING
     VMCS_COMPS
 #undef COMP
+    if (vcpu->vmcs_pending_guest_cr3) {
+        vmwrite(vcpu, GUEST_CR3, vtlb_get_cr3(vcpu));
+        vcpu->vmcs_pending_guest_cr3 = 0;
+    }
+    vcpu->vmx.vmcs_cache_w.dirty = 0;
 }

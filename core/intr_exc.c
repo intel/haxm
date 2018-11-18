@@ -137,7 +137,7 @@ uint hax_intr_is_blocked(struct vcpu_t *vcpu)
 void hax_handle_idt_vectoring(struct vcpu_t *vcpu)
 {
     uint8_t vector;
-    uint32_t idt_vec = vmread(vcpu, VM_EXIT_INFO_IDT_VECTORING);
+    uint32_t idt_vec = vmcs_read(vcpu, VM_EXIT_INFO_IDT_VECTORING);
 
     if (idt_vec & 0x80000000) {
         if (!(idt_vec & 0x700)) {
@@ -147,9 +147,9 @@ void hax_handle_idt_vectoring(struct vcpu_t *vcpu)
             hax_debug("extern interrupt is vectoring....vector:%d\n", vector);
         } else {
             hax_debug("VM Exit @ IDT vectoring, type:%d, vector:%d,"
-                      " error code:%llx\n",
+                      " error code:%x\n",
                       (idt_vec & 0x700) >> 8, idt_vec & 0xff,
-                      vmread(vcpu, VM_EXIT_INFO_IDT_VECTORING_ERROR_CODE));
+                      vmcs_read(vcpu, VM_EXIT_INFO_IDT_VECTORING_ERROR_CODE));
         }
     }
 }
@@ -198,8 +198,8 @@ void hax_inject_exception(struct vcpu_t *vcpu, uint8_t vector, uint32_t error_co
 {
     uint32_t intr_info = 0;
     uint8_t first_vec;
-    uint32_t vect_info = vmx(vcpu, exit_idt_vectoring);
-    uint32_t exit_instr_length = vmx(vcpu, exit_instr_length);
+    uint32_t vect_info = vmcs_read(vcpu, VM_EXIT_INFO_IDT_VECTORING);
+    uint32_t exit_instr_length = vmcs_read(vcpu, VM_EXIT_INFO_INSTRUCTION_LENGTH);
 
     if (vcpu->event_injected == 1)
         hax_debug("Event is injected already!!:\n");
@@ -218,8 +218,7 @@ void hax_inject_exception(struct vcpu_t *vcpu, uint8_t vector, uint32_t error_co
         if (error_code != NO_ERROR_CODE) {
             intr_info |= 1 << 11;
             if (vector == VECTOR_PF) {
-                vcpu->vmcs_pending_entry_error_code = 1;
-                vmx(vcpu, entry_exception_error_code) = error_code;
+                vmcs_write(vcpu, VMX_ENTRY_EXCEPTION_ERROR_CODE, error_code);
             } else {
                 vmwrite(vcpu, VMX_ENTRY_EXCEPTION_ERROR_CODE, error_code);
             }
@@ -227,11 +226,8 @@ void hax_inject_exception(struct vcpu_t *vcpu, uint8_t vector, uint32_t error_co
     }
 
     if (vector == VECTOR_PF) {
-        vcpu->vmcs_pending_entry_instr_length = 1;
-        vmx(vcpu, entry_instr_length) = exit_instr_length;
-        vcpu->vmcs_pending_entry_intr_info = 1;
-        vmx(vcpu, entry_intr_info).raw = intr_info;
-        vcpu->vmcs_pending = 1;
+        vmcs_write(vcpu, VMX_ENTRY_INSTRUCTION_LENGTH, exit_instr_length);
+        vmcs_write(vcpu, VMX_ENTRY_INTERRUPT_INFO, intr_info);
     } else {
         vmwrite(vcpu, VMX_ENTRY_INSTRUCTION_LENGTH, exit_instr_length);
         vmwrite(vcpu, VMX_ENTRY_INTERRUPT_INFO, intr_info);

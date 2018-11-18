@@ -291,7 +291,7 @@ typedef enum component_index_t component_index_t;
  */
 #define VMCS_COMPS                                           \
     /* 64-bit components */                                  \
-    COMP(1, 1, W_64, VMX_IO_BITMAP_A)                        \
+    COMP(0, 0, W_64, VMX_IO_BITMAP_A)                        \
     COMP(0, 0, W_64, VMX_IO_BITMAP_B)                        \
     COMP(0, 0, W_64, VMX_MSR_BITMAP)                         \
     COMP(0, 0, W_64, VMX_EXIT_MSR_STORE_ADDRESS)             \
@@ -301,7 +301,7 @@ typedef enum component_index_t component_index_t;
     COMP(0, 0, W_64, VMX_VAPIC_PAGE)                         \
     COMP(0, 0, W_64, VMX_APIC_ACCESS_PAGE)                   \
     COMP(0, 0, W_64, VMX_EPTP)                               \
-    COMP(0, 0, W_64, VM_EXIT_INFO_GUEST_PHYSICAL_ADDRESS)    \
+    COMP(1, 0, W_64, VM_EXIT_INFO_GUEST_PHYSICAL_ADDRESS)    \
     COMP(0, 0, W_64, HOST_PAT)                               \
     COMP(0, 0, W_64, HOST_EFER)                              \
     COMP(0, 0, W_64, HOST_PERF_GLOBAL_CTRL)                  \
@@ -370,19 +370,19 @@ typedef enum component_index_t component_index_t;
     COMP(0, 0, W_32, VMX_EXIT_MSR_LOAD_COUNT)                \
     COMP(0, 0, W_32, VMX_ENTRY_CONTROLS)                     \
     COMP(0, 0, W_32, VMX_ENTRY_MSR_LOAD_COUNT)               \
-    COMP(0, 0, W_32, VMX_ENTRY_INTERRUPT_INFO)               \
-    COMP(0, 0, W_32, VMX_ENTRY_EXCEPTION_ERROR_CODE)         \
-    COMP(0, 0, W_32, VMX_ENTRY_INSTRUCTION_LENGTH)           \
+    COMP(0, 1, W_32, VMX_ENTRY_INTERRUPT_INFO)               \
+    COMP(0, 1, W_32, VMX_ENTRY_EXCEPTION_ERROR_CODE)         \
+    COMP(0, 1, W_32, VMX_ENTRY_INSTRUCTION_LENGTH)           \
     COMP(0, 0, W_32, VMX_TPR_THRESHOLD)                      \
     COMP(0, 0, W_32, VMX_CR3_TARGET_COUNT)                   \
     COMP(0, 0, W_32, VMX_PREEMPTION_TIMER)                   \
     COMP(0, 0, W_32, VMX_INSTRUCTION_ERROR_CODE)             \
     COMP(0, 0, W_32, VM_EXIT_INFO_REASON)                    \
-    COMP(0, 0, W_32, VM_EXIT_INFO_INTERRUPT_INFO)            \
-    COMP(0, 0, W_32, VM_EXIT_INFO_EXCEPTION_ERROR_CODE)      \
-    COMP(0, 0, W_32, VM_EXIT_INFO_IDT_VECTORING)             \
+    COMP(1, 0, W_32, VM_EXIT_INFO_INTERRUPT_INFO)            \
+    COMP(1, 0, W_32, VM_EXIT_INFO_EXCEPTION_ERROR_CODE)      \
+    COMP(1, 0, W_32, VM_EXIT_INFO_IDT_VECTORING)             \
     COMP(0, 0, W_32, VM_EXIT_INFO_IDT_VECTORING_ERROR_CODE)  \
-    COMP(0, 0, W_32, VM_EXIT_INFO_INSTRUCTION_LENGTH)        \
+    COMP(1, 0, W_32, VM_EXIT_INFO_INSTRUCTION_LENGTH)        \
     COMP(0, 0, W_32, VM_EXIT_INFO_INSTRUCTION_INFO)          \
     COMP(0, 0, W_32, HOST_SYSENTER_CS)                       \
     COMP(0, 0, W_32, GUEST_ES_AR)                            \
@@ -880,18 +880,12 @@ struct vcpu_vmx_data {
     uint32_t entry_exception_vector;
     uint32_t entry_exception_error_code;
 
-    uint32_t exit_exception_error_code;
-    interruption_info_t exit_intr_info;
     interruption_info_t entry_intr_info;
-    uint32_t exit_idt_vectoring;
-    uint32_t exit_instr_length;
     uint32_t entry_instr_length;
 
     exit_reason_t exit_reason;
     exit_qualification_t exit_qualification;
     interruptibility_state_t interruptibility_state;
-
-    uint64_t exit_gpa;
 };
 
 vmx_result_t ASMCALL asm_invept(uint type, struct invept_desc *desc);
@@ -946,11 +940,12 @@ void vmx_vmwrite(struct vcpu_t *vcpu, const char *name,
     static inline void vmcs_write_##name(struct vcpu_vmx_data* vcpu_vmx,      \
                                          COMP_TYPE_##width value) {           \
         vcpu_vmx->vmcs.name##_value = value;                                  \
-        vcpu_vmx->vmcs_cache_r.name##_cache = 1;                              \
+        /*vcpu_vmx->vmcs_cache_r.name##_cache = 1;*/                          \
         vcpu_vmx->vmcs_cache_w.name##_dirty = 1;                              \
+        vcpu_vmx->vmcs_cache_w.dirty = 1;                                     \
     }
 
-  // Declarations
+// Declarations
 #define COMP_R(cache_r, cache_w, width, name) \
     COMP_R_##cache_r(width, name);
 #define COMP_W(cache_r, cache_w, width, name) \
@@ -970,7 +965,7 @@ VMCS_COMPS
 #define vmcs_write(vcpu, name, value) \
     vmcs_write_##name(&vcpu->vmx, value)
 
-void vmcs_write_pending(struct vcpu_t *vcpu);
+void vcpu_handle_vmcs_pending(struct vcpu_t *vcpu);
 
 #define VMREAD_SEG(vcpu, seg, val)                                 \
         ((val).selector = vmread(vcpu, GUEST_##seg##_SELECTOR),    \
