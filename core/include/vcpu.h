@@ -68,40 +68,6 @@ struct cvtlb {
 struct hax_mmu;
 struct per_cpu_data;
 
-struct vcpu_vmx_data {
-    uint32_t pin_ctls_base;
-    uint32_t pcpu_ctls_base;
-    uint32_t scpu_ctls_base;
-    uint32_t entry_ctls_base;
-    uint32_t exc_bitmap_base;
-    uint32_t exit_ctls_base;
-
-    uint32_t pin_ctls;
-    uint32_t pcpu_ctls;
-    uint32_t scpu_ctls;
-    uint32_t entry_ctls;
-    uint32_t exc_bitmap;
-    uint32_t exit_ctls;
-
-    uint64_t cr0_mask, cr0_shadow;
-    uint64_t cr4_mask, cr4_shadow;
-    uint32_t entry_exception_vector;
-    uint32_t entry_exception_error_code;
-
-    uint32_t exit_exception_error_code;
-    interruption_info_t exit_intr_info;
-    interruption_info_t entry_intr_info;
-    uint32_t exit_idt_vectoring;
-    uint32_t exit_instr_length;
-    uint32_t entry_instr_length;
-
-    exit_reason_t exit_reason;
-    exit_qualification_t exit_qualification;
-    interruptibility_state_t interruptibility_state;
-
-    uint64_t exit_gpa;
-};
-
 /* Information saved by instruction decoder and used by post-MMIO handler */
 struct vcpu_post_mmio {
     enum {

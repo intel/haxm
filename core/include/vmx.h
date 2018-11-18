@@ -102,6 +102,7 @@ enum {
     VMX_EXIT_XRSTORS                 = 64
 };
 
+// Intel SDM Vol. 3D: Appendix B: Field Encoding in VMCS
 enum component_index_t {
     VMX_PIN_CONTROLS                            = 0x00004000,
     VMX_PRIMARY_PROCESSOR_CONTROLS              = 0x00004002,
@@ -467,6 +468,21 @@ union instruction_info_t {
 
 typedef union instruction_info_t instruction_info_t;
 
+// Intel SDM Vol. 3C: Table 24-3. Format of Interruptibility State
+union interruptibility_state_t {
+    uint32_t raw;
+    struct {
+        uint32_t sti_blocking : 1;
+        uint32_t movss_blocking : 1;
+        uint32_t smi_blocking : 1;
+        uint32_t nmi_blocking : 1;
+        uint32_t reserved : 28;
+    };
+    uint64_t pad;
+} PACKED;
+
+typedef union interruptibility_state_t interruptibility_state_t;
+
 // 64-bit OK
 union interruption_info_t {
     uint32_t raw;
@@ -635,6 +651,40 @@ struct invept_desc {
 
 struct vcpu_state_t;
 struct vcpu_t;
+
+struct vcpu_vmx_data {
+    uint32_t pin_ctls_base;
+    uint32_t pcpu_ctls_base;
+    uint32_t scpu_ctls_base;
+    uint32_t entry_ctls_base;
+    uint32_t exc_bitmap_base;
+    uint32_t exit_ctls_base;
+
+    uint32_t pin_ctls;
+    uint32_t pcpu_ctls;
+    uint32_t scpu_ctls;
+    uint32_t entry_ctls;
+    uint32_t exc_bitmap;
+    uint32_t exit_ctls;
+
+    uint64_t cr0_mask, cr0_shadow;
+    uint64_t cr4_mask, cr4_shadow;
+    uint32_t entry_exception_vector;
+    uint32_t entry_exception_error_code;
+
+    uint32_t exit_exception_error_code;
+    interruption_info_t exit_intr_info;
+    interruption_info_t entry_intr_info;
+    uint32_t exit_idt_vectoring;
+    uint32_t exit_instr_length;
+    uint32_t entry_instr_length;
+
+    exit_reason_t exit_reason;
+    exit_qualification_t exit_qualification;
+    interruptibility_state_t interruptibility_state;
+
+    uint64_t exit_gpa;
+};
 
 vmx_result_t ASMCALL asm_invept(uint type, struct invept_desc *desc);
 vmx_result_t ASMCALL asm_vmclear(const hax_paddr_t *addr_in);
