@@ -296,3 +296,20 @@ void get_interruption_info_t(interruption_info_t *info, uint8_t v, uint8_t t)
     info->reserved = 0;
     info->valid = 1;
 }
+
+#define COMP_PENDING_0(name)
+#define COMP_PENDING_1(name) \
+    if (vcpu->vmx.vmcs_cache_w.name##_dirty) \
+        vmwrite(vcpu, name, vcpu->vmx.vmcs.name##_value);
+#define COMP_PENDING(cache_r, cache_w, width, name) \
+    COMP_PENDING_##cache_w(name)
+
+void vmcs_write_pending(struct vcpu_t* vcpu)
+{
+    if (!vcpu || !vcpu->vmx.vmcs_cache_w.dirty)
+        return;
+
+#define COMP COMP_PENDING
+    VMCS_COMPS
+#undef COMP
+}

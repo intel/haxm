@@ -562,6 +562,7 @@ static void vcpu_init(struct vcpu_t *vcpu)
     vmx(vcpu, cr0_shadow) = 0;
     vmx(vcpu, cr4_mask) = 0;
     vmx(vcpu, cr4_shadow) = 0;
+    vmx(vcpu, parent) = vcpu;
 
     vcpu->ref_count = 1;
 
