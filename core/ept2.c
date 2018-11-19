@@ -44,7 +44,7 @@ void ept_handle_mapping_removed(hax_gpa_space_listener *listener,
 
     hax_info("%s: %s=>MMIO: start_gfn=0x%llx, npages=0x%llx, uva=0x%llx\n",
              __func__, is_rom ? "ROM" : "RAM", start_gfn, npages, uva);
-    assert(listener != NULL);
+    hax_assert(listener != NULL);
     tree = (hax_ept_tree *) listener->opaque;
     ret = ept_tree_invalidate_entries(tree, start_gfn, npages);
     hax_info("%s: Invalidated %d PTEs\n", __func__, ret);
@@ -63,7 +63,7 @@ void ept_handle_mapping_changed(hax_gpa_space_listener *listener,
     hax_info("%s: %s=>%s: start_gfn=0x%llx, npages=0x%llx, old_uva=0x%llx,"
              " new_uva=0x%llx\n", __func__, was_rom ? "ROM" : "RAM",
              is_rom ? "ROM" : "RAM", start_gfn, npages, old_uva, new_uva);
-    assert(listener != NULL);
+    hax_assert(listener != NULL);
     tree = (hax_ept_tree *) listener->opaque;
     ret = ept_tree_invalidate_entries(tree, start_gfn, npages);
     hax_info("%s: Invalidated %d PTEs\n", __func__, ret);
@@ -95,7 +95,7 @@ int ept_handle_access_violation(hax_gpa_space *gpa_space, hax_ept_tree *tree,
     }
 
     gfn = gpa >> PG_ORDER_4K;
-    assert(gpa_space != NULL);
+    hax_assert(gpa_space != NULL);
     slot = memslot_find(gpa_space, gfn);
     if (!slot) {
         // The faulting GPA is reserved for MMIO
@@ -121,11 +121,11 @@ int ept_handle_access_violation(hax_gpa_space *gpa_space, hax_ept_tree *tree,
     // The faulting GPA maps to RAM/ROM
     is_rom = slot->flags & HAX_MEMSLOT_READONLY;
     offset_within_slot = gpa - (slot->base_gfn << PG_ORDER_4K);
-    assert(offset_within_slot < (slot->npages << PG_ORDER_4K));
+    hax_assert(offset_within_slot < (slot->npages << PG_ORDER_4K));
     block = slot->block;
-    assert(block != NULL);
+    hax_assert(block != NULL);
     offset_within_block = slot->offset_within_block + offset_within_slot;
-    assert(offset_within_block < block->size);
+    hax_assert(offset_within_block < block->size);
     chunk = ramblock_get_chunk(block, offset_within_block, true);
     if (!chunk) {
         hax_error("%s: Failed to grab the RAM chunk for %s gpa=0x%llx:"
@@ -180,10 +180,10 @@ static void fix_epte(hax_ept_tree *tree, uint64_t gfn, int level, hax_epte *epte
     hax_epte old_epte, new_epte;
     epte_fixer_bundle *bundle;
 
-    assert(epte != NULL);
+    hax_assert(epte != NULL);
     old_epte = *epte;
     new_epte = old_epte;
-    assert(opaque != NULL);
+    hax_assert(opaque != NULL);
     bundle = (epte_fixer_bundle *) opaque;
 
     if (old_epte.perm == HAX_EPT_PERM_NONE) {
@@ -264,7 +264,7 @@ int ept_handle_misconfiguration(hax_gpa_space *gpa_space, hax_ept_tree *tree,
     epte_fixer_bundle bundle = { NULL, 0, 0 };
 
     gfn = gpa >> PG_ORDER_4K;
-    assert(gpa_space != NULL);
+    hax_assert(gpa_space != NULL);
     bundle.slot = memslot_find(gpa_space, gfn);
     if (!bundle.slot) {
         // The GPA being accessed is reserved for MMIO

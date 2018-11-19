@@ -1961,7 +1961,7 @@ static void vmwrite_cr(struct vcpu_t *vcpu)
         // Vol. 3A 4.4.1)
         cr4_mask |= CR4_PAE;
         eptp = vm_get_eptp(vcpu->vm);
-        assert(eptp != INVALID_EPTP);
+        hax_assert(eptp != INVALID_EPTP);
         // hax_debug("Guest eip:%llx, EPT mode, eptp:%llx\n", vcpu->state->_rip,
         //           eptp);
         vmwrite(vcpu, GUEST_CR3, state->_cr3);
@@ -3220,7 +3220,7 @@ static int misc_msr_read(struct vcpu_t *vcpu, uint32_t msr, uint64_t *val)
     mtrr_var_t *v;
 
     if (msr >= IA32_MTRR_PHYSBASE0 && msr <= IA32_MTRR_PHYSMASK9) {
-        assert((msr >> 1 & 0x7f) < NUM_VARIABLE_MTRRS);
+        hax_assert((msr >> 1 & 0x7f) < NUM_VARIABLE_MTRRS);
         v = &vcpu->mtrr_current_state.mtrr_var[msr >> 1 & 0x7f];
         *val = msr & 1 ? v->mask.raw : v->base.raw;
         return 0;
@@ -3473,7 +3473,7 @@ static int misc_msr_write(struct vcpu_t *vcpu, uint32_t msr, uint64_t val)
     mtrr_var_t *v;
 
     if (msr >= IA32_MTRR_PHYSBASE0 && msr <= IA32_MTRR_PHYSMASK9) {
-        assert((msr >> 1 & 0x7f) < NUM_VARIABLE_MTRRS);
+        hax_assert((msr >> 1 & 0x7f) < NUM_VARIABLE_MTRRS);
         v = &vcpu->mtrr_current_state.mtrr_var[msr >> 1 & 0x7f];
         if (msr & 1) {
             v->mask.raw = val;
@@ -4176,7 +4176,7 @@ int vcpu_takeoff(struct vcpu_t *vcpu)
     // Don't change the sequence unless you are sure
     if (vcpu->is_running) {
         cpu_id = vcpu->cpu_id;
-        assert(cpu_id != hax_cpuid());
+        hax_assert(cpu_id != hax_cpuid());
         targets = cpu2cpumap(cpu_id);
         // If not considering Windows XP, definitely we don't need this
         hax_smp_call_function(&targets, _vcpu_take_off, NULL);

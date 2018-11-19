@@ -88,7 +88,7 @@ static hax_ept_page * ept_tree_alloc_page(hax_ept_tree *tree)
         hax_vfree(page, sizeof(*page));
         return NULL;
     }
-    assert(tree != NULL);
+    hax_assert(tree != NULL);
     ept_tree_lock(tree);
     hax_list_add(&page->entry, &tree->page_list);
     ept_tree_unlock(tree);
@@ -113,7 +113,7 @@ static inline hax_ept_page_kmap * ept_tree_get_freq_page(hax_ept_tree *tree,
     //    space. Cached in freq_pages[2..(n + 1)].
     hax_ept_page_kmap *freq_page = NULL;
 
-    assert(tree != NULL);
+    hax_assert(tree != NULL);
     switch (level) {
         case HAX_EPT_LEVEL_PML4: {
             freq_page = &tree->freq_pages[0];
@@ -171,11 +171,11 @@ int ept_tree_init(hax_ept_tree *tree)
         return -ENOMEM;
     }
     kva = hax_get_kva_phys(&root_page->memdesc);
-    assert(kva != NULL);
+    hax_assert(kva != NULL);
     pfn = hax_get_pfn_phys(&root_page->memdesc);
-    assert(pfn != INVALID_PFN);
+    hax_assert(pfn != INVALID_PFN);
     root_page_kmap = ept_tree_get_freq_page(tree, 0, HAX_EPT_LEVEL_PML4);
-    assert(root_page_kmap != NULL);
+    hax_assert(root_page_kmap != NULL);
     root_page_kmap->page = root_page;
     root_page_kmap->kva = kva;
 
@@ -243,7 +243,7 @@ static inline hax_epte * ept_tree_get_root_table(hax_ept_tree *tree)
     hax_ept_page_kmap *root_page_kmap;
 
     root_page_kmap = ept_tree_get_freq_page(tree, 0, HAX_EPT_LEVEL_PML4);
-    assert(root_page_kmap != NULL);
+    hax_assert(root_page_kmap != NULL);
     return (hax_epte *) root_page_kmap->kva;
 }
 
@@ -280,11 +280,11 @@ static hax_epte * ept_tree_get_next_table(hax_ept_tree *tree, uint64_t gfn,
     hax_epte *epte;
     hax_epte *next_table = NULL;
 
-    assert(tree != NULL);
-    assert(next_level >= HAX_EPT_LEVEL_PT && next_level <= HAX_EPT_LEVEL_PDPT);
+    hax_assert(tree != NULL);
+    hax_assert(next_level >= HAX_EPT_LEVEL_PT && next_level <= HAX_EPT_LEVEL_PDPT);
     index = (uint) ((gfn >> (HAX_EPT_TABLE_SHIFT * current_level)) &
                     (HAX_EPT_TABLE_SIZE - 1));
-    assert(current_table != NULL);
+    hax_assert(current_table != NULL);
     epte = &current_table[index];
     if (visit_current_epte) {
         visit_current_epte(tree, gfn, current_level, epte, opaque);
@@ -312,7 +312,7 @@ static hax_epte * ept_tree_get_next_table(hax_ept_tree *tree, uint64_t gfn,
             return NULL;
         }
         pfn = hax_get_pfn_phys(&page->memdesc);
-        assert(pfn != INVALID_PFN);
+        hax_assert(pfn != INVALID_PFN);
 
         temp_epte.perm = HAX_EPT_PERM_RWX;
         // This is a non-leaf |hax_epte|, so ept_mt and ignore_pat_mt are
@@ -320,7 +320,7 @@ static hax_epte * ept_tree_get_next_table(hax_ept_tree *tree, uint64_t gfn,
         temp_epte.pfn = pfn;
 
         kva = hax_get_kva_phys(&page->memdesc);
-        assert(kva != NULL);
+        hax_assert(kva != NULL);
         if (freq_page) {
             // The next-level EPT table is frequently used, so initialize its
             // KVA mapping cache
@@ -369,12 +369,12 @@ static hax_epte * ept_tree_get_next_table(hax_ept_tree *tree, uint64_t gfn,
             // The next-level EPT table is frequently used, so its KVA mapping
             // must have been cached
             kva = freq_page->kva;
-            assert(kva != NULL);
+            hax_assert(kva != NULL);
         } else {
             // The next-level EPT table is not frequently used, which means a
             // temporary KVA mapping needs to be created
-            assert(epte->pfn != INVALID_PFN);
-            assert(kmap != NULL);
+            hax_assert(epte->pfn != INVALID_PFN);
+            hax_assert(kmap != NULL);
             kva = hax_map_page_frame(epte->pfn, kmap);
             if (!kva) {
                 hax_error("%s: Failed to map pfn=0x%llx into KVA space\n",
@@ -390,7 +390,7 @@ static inline void kmap_swap(hax_kmap_phys *kmap1, hax_kmap_phys *kmap2)
 {
     hax_kmap_phys tmp;
 
-    assert(kmap1 != NULL && kmap2 != NULL);
+    hax_assert(kmap1 != NULL && kmap2 != NULL);
     tmp = *kmap1;
     *kmap1 = *kmap2;
     *kmap2 = tmp;
@@ -415,7 +415,7 @@ int ept_tree_create_entry(hax_ept_tree *tree, uint64_t gfn, hax_epte value)
     }
 
     table = ept_tree_get_root_table(tree);
-    assert(table != NULL);
+    hax_assert(table != NULL);
     for (level = HAX_EPT_LEVEL_PML4; level >= HAX_EPT_LEVEL_PD; level--) {
         table = ept_tree_get_next_table(tree, gfn, level, table, &kmap, true,
                                         NULL, NULL);
@@ -423,7 +423,7 @@ int ept_tree_create_entry(hax_ept_tree *tree, uint64_t gfn, hax_epte value)
         // Note that hax_unmap_page_frame() does not fail when the KVA mapping
         // descriptor is filled with zeroes
         ret = hax_unmap_page_frame(&prev_kmap);
-        assert(ret == 0);
+        hax_assert(ret == 0);
         // prev_kmap is now filled with zeroes
         if (!table) {
             hax_error("%s: Failed to grab the next-level EPT page table:"
@@ -436,7 +436,7 @@ int ept_tree_create_entry(hax_ept_tree *tree, uint64_t gfn, hax_epte value)
     }
     // Now level == HAX_EPT_LEVEL_PT, and table points to an EPT leaf page (PT)
     pt_index = get_pt_index(gfn);
-    assert(table != NULL);
+    hax_assert(table != NULL);
     pte = &table[pt_index];
     if (!hax_cmpxchg64(0, value.value, &pte->value)) {
         // pte->value != 0, implying pte->perm != HAX_EPT_PERM_NONE
@@ -453,7 +453,7 @@ int ept_tree_create_entry(hax_ept_tree *tree, uint64_t gfn, hax_epte value)
     }
 
     ret = hax_unmap_page_frame(&prev_kmap);
-    assert(ret == 0);
+    hax_assert(ret == 0);
     return 0;
 }
 
@@ -471,10 +471,10 @@ int ept_tree_create_entries(hax_ept_tree *tree, uint64_t start_gfn, uint64_t npa
     uint64_t offset = offset_within_chunk;
     int created_count = 0;
 
-    assert(tree != NULL);
-    assert(npages != 0);
-    assert(chunk != NULL);
-    assert(offset_within_chunk + (npages << PG_ORDER_4K) <= chunk->size);
+    hax_assert(tree != NULL);
+    hax_assert(npages != 0);
+    hax_assert(chunk != NULL);
+    hax_assert(offset_within_chunk + (npages << PG_ORDER_4K) <= chunk->size);
 
     new_pte.perm = is_rom ? HAX_EPT_PERM_RX : HAX_EPT_PERM_RWX;
     // According to IA SDM Vol. 3A 11.3.2, WB offers the best performance and
@@ -486,7 +486,7 @@ int ept_tree_create_entries(hax_ept_tree *tree, uint64_t start_gfn, uint64_t npa
     gfn = start_gfn;
     end_gfn = start_gfn + npages - 1;
     pml4 = ept_tree_get_root_table(tree);
-    assert(pml4 != NULL);
+    hax_assert(pml4 != NULL);
 next_pdpt:
     pdpt = ept_tree_get_next_table(tree, gfn, HAX_EPT_LEVEL_PML4, pml4,
                                    &pdpt_kmap, true, NULL, NULL);
@@ -535,7 +535,7 @@ next_pt:
         hax_epte *pte = &pt[index];
 
         new_pte.pfn = hax_get_pfn_user(&chunk->memdesc, offset);
-        assert(new_pte.pfn != INVALID_PFN);
+        hax_assert(new_pte.pfn != INVALID_PFN);
         if (!hax_cmpxchg64(0, new_pte.value, &pte->value)) {
             // pte->value != 0, implying pte->perm != HAX_EPT_PERM_NONE
             if (pte->value != new_pte.value) {
@@ -566,7 +566,7 @@ next_pt:
         // c) make_gfn(w + 1, 0, 0, 0), if x == y == 511 and w < 511;
         // d) make_gfn(512, 0, 0, 0) (invalid), if w == x == y == 511. This
         //    cannot possibly happen, because end_gfn must be valid.
-        assert(!get_pt_index(gfn));
+        hax_assert(!get_pt_index(gfn));
         hax_unmap_page_frame(&pt_kmap);
         if (!get_pd_index(gfn)) {
             hax_unmap_page_frame(&pd_kmap);
@@ -606,8 +606,8 @@ void get_pte(hax_ept_tree *tree, uint64_t gfn, int level, hax_epte *epte,
     }
 
     // level == HAX_EPT_LEVEL_PT
-    assert(epte != NULL);
-    assert(opaque != NULL);
+    hax_assert(epte != NULL);
+    hax_assert(opaque != NULL);
     pte = (hax_epte *) opaque;
     *pte = *epte;
 }
@@ -640,12 +640,12 @@ void ept_tree_walk(hax_ept_tree *tree, uint64_t gfn, epte_visitor visit_epte,
     }
 
     table = ept_tree_get_root_table(tree);
-    assert(table != NULL);
+    hax_assert(table != NULL);
     for (level = HAX_EPT_LEVEL_PML4; level >= HAX_EPT_LEVEL_PD; level--) {
         table = ept_tree_get_next_table(tree, gfn, level, table, &kmap, false,
                                         visit_epte, opaque);
         ret = hax_unmap_page_frame(&prev_kmap);
-        assert(ret == 0);
+        hax_assert(ret == 0);
         if (!table) {
             // An intermediate EPT page table is missing, which means the EPT
             // leaf entry to be invalidated is not present
@@ -654,12 +654,12 @@ void ept_tree_walk(hax_ept_tree *tree, uint64_t gfn, epte_visitor visit_epte,
         kmap_swap(&prev_kmap, &kmap);
     }
     pt_index = get_pt_index(gfn);
-    assert(table != NULL);
+    hax_assert(table != NULL);
     pte = &table[pt_index];
     visit_epte(tree, gfn, HAX_EPT_LEVEL_PT, pte, opaque);
 
     ret = hax_unmap_page_frame(&prev_kmap);
-    assert(ret == 0);
+    hax_assert(ret == 0);
 }
 
 void invalidate_pte(hax_ept_tree *tree, uint64_t gfn, int level, hax_epte *epte,
@@ -673,9 +673,9 @@ void invalidate_pte(hax_ept_tree *tree, uint64_t gfn, int level, hax_epte *epte,
     }
 
     // level == HAX_EPT_LEVEL_PT
-    assert(tree != NULL);
-    assert(epte != NULL);
-    assert(opaque != NULL);
+    hax_assert(tree != NULL);
+    hax_assert(epte != NULL);
+    hax_assert(opaque != NULL);
     pte = epte;
     modified = (bool *) opaque;
     if (pte->perm == HAX_EPT_PERM_NONE) {
@@ -715,7 +715,7 @@ int ept_tree_invalidate_entries(hax_ept_tree *tree, uint64_t start_gfn,
     // TODO: Implement a faster algorithm
     for (gfn = start_gfn; gfn < end_gfn; gfn++) {
         int ret = ept_tree_invalidate_entry(tree, gfn);
-        assert(ret == 0 || ret == 1);
+        hax_assert(ret == 0 || ret == 1);
         modified_count += ret;
     }
     if (modified_count) {
