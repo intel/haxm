@@ -36,6 +36,17 @@
 
 #include "../core/include/emulate.h"
 
+/* Immediate types */
+template <int N>
+struct imm_t;
+template <> struct imm_t<8>  { int8_t  val; };
+template <> struct imm_t<16> { int16_t val; };
+template <> struct imm_t<32> { int32_t val; };
+template <> struct imm_t<64> { int32_t val; };
+
+template <int N>
+using imm = decltype(imm_t<N>::val);
+
 /* Emulator operations */
 struct test_cpu_t {
     uint64_t gpr[16];
@@ -278,15 +289,14 @@ protected:
         EXPECT_LT(ret, 0);
     }
 
-    template <int N>
-    void test_insn_rN_rN(const char* insn_name,
-                         const std::vector<test_alu_2op_t>& tests,
-                         bool readonly_dst = false) {
+    template <int N, int M=N>
+    void test_insn_rN_rM(const char* insn_name,
+                         const std::vector<test_alu_2op_t>& tests) {
         char insn[256];
         test_cpu_t vcpu_original;
         test_cpu_t vcpu_expected;
         snprintf(insn, sizeof(insn), "%s %s, %s", insn_name,
-            gpr<N>(REG_RDX), gpr<N>(REG_RCX));
+                 gpr<N>(REG_RDX), gpr<M>(REG_RCX));
 
         // Run tests
         for (const auto& test : tests) {
@@ -295,17 +305,15 @@ protected:
             vcpu_original.gpr[REG_RCX] = test.in_src;
             vcpu_original.flags = test.in_flags;
             vcpu_expected = vcpu_original;
-            if (!readonly_dst)
-                vcpu_expected.gpr[REG_RDX] = test.out_dst;
+            vcpu_expected.gpr[REG_RDX] = test.out_dst;
             vcpu_expected.flags = test.out_flags;
             run(insn, vcpu_original, vcpu_expected);
         }
     }
 
-    template <int N>
-    void test_insn_rN_iN(const char* insn_name,
-                         const std::vector<test_alu_2op_t>& tests,
-                         bool readonly_dst = false) {
+    template <int N, int M=N>
+    void test_insn_rN_iM(const char* insn_name,
+                         const std::vector<test_alu_2op_t>& tests) {
         char insn[256];
         test_cpu_t vcpu_original;
         test_cpu_t vcpu_expected;
@@ -313,22 +321,20 @@ protected:
         // Run tests
         for (const auto& test : tests) {
             snprintf(insn, sizeof(insn), "%s %s, %d", insn_name,
-                gpr<N>(REG_RAX), (uint32_t)test.in_src);
+                     gpr<N>(REG_RAX), (imm<M>)test.in_src);
             vcpu_original = {};
             vcpu_original.gpr[REG_RAX] = test.in_dst;
             vcpu_original.flags = test.in_flags;
             vcpu_expected = vcpu_original;
-            if (!readonly_dst)
-                vcpu_expected.gpr[REG_RAX] = test.out_dst;
+            vcpu_expected.gpr[REG_RAX] = test.out_dst;
             vcpu_expected.flags = test.out_flags;
             run(insn, vcpu_original, vcpu_expected);
         }
     }
 
-    template <int N>
-    void test_insn_mN_iN(const char* insn_name,
-                         const std::vector<test_alu_2op_t>& tests,
-                         bool readonly_dst = false) {
+    template <int N, int M=N>
+    void test_insn_mN_iM(const char* insn_name,
+                         const std::vector<test_alu_2op_t>& tests) {
         char insn[256];
         test_cpu_t vcpu_original;
         test_cpu_t vcpu_expected;
@@ -336,29 +342,27 @@ protected:
         // Run tests
         for (const auto& test : tests) {
             snprintf(insn, sizeof(insn), "%s %s ptr [edx + 2*ecx + 0x10], %d",
-                insn_name, mem<N>(), (uint32_t)test.in_src);
+                     insn_name, mem<N>(), (imm<M>)test.in_src);
             vcpu_original = {};
             vcpu_original.gpr[REG_RDX] = 0x20;
             vcpu_original.gpr[REG_RCX] = 0x08;
             (uint64_t&)vcpu_original.mem[0x40] = test.in_dst;
             vcpu_original.flags = test.in_flags;
             vcpu_expected = vcpu_original;
-            if (!readonly_dst)
-                (uint64_t&)vcpu_expected.mem[0x40] = test.out_dst;
+            (uint64_t&)vcpu_expected.mem[0x40] = test.out_dst;
             vcpu_expected.flags = test.out_flags;
             run(insn, vcpu_original, vcpu_expected);
         }
     }
 
-    template <int N>
-    void test_insn_rN_mN(const char* insn_name,
-                         const std::vector<test_alu_2op_t>& tests,
-                         bool readonly_dst = false) {
+    template <int N, int M=N>
+    void test_insn_rN_mM(const char* insn_name,
+                         const std::vector<test_alu_2op_t>& tests) {
         char insn[256];
         test_cpu_t vcpu_original;
         test_cpu_t vcpu_expected;
         snprintf(insn, sizeof(insn), "%s %s, %s ptr [edx + 2*ecx + 0x10]",
-            insn_name, gpr<N>(REG_RAX), mem<N>());
+                 insn_name, gpr<N>(REG_RAX), mem<M>());
 
         // Run tests
         for (const auto& test : tests) {
@@ -369,22 +373,20 @@ protected:
             vcpu_original.gpr[REG_RAX] = test.in_dst;
             vcpu_original.flags = test.in_flags;
             vcpu_expected = vcpu_original;
-            if (!readonly_dst)
-                vcpu_expected.gpr[REG_RAX] = test.out_dst;
+            vcpu_expected.gpr[REG_RAX] = test.out_dst;
             vcpu_expected.flags = test.out_flags;
             run(insn, vcpu_original, vcpu_expected);
         }
     }
 
-    template <int N>
-    void test_insn_mN_rN(const char* insn_name,
-                         const std::vector<test_alu_2op_t>& tests,
-                         bool readonly_dst = false) {
+    template <int N, int M=N>
+    void test_insn_mN_rM(const char* insn_name,
+                         const std::vector<test_alu_2op_t>& tests) {
         char insn[256];
         test_cpu_t vcpu_original;
         test_cpu_t vcpu_expected;
         snprintf(insn, sizeof(insn), "%s %s ptr [edx + 2*ecx + 0x10], %s",
-            insn_name, mem<N>(), gpr<N>(REG_RAX));
+                 insn_name, mem<N>(), gpr<M>(REG_RAX));
 
         // Run tests
         for (const auto& test : tests) {
@@ -395,8 +397,7 @@ protected:
             (uint64_t&)vcpu_original.mem[0x40] = test.in_dst;
             vcpu_original.flags = test.in_flags;
             vcpu_expected = vcpu_original;
-            if (!readonly_dst)
-                (uint64_t&)vcpu_expected.mem[0x40] = test.out_dst;
+            (uint64_t&)vcpu_expected.mem[0x40] = test.out_dst;
             vcpu_expected.flags = test.out_flags;
             run(insn, vcpu_original, vcpu_expected);
         }
@@ -409,7 +410,7 @@ protected:
         test_cpu_t vcpu_original;
         test_cpu_t vcpu_expected;
         snprintf(insn, sizeof(insn), "%s %s, %s, %s", insn_name,
-            gpr<N>(REG_RAX), gpr<N>(REG_RCX), gpr<N>(REG_RDX));
+                 gpr<N>(REG_RAX), gpr<N>(REG_RCX), gpr<N>(REG_RDX));
 
         // Run tests
         for (const auto& test : tests) {
@@ -432,7 +433,7 @@ protected:
         test_cpu_t vcpu_original;
         test_cpu_t vcpu_expected;
         snprintf(insn, sizeof(insn), "%s %s, %s ptr [edx + 2*ecx + 0x10], %s",
-            insn_name, gpr<N>(REG_RAX), mem<N>(), gpr<N>(REG_RBX));
+                 insn_name, gpr<N>(REG_RAX), mem<N>(), gpr<N>(REG_RBX));
 
         // Run tests
         for (const auto& test : tests) {
@@ -457,7 +458,7 @@ protected:
         test_cpu_t vcpu_original;
         test_cpu_t vcpu_expected;
         snprintf(insn, sizeof(insn), "%s %s, %s, %s ptr [edx + 2*ecx + 0x10]",
-            insn_name, gpr<N>(REG_RAX), gpr<N>(REG_RBX), mem<N>());
+                 insn_name, gpr<N>(REG_RAX), gpr<N>(REG_RBX), mem<N>());
 
         // Run tests
         for (const auto& test : tests) {
@@ -481,11 +482,11 @@ protected:
         if (N == 64 && sizeof(void*) < 8) {
             return;
         }
-        test_insn_rN_rN<N>(insn_name, tests, false);
-        test_insn_rN_iN<N>(insn_name, tests, false);
-        test_insn_mN_iN<N>(insn_name, tests, false);
-        test_insn_rN_mN<N>(insn_name, tests, false);
-        test_insn_mN_rN<N>(insn_name, tests, false);
+        test_insn_rN_rM<N>(insn_name, tests);
+        test_insn_rN_iM<N>(insn_name, tests);
+        test_insn_mN_iM<N>(insn_name, tests);
+        test_insn_rN_mM<N>(insn_name, tests);
+        test_insn_mN_rM<N>(insn_name, tests);
     }
 
     template <int N>
@@ -494,10 +495,10 @@ protected:
         if (N == 64 && sizeof(void*) < 8) {
             return;
         }
-        test_insn_rN_rN<N>(insn_name, tests, false);
-        test_insn_rN_iN<N>(insn_name, tests, false);
-        test_insn_mN_iN<N>(insn_name, tests, false);
-        test_insn_mN_rN<N>(insn_name, tests, false);
+        test_insn_rN_rM<N>(insn_name, tests);
+        test_insn_rN_iM<N,8>(insn_name, tests);
+        test_insn_mN_iM<N,8>(insn_name, tests);
+        test_insn_mN_rM<N>(insn_name, tests);
     }
 
     template <int N>
@@ -508,8 +509,8 @@ protected:
         // TEST is similar to AND, except that:
         // a) The destination operand is read-only.
         // b) Not all operand combinations are possible/implemented.
-        test_insn_mN_iN<N>("test", tests, true);
-        test_insn_mN_rN<N>("test", tests, true);
+        test_insn_mN_iM<N>("test", tests);
+        test_insn_mN_rM<N>("test", tests);
     }
 };
 
@@ -625,7 +626,7 @@ TEST_F(EmulatorTest, insn_bt) {
     test_bt<64>("bt", {
         { 0x00000000'FFFFFFFFULL, 0x20, RFLAGS_CF,
           0x00000000'FFFFFFFFULL, 0 },
-        { 0x80000000'00000000ULL, 0x7F, 0,
+        { 0x80000000'00000000ULL, 0xFF, 0,
           0x80000000'00000000ULL, RFLAGS_CF },
         });
 }
@@ -646,7 +647,7 @@ TEST_F(EmulatorTest, insn_btc) {
     test_bt<64>("btc", {
         { 0x00000000'FFFFFFFFULL, 0x20, RFLAGS_CF,
           0x00000001'FFFFFFFFULL, 0 },
-        { 0x80000000'00000000ULL, 0x7F, 0,
+        { 0x80000000'00000000ULL, 0xFF, 0,
           0x00000000'00000000ULL, RFLAGS_CF },
         });
 }
@@ -667,7 +668,7 @@ TEST_F(EmulatorTest, insn_btr) {
     test_bt<64>("btr", {
         { 0x00000000'FFFFFFFFULL, 0x20, RFLAGS_CF,
           0x00000000'FFFFFFFFULL, 0 },
-        { 0x80000000'00000000ULL, 0x7F, 0,
+        { 0x80000000'00000000ULL, 0xFF, 0,
           0x00000000'00000000ULL, RFLAGS_CF },
         });
 }
@@ -688,7 +689,7 @@ TEST_F(EmulatorTest, insn_bts) {
     test_bt<64>("bts", {
         { 0x00000000'FFFFFFFFULL, 0x20, RFLAGS_CF,
           0x00000001'FFFFFFFFULL, 0 },
-        { 0x80000000'00000000ULL, 0x7F, 0,
+        { 0x80000000'00000000ULL, 0xFF, 0,
           0x80000000'00000000ULL, RFLAGS_CF },
         });
 }
@@ -778,15 +779,15 @@ TEST_F(EmulatorTest, insn_stos) {
 TEST_F(EmulatorTest, insn_test) {
     test_test<8>({
         { 0x55, 0xF0, RFLAGS_CF,
-          0x50, RFLAGS_PF },
+          0x55, RFLAGS_PF },
         { 0xF0, 0x0F, RFLAGS_OF,
-          0x00, RFLAGS_PF | RFLAGS_ZF },
+          0xF0, RFLAGS_PF | RFLAGS_ZF },
         });
     test_test<16>({
         { 0x0001, 0xF00F, RFLAGS_CF | RFLAGS_OF,
           0x0001, 0 },
         { 0xFF00, 0xF0F0, 0,
-          0xF000, RFLAGS_PF | RFLAGS_SF },
+          0xFF00, RFLAGS_PF | RFLAGS_SF },
         });
     test_test<32>({
         { 0xFFFF0001, 0xFFFF0001, 0,
@@ -794,7 +795,7 @@ TEST_F(EmulatorTest, insn_test) {
         });
     test_test<64>({
         { 0x0000FFFF'F0F0FFFFULL, 0xFFFF0000'0F0F0000ULL, 0,
-          0x00000000'00000000ULL, RFLAGS_PF | RFLAGS_ZF },
+          0x0000FFFF'F0F0FFFFULL, RFLAGS_PF | RFLAGS_ZF },
         });
 }
 
