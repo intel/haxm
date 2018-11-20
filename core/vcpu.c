@@ -237,7 +237,7 @@ void * vcpu_vmcs_va(struct vcpu_t *vcpu)
     return hax_page_va(vcpu->vmcs_page);
 }
 
-paddr_t vcpu_vmcs_pa(struct vcpu_t *vcpu)
+hax_paddr_t vcpu_vmcs_pa(struct vcpu_t *vcpu)
 {
     return hax_page_pa(vcpu->vmcs_page);
 }
@@ -1961,7 +1961,7 @@ static void vmwrite_cr(struct vcpu_t *vcpu)
         // Vol. 3A 4.4.1)
         cr4_mask |= CR4_PAE;
         eptp = vm_get_eptp(vcpu->vm);
-        assert(eptp != INVALID_EPTP);
+        hax_assert(eptp != INVALID_EPTP);
         // hax_debug("Guest eip:%llx, EPT mode, eptp:%llx\n", vcpu->state->_rip,
         //           eptp);
         vmwrite(vcpu, GUEST_CR3, state->_cr3);
@@ -2034,8 +2034,8 @@ static void vcpu_enter_fpu_state(struct vcpu_t *vcpu)
     struct fx_layout *hfx = (struct fx_layout *)hax_page_va(hstate->hfxpage);
     struct fx_layout *gfx = (struct fx_layout *)hax_page_va(gstate->gfxpage);
 
-    fxsave((mword *)hfx);
-    fxrstor((mword *)gfx);
+    hax_fxsave((mword *)hfx);
+    hax_fxrstor((mword *)gfx);
 }
 
 static void vcpu_exit_fpu_state(struct vcpu_t *vcpu)
@@ -2045,8 +2045,8 @@ static void vcpu_exit_fpu_state(struct vcpu_t *vcpu)
     struct fx_layout *hfx = (struct fx_layout *)hax_page_va(hstate->hfxpage);
     struct fx_layout *gfx = (struct fx_layout *)hax_page_va(gstate->gfxpage);
 
-    fxsave((mword *)gfx);
-    fxrstor((mword *)hfx);
+    hax_fxsave((mword *)gfx);
+    hax_fxrstor((mword *)hfx);
 }
 
 // Instructions are never longer than 15 bytes:
@@ -2067,9 +2067,9 @@ static bool qemu_support_fastmmio_extra(struct vcpu_t *vcpu)
     return vm->features & VM_FEATURES_FASTMMIO_EXTRA;
 }
 
-static bool is_mmio_address(struct vcpu_t *vcpu, paddr_t gpa)
+static bool is_mmio_address(struct vcpu_t *vcpu, hax_paddr_t gpa)
 {
-    paddr_t hpa;
+    hax_paddr_t hpa;
     if (vtlb_active(vcpu)) {
         hpa = hax_gpfn_to_hpa(vcpu->vm, gpa >> HAX_PAGE_SHIFT);
         // hax_gpfn_to_hpa() assumes hpa == 0 is invalid
@@ -3220,7 +3220,7 @@ static int misc_msr_read(struct vcpu_t *vcpu, uint32_t msr, uint64_t *val)
     mtrr_var_t *v;
 
     if (msr >= IA32_MTRR_PHYSBASE0 && msr <= IA32_MTRR_PHYSMASK9) {
-        assert((msr >> 1 & 0x7f) < NUM_VARIABLE_MTRRS);
+        hax_assert((msr >> 1 & 0x7f) < NUM_VARIABLE_MTRRS);
         v = &vcpu->mtrr_current_state.mtrr_var[msr >> 1 & 0x7f];
         *val = msr & 1 ? v->mask.raw : v->base.raw;
         return 0;
@@ -3473,7 +3473,7 @@ static int misc_msr_write(struct vcpu_t *vcpu, uint32_t msr, uint64_t val)
     mtrr_var_t *v;
 
     if (msr >= IA32_MTRR_PHYSBASE0 && msr <= IA32_MTRR_PHYSMASK9) {
-        assert((msr >> 1 & 0x7f) < NUM_VARIABLE_MTRRS);
+        hax_assert((msr >> 1 & 0x7f) < NUM_VARIABLE_MTRRS);
         v = &vcpu->mtrr_current_state.mtrr_var[msr >> 1 & 0x7f];
         if (msr & 1) {
             v->mask.raw = val;
@@ -3672,7 +3672,7 @@ static int exit_invalid_guest_state(struct vcpu_t *vcpu,
 static int exit_ept_misconfiguration(struct vcpu_t *vcpu,
                                      struct hax_tunnel *htun)
 {
-    paddr_t gpa;
+    hax_paddr_t gpa;
 #ifdef CONFIG_HAX_EPT2
     int ret;
 #endif  // CONFIG_HAX_EPT2
@@ -3697,7 +3697,7 @@ static int exit_ept_misconfiguration(struct vcpu_t *vcpu,
 static int exit_ept_violation(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
     exit_qualification_t *qual = &vmx(vcpu, exit_qualification);
-    paddr_t gpa;
+    hax_paddr_t gpa;
     int ret = 0;
 #ifdef CONFIG_HAX_EPT2
     uint64_t fault_gfn;
@@ -4176,7 +4176,7 @@ int vcpu_takeoff(struct vcpu_t *vcpu)
     // Don't change the sequence unless you are sure
     if (vcpu->is_running) {
         cpu_id = vcpu->cpu_id;
-        assert(cpu_id != hax_cpuid());
+        hax_assert(cpu_id != hax_cpuid());
         targets = cpu2cpumap(cpu_id);
         // If not considering Windows XP, definitely we don't need this
         hax_smp_call_function(&targets, _vcpu_take_off, NULL);

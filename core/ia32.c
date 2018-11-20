@@ -81,17 +81,17 @@ uint64_t ia32_rdtsc(void)
 #endif
 }
 
-void fxinit(void)
+void hax_fxinit(void)
 {
     asm_fxinit();
 }
 
-void fxsave(mword *addr)
+void hax_fxsave(mword *addr)
 {
     asm_fxsave(addr);
 }
 
-void fxrstor(mword *addr)
+void hax_fxrstor(mword *addr)
 {
     asm_fxrstor(addr);
 }

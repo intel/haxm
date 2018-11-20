@@ -291,8 +291,8 @@ void * gpa_space_map_page(hax_gpa_space *gpa_space, uint64_t gfn,
     int ret;
     void *kva;
 
-    assert(gpa_space != NULL);
-    assert(kmap != NULL);
+    hax_assert(gpa_space != NULL);
+    hax_assert(kmap != NULL);
     ret = gpa_space_map_range(gpa_space, gfn << PG_ORDER_4K, PAGE_SIZE_4K, &buf,
                               kmap, writable);
     if (ret < PAGE_SIZE_4K) {
@@ -300,7 +300,7 @@ void * gpa_space_map_page(hax_gpa_space *gpa_space, uint64_t gfn,
         return NULL;
     }
     kva = (void *) buf;
-    assert(kva != NULL);
+    hax_assert(kva != NULL);
     return kva;
 }
 
@@ -308,7 +308,7 @@ void gpa_space_unmap_page(hax_gpa_space *gpa_space, hax_kmap_user *kmap)
 {
     int ret;
 
-    assert(kmap != NULL);
+    hax_assert(kmap != NULL);
     ret = hax_unmap_user_pages(kmap);
     if (ret) {
         hax_warning("%s: hax_unmap_user_pages() returned %d\n", __func__, ret);
@@ -323,7 +323,7 @@ uint64_t gpa_space_get_pfn(hax_gpa_space *gpa_space, uint64_t gfn, uint8_t *flag
     uint64_t pfn;
     uint64_t offset_within_slot, offset_within_block, offset_within_chunk;
 
-    assert(gpa_space != NULL);
+    hax_assert(gpa_space != NULL);
 
     slot = memslot_find(gpa_space, gfn);
     if (!slot) {
@@ -340,11 +340,11 @@ uint64_t gpa_space_get_pfn(hax_gpa_space *gpa_space, uint64_t gfn, uint8_t *flag
     }
 
     offset_within_slot = (gfn - slot->base_gfn) << PG_ORDER_4K;
-    assert(offset_within_slot < (slot->npages << PG_ORDER_4K));
+    hax_assert(offset_within_slot < (slot->npages << PG_ORDER_4K));
     block = slot->block;
-    assert(block != NULL);
+    hax_assert(block != NULL);
     offset_within_block = slot->offset_within_block + offset_within_slot;
-    assert(offset_within_block < block->size);
+    hax_assert(offset_within_block < block->size);
     chunk = ramblock_get_chunk(block, offset_within_block, true);
     if (!chunk) {
         hax_error("%s: Failed to grab the RAM chunk for %s gfn=0x%llx:"
@@ -359,9 +359,9 @@ uint64_t gpa_space_get_pfn(hax_gpa_space *gpa_space, uint64_t gfn, uint8_t *flag
 
     offset_within_chunk = offset_within_block -
                           (chunk->base_uva - block->base_uva);
-    assert(offset_within_chunk < chunk->size);
+    hax_assert(offset_within_chunk < chunk->size);
     pfn = hax_get_pfn_user(&chunk->memdesc, offset_within_chunk);
-    assert(pfn != INVALID_PFN);
+    hax_assert(pfn != INVALID_PFN);
 
     return pfn;
 }
@@ -391,7 +391,7 @@ int gpa_space_adjust_prot_bitmap(hax_gpa_space *gpa_space, uint64_t end_gfn)
     pb->bitmap = bmnew;
     if (bmold) {
         uint old_size = gpa_space_prot_bitmap_size(pb->end_gfn);
-        assert(old_size != 0);
+        hax_assert(old_size != 0);
         memcpy(bmnew, bmold, old_size);
         hax_vfree(bmold, old_size);
     }
@@ -404,9 +404,9 @@ static inline void set_bits_in_byte(uint8_t *byte, int start, int nbits, bool se
 {
     uint mask;
 
-    assert(byte != NULL);
-    assert(start >= 0 && start < 8);
-    assert(nbits >= 0 && start + nbits <= 8);
+    hax_assert(byte != NULL);
+    hax_assert(start >= 0 && start < 8);
+    hax_assert(nbits >= 0 && start + nbits <= 8);
 
     mask = ((1 << nbits) - 1) << start;
     if (set) {

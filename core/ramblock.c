@@ -104,7 +104,7 @@ static void ramblock_free_chunks(hax_ramblock *block, bool destroy)
     uint64_t nchunks, chunks_bitmap_size, i;
     uint64_t nbytes_used = 0;
 
-    assert(block != NULL);
+    hax_assert(block != NULL);
     // Assuming block->chunks != NULL due to a previous ramblock_alloc() call
     chunks = block->chunks;
     nchunks = ramblock_count_chunks(block);
@@ -342,7 +342,7 @@ hax_chunk * ramblock_get_chunk(hax_ramblock *block, uint64_t uva_offset,
         hax_chunk *chunk;
         int ret;
 
-        assert(block->chunks[chunk_index] == NULL);
+        hax_assert(block->chunks[chunk_index] == NULL);
         ret = chunk_alloc(chunk_base_uva, chunk_size, &chunk);
         if (ret) {
             int was_clear;
@@ -356,8 +356,8 @@ hax_chunk * ramblock_get_chunk(hax_ramblock *block, uint64_t uva_offset,
                       ret, chunk_index, chunk_base_uva, chunk_size, was_clear);
             return NULL;
         }
-        assert(chunk != NULL);
-        assert(block->chunks[chunk_index] == NULL);
+        hax_assert(chunk != NULL);
+        hax_assert(block->chunks[chunk_index] == NULL);
         block->chunks[chunk_index] = chunk;
     } else {
         // The bit corresponding to this chunk has been set, possibly by another

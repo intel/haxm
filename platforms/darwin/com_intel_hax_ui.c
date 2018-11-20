@@ -263,7 +263,7 @@ static struct cdevsw hax_vcpu_devsw = {
 
 static int hax_get_vcpu_mid(struct hax_vcpu_mac *vcpu)
 {
-    assert(vcpu->vcpu_id < 0xfff);
+    hax_assert(vcpu->vcpu_id < 0xfff);
     return (((vcpu->vm_id + 1) << 12) | vcpu->vcpu_id);
 }
 

@@ -121,7 +121,7 @@ void hax_log(char *fmt, ...);
 //#define hax_panic DbgPrint
 #define hax_panic hax_error
 
-//#define assert(condition) BUG_ON(!(condition))
-void assert(bool condition);
+//#define hax_assert(condition) BUG_ON(!(condition))
+void hax_assert(bool condition);
 
 #endif  // HAX_LINUX_HAX_LINUX_H_

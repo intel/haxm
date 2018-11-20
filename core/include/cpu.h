@@ -100,7 +100,7 @@ struct per_cpu_data {
     struct hax_page    *vmxon_page;
     struct hax_page    *vmcs_page;
     struct vcpu_t      *current_vcpu;
-    paddr_t            other_vmcs;
+    hax_paddr_t        other_vmcs;
     hax_cpuid_t        cpu_id;
     uint16_t           vmm_flag;
     uint16_t           nested;

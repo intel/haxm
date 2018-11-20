@@ -194,7 +194,7 @@ void hax_panic_vcpu(struct vcpu_t *v, char *fmt, ...)
     vcpu_set_panic(v);
 }
 
-void assert(bool condition)
+void hax_assert(bool condition)
 {
     if (!condition)
         BUG();

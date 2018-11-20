@@ -81,7 +81,7 @@ static inline bool epte_is_present(epte_t *entry)
     return !!entry->perm;
 }
 
-static inline paddr_t epte_get_address(epte_t *entry)
+static inline hax_paddr_t epte_get_address(epte_t *entry)
 {
     return (entry->addr << 12);
 }
@@ -96,7 +96,7 @@ static inline uint epte_get_emt(epte_t *entry)
     return (uint)entry->emt;
 }
 
-static void epte_set_entry(epte_t *entry, paddr_t addr, uint perm, uint emt)
+static void epte_set_entry(epte_t *entry, hax_paddr_t addr, uint perm, uint emt)
 {
     entry->val = 0;
     entry->addr = addr >> 12;
@@ -109,12 +109,12 @@ static inline void epte_set_emt(epte_t *entry, uint emt)
     entry->emt = emt;
 }
 
-static inline uint ept_get_pde_idx(paddr_t gpa)
+static inline uint ept_get_pde_idx(hax_paddr_t gpa)
 {
     return ((gpa >> 21) & 0x1ff);
 }
 
-static inline uint ept_get_pte_idx(paddr_t gpa)
+static inline uint ept_get_pte_idx(hax_paddr_t gpa)
 {
     return ((gpa >> 12) & 0x1ff);
 }
@@ -153,7 +153,7 @@ struct hax_ept {
     struct eptp eptp;
 };
 
-static void construct_eptp(eptp_t *entry, paddr_t hpa, uint emt)
+static void construct_eptp(eptp_t *entry, hax_paddr_t hpa, uint emt)
 {
     entry->val = 0;
     entry->emt = emt;
@@ -202,12 +202,12 @@ bool ept_init(hax_vm_t *hax_vm);
 void ept_free(hax_vm_t *hax_vm);
 
 uint64_t vcpu_get_eptp(struct vcpu_t *vcpu);
-bool ept_set_pte(hax_vm_t *hax_vm, paddr_t gpa, paddr_t hpa, uint emt,
+bool ept_set_pte(hax_vm_t *hax_vm, hax_paddr_t gpa, hax_paddr_t hpa, uint emt,
                  uint mem_type, bool *is_modified);
 void invept(hax_vm_t *hax_vm, uint type);
 bool ept_set_caps(uint64_t caps);
 
 /* Deprecated API due to low performance */
-bool ept_translate(struct vcpu_t *vcpu, paddr_t gpa, uint order, paddr_t *hpa);
+bool ept_translate(struct vcpu_t *vcpu, hax_paddr_t gpa, uint order, hax_paddr_t *hpa);
 
 #endif  // HAX_CORE_EPT_H_

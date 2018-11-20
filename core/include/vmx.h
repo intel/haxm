@@ -637,11 +637,11 @@ struct vcpu_state_t;
 struct vcpu_t;
 
 vmx_result_t ASMCALL asm_invept(uint type, struct invept_desc *desc);
-vmx_result_t ASMCALL asm_vmclear(const paddr_t *addr_in);
-vmx_result_t ASMCALL asm_vmptrld(const paddr_t *addr_in);
-vmx_result_t ASMCALL asm_vmxon(const paddr_t *addr_in);
+vmx_result_t ASMCALL asm_vmclear(const hax_paddr_t *addr_in);
+vmx_result_t ASMCALL asm_vmptrld(const hax_paddr_t *addr_in);
+vmx_result_t ASMCALL asm_vmxon(const hax_paddr_t *addr_in);
 vmx_result_t ASMCALL asm_vmxoff(void);
-vmx_result_t ASMCALL asm_vmptrst(paddr_t *addr_out);
+vmx_result_t ASMCALL asm_vmptrst(hax_paddr_t *addr_out);
 vmx_result_t ASMCALL asm_vmxrun(struct vcpu_state_t *state, uint16_t launch);
 
 mword ASMCALL vmx_get_rip(void);
