@@ -203,6 +203,6 @@ void hax_debug(char *fmt, ...);
 
 #define hax_panic DbgPrint
 
-#define assert(condition) ASSERT(condition)
+#define hax_assert(condition) ASSERT(condition)
 
 #endif  // HAX_WINDOWS_HAX_WINDOWS_H_

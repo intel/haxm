@@ -377,10 +377,10 @@ static void set_msr_access(uint32_t start, uint32_t count, bool read, bool write
     uint32_t read_base, write_base, bit;
     uint8_t *msr_bitmap = hax_page_va(msr_bitmap_page);
 
-    assert(((start ^ (start << 1)) & 0x80000000) == 0);
-    assert((start & 0x3fffe000) == 0);
-    assert(((start ^ end) & 0xffffe000) == 0);
-    assert(msr_bitmap);
+    hax_assert(((start ^ (start << 1)) & 0x80000000) == 0);
+    hax_assert((start & 0x3fffe000) == 0);
+    hax_assert(((start ^ end) & 0xffffe000) == 0);
+    hax_assert(msr_bitmap);
 
     // See IA SDM Vol. 3C 24.6.9 for the layout of the MSR bitmaps page
     read_base = start & 0x80000000 ? 1024 : 0;

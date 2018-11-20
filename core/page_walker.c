@@ -145,16 +145,16 @@ static void pw_retrieve_indices(IN uint64_t virtual_address, IN bool is_pae,
             *pdpte_index = (virtual_address_low_32_bit &
                             PW_PDPTE_INDEX_MASK_IN_32_BIT_ADDR)
                            >> PW_PDPTE_INDEX_SHIFT;
-            assert(*pdpte_index < PW_NUM_OF_PDPT_ENTRIES_IN_32_BIT_MODE);
+            hax_assert(*pdpte_index < PW_NUM_OF_PDPT_ENTRIES_IN_32_BIT_MODE);
         }
         *pde_index = (virtual_address_low_32_bit &
                       PW_PDE_INDEX_MASK_IN_PAE_MODE)
                      >> PW_PDE_INDEX_SHIFT_IN_PAE_MODE;
-        assert(*pde_index < PW_NUM_OF_TABLE_ENTRIES_IN_PAE_MODE);
+        hax_assert(*pde_index < PW_NUM_OF_TABLE_ENTRIES_IN_PAE_MODE);
         *pte_index = (virtual_address_low_32_bit &
                       PW_PTE_INDEX_MASK_IN_PAE_MODE)
                      >> PW_PTE_INDEX_SHIFT;
-        assert(*pte_index < PW_NUM_OF_TABLE_ENTRIES_IN_PAE_MODE);
+        hax_assert(*pte_index < PW_NUM_OF_TABLE_ENTRIES_IN_PAE_MODE);
     } else {
         *pml4te_index = PW_INVALID_INDEX;
         *pdpte_index = PW_INVALID_INDEX;
@@ -314,10 +314,10 @@ static bool pw_is_write_access_permitted(
         return true;
 
     if (is_lme) {
-        assert(pml4te != NULL);
-        assert(pdpte != NULL);
-        assert(pml4te->pae_lme_entry.bits.present);
-        assert(pdpte->pae_lme_entry.bits.present);
+        hax_assert(pml4te != NULL);
+        hax_assert(pdpte != NULL);
+        hax_assert(pml4te->pae_lme_entry.bits.present);
+        hax_assert(pdpte->pae_lme_entry.bits.present);
         if (!pml4te->pae_lme_entry.bits.writable ||
             !pdpte->pae_lme_entry.bits.writable)
             return false;
@@ -326,8 +326,8 @@ static bool pw_is_write_access_permitted(
     if (pw_is_1gb_page_pdpte(pdpte))
         return true;
 
-    assert(pde != NULL);
-    assert(pde->non_pae_entry.bits.present);
+    hax_assert(pde != NULL);
+    hax_assert(pde->non_pae_entry.bits.present);
     // Doesn't matter which entry "non_pae" or "pae_lme" is checked
     if (!pde->non_pae_entry.bits.writable)
         return false;
@@ -335,8 +335,8 @@ static bool pw_is_write_access_permitted(
     if (pw_is_big_page_pde(pde, is_lme, is_pae, is_pse))
         return true;
 
-    assert(pte != NULL);
-    assert(pte->non_pae_entry.bits.present);
+    hax_assert(pte != NULL);
+    hax_assert(pte->non_pae_entry.bits.present);
 
     // Doesn't matter which entry "non_pae" or "pae_lme" is checked
     return pte->non_pae_entry.bits.writable;
@@ -347,10 +347,10 @@ static bool pw_is_user_access_permitted(
         PW_PAGE_ENTRY *pte, bool is_lme, bool is_pae, bool is_pse)
 {
     if (is_lme) {
-        assert(pml4te != NULL);
-        assert(pdpte != NULL);
-        assert(pml4te->pae_lme_entry.bits.present);
-        assert(pdpte->pae_lme_entry.bits.present);
+        hax_assert(pml4te != NULL);
+        hax_assert(pdpte != NULL);
+        hax_assert(pml4te->pae_lme_entry.bits.present);
+        hax_assert(pdpte->pae_lme_entry.bits.present);
         if (!pml4te->pae_lme_entry.bits.user ||
             !pdpte->pae_lme_entry.bits.user)
             return false;
@@ -359,8 +359,8 @@ static bool pw_is_user_access_permitted(
     if (pw_is_1gb_page_pdpte(pdpte))
         return true;
 
-    assert(pde != NULL);
-    assert(pde->non_pae_entry.bits.present);
+    hax_assert(pde != NULL);
+    hax_assert(pde->non_pae_entry.bits.present);
     // Doesn't matter which entry "non_pae" or "pae_lme" is checked
     if (!pde->non_pae_entry.bits.user)
         return false;
@@ -368,8 +368,8 @@ static bool pw_is_user_access_permitted(
     if (pw_is_big_page_pde(pde, is_lme, is_pae, is_pse))
         return true;
 
-    assert(pte != NULL);
-    assert(pte->non_pae_entry.bits.present);
+    hax_assert(pte != NULL);
+    hax_assert(pte->non_pae_entry.bits.present);
 
     // Doesn't matter which entry "non_pae" or "pae_lme" is checked
     return (pte->non_pae_entry.bits.user);
@@ -380,10 +380,10 @@ static bool pw_is_fetch_access_permitted(
         PW_PAGE_ENTRY *pte, bool is_lme, bool is_pae, bool is_pse)
 {
     if (is_lme) {
-        assert(pml4te != NULL);
-        assert(pdpte != NULL);
-        assert(pml4te->pae_lme_entry.bits.present);
-        assert(pdpte->pae_lme_entry.bits.present);
+        hax_assert(pml4te != NULL);
+        hax_assert(pdpte != NULL);
+        hax_assert(pml4te->pae_lme_entry.bits.present);
+        hax_assert(pdpte->pae_lme_entry.bits.present);
 
         if (pml4te->pae_lme_entry.bits.exb_or_res ||
             pdpte->pae_lme_entry.bits.exb_or_res)
@@ -393,23 +393,23 @@ static bool pw_is_fetch_access_permitted(
     if (pw_is_1gb_page_pdpte(pdpte))
         return true;
 
-    assert(pde != NULL);
-    assert(pde->pae_lme_entry.bits.present);
+    hax_assert(pde != NULL);
+    hax_assert(pde->pae_lme_entry.bits.present);
     if (pde->pae_lme_entry.bits.exb_or_res)
         return false;
 
     if (pw_is_big_page_pde(pde, is_lme, is_pae, is_pse))
         return true;
 
-    assert(pte != NULL);
-    assert(pte->pae_lme_entry.bits.present);
+    hax_assert(pte != NULL);
+    hax_assert(pte->pae_lme_entry.bits.present);
 
     return !pte->pae_lme_entry.bits.exb_or_res;
 }
 
 static uint64_t pw_retrieve_phys_addr(PW_PAGE_ENTRY *entry, bool is_pae)
 {
-    assert(entry->non_pae_entry.bits.present);
+    hax_assert(entry->non_pae_entry.bits.present);
     if (is_pae) {
         uint32_t addr_low = entry->pae_lme_entry.bits.addr_base_low
                           << PW_TABLE_SHIFT;
@@ -460,9 +460,9 @@ static void pw_update_ad_bits_in_entry(PW_PAGE_ENTRY *native_entry,
                                        PW_PAGE_ENTRY *old_native_value,
                                        PW_PAGE_ENTRY *new_native_value)
 {
-    assert(native_entry != NULL);
-    assert(old_native_value->non_pae_entry.bits.present);
-    assert(new_native_value->non_pae_entry.bits.present);
+    hax_assert(native_entry != NULL);
+    hax_assert(old_native_value->non_pae_entry.bits.present);
+    hax_assert(new_native_value->non_pae_entry.bits.present);
 
     if (old_native_value->non_pae_entry.val !=
         new_native_value->non_pae_entry.val) {
@@ -492,10 +492,10 @@ static void pw_update_ad_bits(
         PW_PAGE_ENTRY pml4te_before_update;
         PW_PAGE_ENTRY pdpte_before_update;
 
-        assert(guest_space_pml4te != NULL);
-        assert(pml4te != NULL);
-        assert(guest_space_pdpte != NULL);
-        assert(pdpte != NULL);
+        hax_assert(guest_space_pml4te != NULL);
+        hax_assert(pml4te != NULL);
+        hax_assert(guest_space_pdpte != NULL);
+        hax_assert(pdpte != NULL);
 
         pml4te_before_update = *pml4te;
         pml4te->pae_lme_entry.bits.accessed = 1;
@@ -515,8 +515,8 @@ static void pw_update_ad_bits(
     if (pw_is_1gb_page_pdpte(pdpte))
         return;
 
-    assert(guest_space_pde != NULL);
-    assert(pde != NULL);
+    hax_assert(guest_space_pde != NULL);
+    hax_assert(pde != NULL);
 
     pde_before_update = *pde;
     // Doesn't matter which field "non_pae" or "pae_lme" is used
@@ -538,8 +538,8 @@ static void pw_update_ad_bits(
 
     pw_update_ad_bits_in_entry(guest_space_pde, &pde_before_update, pde);
 
-    assert(guest_space_pte != NULL);
-    assert(pte != NULL);
+    hax_assert(guest_space_pte != NULL);
+    hax_assert(pte != NULL);
 
     pte_before_update = *pte;
     // Doesn't matter which field "non_pae" or "pae_lme" is used

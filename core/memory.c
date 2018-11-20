@@ -52,7 +52,7 @@ static int handle_alloc_ram(struct vm_t *vm, uint64_t start_uva, uint64_t size)
         return -EINVAL;
     }
 
-    assert(vm != NULL);
+    hax_assert(vm != NULL);
     ret = ramblock_add(&vm->gpa_space.ramblock_list, start_uva, size, NULL,
                        &block);
     if (ret) {
@@ -257,7 +257,7 @@ static int handle_set_ram(struct vm_t *vm, uint64_t start_gpa, uint64_t size,
         return -EINVAL;
     }
 
-    assert(vm != NULL);
+    hax_assert(vm != NULL);
     gpa_space = &vm->gpa_space;
     start_gfn = start_gpa >> PG_ORDER_4K;
     npages = size >> PG_ORDER_4K;
@@ -448,13 +448,13 @@ int hax_vcpu_destroy_hax_tunnel(struct vcpu_t *cv)
     set_vcpu_tunnel(cv, NULL, NULL);
 
     if (cv->tunnel_vcpumem) {
-        assert(cv->tunnel_vcpumem->uva);
+        hax_assert(cv->tunnel_vcpumem->uva);
         hax_clear_vcpumem(cv->tunnel_vcpumem);
         hax_vfree(cv->tunnel_vcpumem, sizeof(struct hax_vcpu_mem));
         cv->tunnel_vcpumem = NULL;
     }
     if (cv->iobuf_vcpumem) {
-        assert(cv->iobuf_vcpumem->uva);
+        hax_assert(cv->iobuf_vcpumem->uva);
         hax_clear_vcpumem(cv->iobuf_vcpumem);
         hax_vfree(cv->iobuf_vcpumem, sizeof(struct hax_vcpu_mem));
         cv->iobuf_vcpumem = NULL;

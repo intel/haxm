@@ -166,7 +166,7 @@ static inline void pte32_set_global(pte32_t *entry, bool g)
 
 static inline void pte32_set_ad(pte32_t *entry, uint lvl, bool d)
 {
-    assert(is_leaf(lvl));
+    hax_assert(is_leaf(lvl));
     entry->raw |= (d ? 0x60 : 0x20);
 }
 
@@ -175,7 +175,7 @@ static inline bool pte32_atomic_set_ad(pte32_t *entry, uint lvl, bool d,
 {
     uint32_t old_val, new_val;
 
-    assert(is_leaf(lvl));
+    hax_assert(is_leaf(lvl));
 
     old_val = prev->raw;
     new_val = prev->raw | (d ? 0x60 : 0x20);
@@ -362,7 +362,7 @@ static inline void pte64_set_global(pte64_t *entry, uint lvl, bool g)
 
 static inline void pte64_set_ad(pte64_t *entry, uint lvl, bool d)
 {
-    assert(is_leaf(lvl));
+    hax_assert(is_leaf(lvl));
     entry->raw |= (d ? 0x60 : 0x20);
 }
 

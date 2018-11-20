@@ -68,7 +68,7 @@ void hax_vcpu_destroy_mac(struct hax_vcpu_mac *vcpu)
     cv = mvcpu2cvcpu(vcpu);
     if (!cv)
         return;
-    assert(!vcpu->pnode);
+    hax_assert(!vcpu->pnode);
 
     hax_vcpu_destroy_hax_tunnel(cv);
 

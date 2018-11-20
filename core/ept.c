@@ -62,7 +62,7 @@ bool ept_set_caps(uint64_t caps)
     }
 
     caps &= ~EPT_UNSUPPORTED_FEATURES;
-    assert(!ept_capabilities || caps == ept_capabilities);
+    hax_assert(!ept_capabilities || caps == ept_capabilities);
     // FIXME: This assignment is done by all logical processors simultaneously
     ept_capabilities = caps;
     return 1;
@@ -70,7 +70,7 @@ bool ept_set_caps(uint64_t caps)
 
 static bool ept_has_cap(uint64_t cap)
 {
-    assert(ept_capabilities != 0);
+    hax_assert(ept_capabilities != 0);
     // Avoid implicit conversion from uint64_t to bool, because the latter may be
     // typedef'ed as uint8_t (see hax_types_windows.h)
     return (ept_capabilities & cap) != 0;
@@ -86,7 +86,7 @@ static epte_t * ept_get_pde(struct hax_ept *ept, hax_paddr_t gpa)
     // Need Xiantao's check
     unsigned char *ept_addr = hax_page_va(ept->ept_root_page);
 
-    assert(which_g < EPT_MAX_MEM_G);
+    hax_assert(which_g < EPT_MAX_MEM_G);
 
     e = (epte_t *)(ept_addr + offset) + ept_get_pde_idx(gpa);
     return e;
@@ -185,7 +185,7 @@ static bool ept_lookup(struct vcpu_t *vcpu, hax_paddr_t gpa, hax_paddr_t *hpa)
     struct hax_ept *ept = vcpu->vm->ept;
     uint which_g = gpa >> 30;
 
-    assert(ept->ept_root_page);
+    hax_assert(ept->ept_root_page);
     if (which_g >= EPT_MAX_MEM_G) {
         hax_debug("ept_lookup error!\n");
         return 0;
@@ -224,7 +224,7 @@ static bool ept_lookup(struct vcpu_t *vcpu, hax_paddr_t gpa, hax_paddr_t *hpa)
 // TODO: Do we need to consider cross-page case ??
 bool ept_translate(struct vcpu_t *vcpu, hax_paddr_t gpa, uint order, hax_paddr_t *hpa)
 {
-    assert(order == PG_ORDER_4K);
+    hax_assert(order == PG_ORDER_4K);
     return ept_lookup(vcpu, gpa, hpa);
 }
 
@@ -301,7 +301,7 @@ void ept_free (hax_vm_t *hax_vm)
     struct hax_page *page, *n;
     struct hax_ept *ept = hax_vm->ept;
 
-    assert(ept);
+    hax_assert(ept);
 
     if (!ept->ept_root_page)
         return;
