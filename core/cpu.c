@@ -209,7 +209,7 @@ static void vmread_cr(struct vcpu_t *vcpu)
     state->_cr4 = (cr4 & ~cr4_mask) | (state->_cr4 & cr4_mask);
 }
 
-vmx_result_t cpu_vmx_vmptrld(struct per_cpu_data *cpu_data, paddr_t vmcs,
+vmx_result_t cpu_vmx_vmptrld(struct per_cpu_data *cpu_data, hax_paddr_t vmcs,
                              struct vcpu_t *vcpu)
 {
     vmx_result_t r = asm_vmptrld(&vmcs);
@@ -512,8 +512,8 @@ void hax_panic_log(struct vcpu_t *vcpu)
 uint32_t load_vmcs(struct vcpu_t *vcpu, preempt_flag *flags)
 {
     struct per_cpu_data *cpu_data;
-    paddr_t vmcs_phy;
-    paddr_t curr_vmcs = VMCS_NONE;
+    hax_paddr_t vmcs_phy;
+    hax_paddr_t curr_vmcs = VMCS_NONE;
 
     hax_disable_preemption(flags);
 
@@ -580,7 +580,7 @@ void restore_host_cr4_vmxe(struct per_cpu_data *cpu_data)
 uint32_t put_vmcs(struct vcpu_t *vcpu, preempt_flag *flags)
 {
     struct per_cpu_data *cpu_data = current_cpu_data();
-    paddr_t vmcs_phy;
+    hax_paddr_t vmcs_phy;
     vmx_result_t vmxoff_res = 0;
     if (vcpu && cpu_data->nested > 0) {
         cpu_data->nested--;
@@ -695,7 +695,7 @@ vmx_result_t cpu_vmxroot_enter(void)
 {
     struct per_cpu_data *cpu_data = current_cpu_data();
     uint64_t fc_msr;
-    paddr_t vmxon_addr;
+    hax_paddr_t vmxon_addr;
     vmx_result_t result = VMX_SUCCEED;
 
     cpu_data->host_cr4_vmxe = (get_cr4() & CR4_VMXE);
@@ -752,7 +752,7 @@ vmx_result_t cpu_vmxroot_enter(void)
             // is not actually in VMX operation, VMPTRST will probably cause a
             // host reboot. But we don't have a better choice, and it is worth
             // taking the risk.
-            paddr_t vmcs_addr;
+            hax_paddr_t vmcs_addr;
             asm_vmptrst(&vmcs_addr);
 
             // It is still alive - Just assumption is right.

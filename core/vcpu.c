@@ -237,7 +237,7 @@ void * vcpu_vmcs_va(struct vcpu_t *vcpu)
     return hax_page_va(vcpu->vmcs_page);
 }
 
-paddr_t vcpu_vmcs_pa(struct vcpu_t *vcpu)
+hax_paddr_t vcpu_vmcs_pa(struct vcpu_t *vcpu)
 {
     return hax_page_pa(vcpu->vmcs_page);
 }
@@ -2067,9 +2067,9 @@ static bool qemu_support_fastmmio_extra(struct vcpu_t *vcpu)
     return vm->features & VM_FEATURES_FASTMMIO_EXTRA;
 }
 
-static bool is_mmio_address(struct vcpu_t *vcpu, paddr_t gpa)
+static bool is_mmio_address(struct vcpu_t *vcpu, hax_paddr_t gpa)
 {
-    paddr_t hpa;
+    hax_paddr_t hpa;
     if (vtlb_active(vcpu)) {
         hpa = hax_gpfn_to_hpa(vcpu->vm, gpa >> HAX_PAGE_SHIFT);
         // hax_gpfn_to_hpa() assumes hpa == 0 is invalid
@@ -3672,7 +3672,7 @@ static int exit_invalid_guest_state(struct vcpu_t *vcpu,
 static int exit_ept_misconfiguration(struct vcpu_t *vcpu,
                                      struct hax_tunnel *htun)
 {
-    paddr_t gpa;
+    hax_paddr_t gpa;
 #ifdef CONFIG_HAX_EPT2
     int ret;
 #endif  // CONFIG_HAX_EPT2
@@ -3697,7 +3697,7 @@ static int exit_ept_misconfiguration(struct vcpu_t *vcpu,
 static int exit_ept_violation(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
     exit_qualification_t *qual = &vmx(vcpu, exit_qualification);
-    paddr_t gpa;
+    hax_paddr_t gpa;
     int ret = 0;
 #ifdef CONFIG_HAX_EPT2
     uint64_t fault_gfn;
