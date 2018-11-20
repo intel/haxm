@@ -497,20 +497,6 @@ TODO: Describe
 * Since: API v1
 * Parameter: `struct vcpu_state_t regs`, where
   ```
-  union interruptibility_state_t {
-      uint32 raw;
-      struct {
-          uint32 sti_blocking   : 1;
-          uint32 movss_blocking : 1;
-          uint32 smi_blocking   : 1;
-          uint32 nmi_blocking   : 1;
-          uint32 reserved       : 28;
-      };
-      uint64_t pad;
-  };
-  
-  typedef union interruptibility_state_t interruptibility_state_t;
-  
   struct segment_desc_t {
       uint16 selector;
       uint16 _dummy;
@@ -652,7 +638,7 @@ TODO: Describe
   
       uint32 _activity_state;
       uint32 pad;
-      interruptibility_state_t _interruptibility_state;
+      uint64 pad2;
   };
   ```
   * (Input) `regs`:

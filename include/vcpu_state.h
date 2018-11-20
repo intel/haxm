@@ -173,6 +173,7 @@ struct vcpu_state_t {
 
     uint32_t _activity_state;
     uint32_t pad;
+    uint64_t pad2;
 } PACKED;
 
 void dump(void);
