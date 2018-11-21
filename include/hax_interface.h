@@ -125,7 +125,7 @@ struct hax_tunnel {
             uint8_t _pad0;
             uint16_t _pad1;
             uint32_t _pad2;
-            vaddr_t _vaddr;
+            hax_vaddr_t _vaddr;
         } io;
         struct {
             hax_paddr_t gla;

@@ -70,8 +70,8 @@ static struct hax_page * mmu_zalloc_one_page(hax_mmu_t *mmu, bool igo);
 static void mmu_recycle_vtlb_pages(hax_mmu_t *mmu);
 static void vtlb_free_all_entries(hax_mmu_t *mmu);
 static pagemode_t vcpu_get_pagemode(struct vcpu_t *vcpu);
-static pte64_t * vtlb_get_pde(hax_mmu_t *mmu, vaddr_t va, bool is_shadow);
-static uint32_t vcpu_mmu_walk(struct vcpu_t *vcpu, vaddr_t va, uint32_t access,
+static pte64_t * vtlb_get_pde(hax_mmu_t *mmu, hax_vaddr_t va, bool is_shadow);
+static uint32_t vcpu_mmu_walk(struct vcpu_t *vcpu, hax_vaddr_t va, uint32_t access,
                               hax_paddr_t *pa, uint *order, uint64_t *flags,
                               bool update, bool prefetch);
 
@@ -341,7 +341,7 @@ void vcpu_vtlb_free(struct vcpu_t *vcpu)
  * If is_shadow = 1, must ensure the non-shadow pde is present before calling
  * here.
  */
-static pte64_t * vtlb_get_pde(hax_mmu_t *mmu, vaddr_t va, bool is_shadow)
+static pte64_t * vtlb_get_pde(hax_mmu_t *mmu, hax_vaddr_t va, bool is_shadow)
 {
     pte64_t *pde;
     void *pde_va;
@@ -357,7 +357,7 @@ static pte64_t * vtlb_get_pde(hax_mmu_t *mmu, vaddr_t va, bool is_shadow)
     return pde;
 }
 
-static void vtlb_invalidate_pte(pte64_t *shadow_pde, vaddr_t va)
+static void vtlb_invalidate_pte(pte64_t *shadow_pde, hax_vaddr_t va)
 {
     pte64_t *pte;
     void *pte_base;
@@ -371,7 +371,7 @@ static void vtlb_invalidate_pte(pte64_t *shadow_pde, vaddr_t va)
     pte64_clear_entry(pte);
 }
 
-void vtlb_invalidate_addr(hax_mmu_t *mmu, vaddr_t va)
+void vtlb_invalidate_addr(hax_mmu_t *mmu, hax_vaddr_t va)
 {
     pte64_t *pde;
 
@@ -414,7 +414,7 @@ void vtlb_invalidate(hax_mmu_t *mmu)
 }
 
 static uint vtlb_handle_page_fault(struct vcpu_t *vcpu, pagemode_t guest_mode,
-                                   hax_paddr_t pdir, vaddr_t va, uint32_t access)
+                                   hax_paddr_t pdir, hax_vaddr_t va, uint32_t access)
 {
     uint r;
     hax_paddr_t gpa;
@@ -537,7 +537,7 @@ uint64_t vtlb_get_cr3(struct vcpu_t *vcpu)
  * @returns 0 if translation is successful, otherwise 0x80000000 OR'ed with
  * the page fault error code.
  */
-static uint32_t vcpu_mmu_walk(struct vcpu_t *vcpu, vaddr_t va, uint32_t access,
+static uint32_t vcpu_mmu_walk(struct vcpu_t *vcpu, hax_vaddr_t va, uint32_t access,
                               hax_paddr_t *pa, uint *order, uint64_t *flags,
                               bool update, bool prefetch)
 {
@@ -784,7 +784,7 @@ bool handle_vtlb(struct vcpu_t *vcpu)
     uint32_t access = vmx(vcpu, exit_exception_error_code);
     pagemode_t mode = vcpu_get_pagemode(vcpu);
     hax_paddr_t pdir = vcpu->state->_cr3 & (mode == PM_PAE ? ~0x1fULL : ~0xfffULL);
-    vaddr_t cr2 = vmx(vcpu, exit_qualification).address;
+    hax_vaddr_t cr2 = vmx(vcpu, exit_qualification).address;
 
     uint32_t ret = vtlb_handle_page_fault(vcpu, mode, pdir, cr2, access);
 
@@ -930,7 +930,7 @@ int mmio_fetch_instruction(struct vcpu_t *vcpu, uint64_t gva, uint8_t *buf, int 
  * If flag is 2, the memory read is for internal use. It does not update the
  * guest page tables. It returns the number of bytes read.
  */
-uint32_t vcpu_read_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr, void *dst,
+uint32_t vcpu_read_guest_virtual(struct vcpu_t *vcpu, hax_vaddr_t addr, void *dst,
                                  uint32_t dst_buflen, uint32_t size, uint flag)
 {
     // TBD: use guest CPL for access checks
@@ -1022,7 +1022,7 @@ uint32_t vcpu_read_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr, void *dst,
  * A flag value of 2 is implemented, but not used. It does not update the guest
  * page tables. It returns the number of bytes written.
  */
-uint32_t vcpu_write_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr,
+uint32_t vcpu_write_guest_virtual(struct vcpu_t *vcpu, hax_vaddr_t addr,
                                   uint32_t dst_buflen, const void *src, uint32_t size,
                                   uint flag)
 {
@@ -1112,7 +1112,7 @@ uint32_t vcpu_write_guest_virtual(struct vcpu_t *vcpu, vaddr_t addr,
  * @returns 0 if translation is successful, 0x80000000 OR'ed with the exception
  * number otherwise.
  */
-uint vcpu_translate(struct vcpu_t *vcpu, vaddr_t va, uint access, hax_paddr_t *pa,
+uint vcpu_translate(struct vcpu_t *vcpu, hax_vaddr_t va, uint access, hax_paddr_t *pa,
                     uint64_t *len, bool update)
 {
     pagemode_t mode = vcpu_get_pagemode(vcpu);
@@ -1184,7 +1184,7 @@ void vcpu_invalidate_tlb(struct vcpu_t *vcpu, bool global)
     vtlb_invalidate(vcpu->mmu);
 }
 
-void vcpu_invalidate_tlb_addr(struct vcpu_t *vcpu, vaddr_t va)
+void vcpu_invalidate_tlb_addr(struct vcpu_t *vcpu, hax_vaddr_t va)
 {
     vtlb_invalidate_addr(vcpu->mmu, va);
 }
