@@ -271,19 +271,12 @@ __attribute__ ((__noinline__))
 vmx_result_t cpu_vmx_run(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
     vmx_result_t result = 0;
-    mword host_rip;
 
     /* prepare the RIP */
     hax_debug("vm entry!\n");
     vcpu_save_host_state(vcpu);
     hax_disable_irq();
 
-    /*
-     * put the vmwrite before is_running, so that the vcpu->cpu_id is set
-     * when we check vcpu->is_running in vcpu_pause
-     */
-    host_rip = vmx_get_rip();
-    vmwrite(vcpu, HOST_RIP, (mword)host_rip);
     vcpu->is_running = 1;
 #ifdef  DEBUG_HOST_STATE
     vcpu_get_host_state(vcpu, 1);

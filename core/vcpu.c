@@ -1413,6 +1413,10 @@ static void fill_common_vmcs(struct vcpu_t *vcpu)
     vmwrite(vcpu, HOST_GDTR_BASE, get_kernel_gdtr_base());
     vmwrite(vcpu, HOST_IDTR_BASE, get_kernel_idtr_base());
 
+    // The host RIP, used during VM-exit events, is only updated if HAXM
+    // is reloaded. Thus never changes during the lifetime of the VCPU.
+    vmwrite(vcpu, HOST_RIP, (mword)vmx_get_rip());
+
 #define WRITE_CONTROLS(vcpu, f, v) {                                    \
     uint32_t g = v & cpu_data->vmx_info.v##_1 | cpu_data->vmx_info.v##_0; \
     vmwrite(vcpu, f, v = g);                                            \
