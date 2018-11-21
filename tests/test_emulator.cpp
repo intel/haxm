@@ -97,7 +97,6 @@ void test_advance_rip(void* obj, uint64_t len) {
 em_status_t test_read_memory(void* obj, uint64_t ea, uint64_t* value,
                              uint32_t size, uint32_t flags) {
     test_cpu_t* vcpu = reinterpret_cast<test_cpu_t*>(obj);
-    ea &= 0xFF;
     if (ea + size >= 0x100) {
         return EM_ERROR;
     }
@@ -123,7 +122,6 @@ em_status_t test_read_memory(void* obj, uint64_t ea, uint64_t* value,
 em_status_t test_write_memory(void* obj, uint64_t ea, uint64_t* value,
                               uint32_t size, uint32_t flags) {
     test_cpu_t* vcpu = reinterpret_cast<test_cpu_t*>(obj);
-    ea &= 0xFF;
     if (ea + size > 0x100) {
         return EM_ERROR;
     }
@@ -495,10 +493,10 @@ protected:
         if (N == 64 && sizeof(void*) < 8) {
             return;
         }
+        // Only bit-test variants that implicitly use bit offset modulo width.
         test_insn_rN_rM<N>(insn_name, tests);
         test_insn_rN_iM<N,8>(insn_name, tests);
         test_insn_mN_iM<N,8>(insn_name, tests);
-        test_insn_mN_rM<N>(insn_name, tests);
     }
 
     template <int N>
@@ -629,6 +627,24 @@ TEST_F(EmulatorTest, insn_bt) {
         { 0x80000000'00000000ULL, 0xFF, 0,
           0x80000000'00000000ULL, RFLAGS_CF },
         });
+
+    // Variant `bt mN,rN`: Modifies the EA based on the bit offset.
+    test_cpu_t vcpu_original;
+    test_cpu_t vcpu_expected;
+    vcpu_original = {};
+    vcpu_original.gpr[REG_RCX] = 0ULL;
+    (uint64_t&)vcpu_original.mem[0x00] = 0x00020000'00000000;
+    (uint64_t&)vcpu_original.mem[0x08] = 0x00000000'00000000;
+    (uint64_t&)vcpu_original.mem[0x10] = 0xFFFFFFFF'FFFFFFFE;
+    
+    vcpu_original.gpr[REG_RAX] = -15LL;
+    vcpu_expected = vcpu_original;
+    vcpu_expected.flags |= RFLAGS_CF;
+    run("bt [ecx + 0x08], eax", vcpu_original, vcpu_expected);
+    vcpu_original.gpr[REG_RAX] = +64LL;
+    vcpu_expected = vcpu_original;
+    vcpu_expected.flags &= ~RFLAGS_CF;
+    run("bt [rcx + 0x08], rax", vcpu_original, vcpu_expected);
 }
 
 TEST_F(EmulatorTest, insn_btc) {
@@ -650,6 +666,26 @@ TEST_F(EmulatorTest, insn_btc) {
         { 0x80000000'00000000ULL, 0xFF, 0,
           0x00000000'00000000ULL, RFLAGS_CF },
         });
+
+    // Variant `btc mN,rN`: Modifies the EA based on the bit offset.
+    test_cpu_t vcpu_original;
+    test_cpu_t vcpu_expected;
+    vcpu_original = {};
+    vcpu_original.gpr[REG_RCX] = 0ULL;
+    (uint64_t&)vcpu_original.mem[0x00] = 0x00020000'00000000;
+    (uint64_t&)vcpu_original.mem[0x08] = 0x00000000'00000000;
+    (uint64_t&)vcpu_original.mem[0x10] = 0xFFFFFFFF'FFFFFFFE;
+
+    vcpu_original.gpr[REG_RAX] = -15LL;
+    vcpu_expected = vcpu_original;
+    vcpu_expected.flags |= RFLAGS_CF;
+    (uint64_t&)vcpu_expected.mem[0x00] = 0x00000000'00000000;
+    run("btc [ecx + 0x08], eax", vcpu_original, vcpu_expected);
+    vcpu_original.gpr[REG_RAX] = +64LL;
+    vcpu_expected = vcpu_original;
+    vcpu_expected.flags &= ~RFLAGS_CF;
+    (uint64_t&)vcpu_expected.mem[0x10] = 0xFFFFFFFF'FFFFFFFF;
+    run("btc [rcx + 0x08], rax", vcpu_original, vcpu_expected);
 }
 
 TEST_F(EmulatorTest, insn_btr) {
@@ -671,6 +707,25 @@ TEST_F(EmulatorTest, insn_btr) {
         { 0x80000000'00000000ULL, 0xFF, 0,
           0x00000000'00000000ULL, RFLAGS_CF },
         });
+
+    // Variant `btr mN,rN`: Modifies the EA based on the bit offset.
+    test_cpu_t vcpu_original;
+    test_cpu_t vcpu_expected;
+    vcpu_original = {};
+    vcpu_original.gpr[REG_RCX] = 0ULL;
+    (uint64_t&)vcpu_original.mem[0x00] = 0x00020000'00000000;
+    (uint64_t&)vcpu_original.mem[0x08] = 0x00000000'00000000;
+    (uint64_t&)vcpu_original.mem[0x10] = 0xFFFFFFFF'FFFFFFFE;
+
+    vcpu_original.gpr[REG_RAX] = -15LL;
+    vcpu_expected = vcpu_original;
+    vcpu_expected.flags |= RFLAGS_CF;
+    (uint64_t&)vcpu_expected.mem[0x00] = 0x00000000'00000000;
+    run("btr [ecx + 0x08], eax", vcpu_original, vcpu_expected);
+    vcpu_original.gpr[REG_RAX] = +64LL;
+    vcpu_expected = vcpu_original;
+    vcpu_expected.flags &= ~RFLAGS_CF;
+    run("btr [rcx + 0x08], rax", vcpu_original, vcpu_expected);
 }
 
 TEST_F(EmulatorTest, insn_bts) {
@@ -692,6 +747,25 @@ TEST_F(EmulatorTest, insn_bts) {
         { 0x80000000'00000000ULL, 0xFF, 0,
           0x80000000'00000000ULL, RFLAGS_CF },
         });
+
+    // Variant `bts mN,rN`: Modifies the EA based on the bit offset.
+    test_cpu_t vcpu_original;
+    test_cpu_t vcpu_expected;
+    vcpu_original = {};
+    vcpu_original.gpr[REG_RCX] = 0ULL;
+    (uint64_t&)vcpu_original.mem[0x00] = 0x00020000'00000000;
+    (uint64_t&)vcpu_original.mem[0x08] = 0x00000000'00000000;
+    (uint64_t&)vcpu_original.mem[0x10] = 0xFFFFFFFF'FFFFFFFE;
+
+    vcpu_original.gpr[REG_RAX] = -15LL;
+    vcpu_expected = vcpu_original;
+    vcpu_expected.flags |= RFLAGS_CF;
+    run("bts [ecx + 0x08], eax", vcpu_original, vcpu_expected);
+    vcpu_original.gpr[REG_RAX] = +64LL;
+    vcpu_expected = vcpu_original;
+    vcpu_expected.flags &= ~RFLAGS_CF;
+    (uint64_t&)vcpu_expected.mem[0x10] = 0xFFFFFFFF'FFFFFFFF;
+    run("bts [rcx + 0x08], rax", vcpu_original, vcpu_expected);
 }
 
 TEST_F(EmulatorTest, insn_movs) {
