@@ -960,7 +960,17 @@ VMCS_COMPS
 #define vmcs_write(vcpu, name, value) \
     vmcs_write_##name(&vcpu->vmx, value)
 
-void vcpu_handle_vmcs_pending(struct vcpu_t *vcpu);
+/**
+ * Flush VMCS read-cache after guest-exit.
+ * @param  vcpu  VCPU object
+ */
+void vcpu_vmcs_flush_cache_r(struct vcpu_t *vcpu);
+
+/**
+ * Flush VMCS write-cache before guest-enter (calling vmwrite if required).
+ * @param  vcpu  VCPU object
+ */
+void vcpu_vmcs_flush_cache_w(struct vcpu_t *vcpu);
 
 #define VMREAD_SEG(vcpu, seg, val)                                 \
         ((val).selector = vmread(vcpu, GUEST_##seg##_SELECTOR),    \

@@ -297,6 +297,8 @@ vmx_result_t cpu_vmx_run(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     compare_host_state(vcpu);
 #endif
 
+    vcpu_vmcs_flush_cache_r(vcpu);
+
     if (result != VMX_SUCCEED) {
         cpu_vmentry_failed(vcpu, result);
         htun->_exit_reason = 0;
@@ -329,7 +331,7 @@ int cpu_vmx_execute(struct vcpu_t *vcpu, struct hax_tunnel *htun)
             hax_panic_log(vcpu);
             return 0;
         }
-        vcpu_handle_vmcs_pending(vcpu);
+        vcpu_vmcs_flush_cache_w(vcpu);
         vcpu_inject_intr(vcpu, htun);
 
         /* sometimes, the code segment type from qemu can be 10 (code segment),

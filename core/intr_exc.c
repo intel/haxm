@@ -217,21 +217,12 @@ void hax_inject_exception(struct vcpu_t *vcpu, uint8_t vector, uint32_t error_co
         intr_info = (1 << 31) | (EXCEPTION << 8) | vector;
         if (error_code != NO_ERROR_CODE) {
             intr_info |= 1 << 11;
-            if (vector == VECTOR_PF) {
-                vmcs_write(vcpu, VMX_ENTRY_EXCEPTION_ERROR_CODE, error_code);
-            } else {
-                vmwrite(vcpu, VMX_ENTRY_EXCEPTION_ERROR_CODE, error_code);
-            }
+            vmcs_write(vcpu, VMX_ENTRY_EXCEPTION_ERROR_CODE, error_code);
         }
     }
 
-    if (vector == VECTOR_PF) {
-        vmcs_write(vcpu, VMX_ENTRY_INSTRUCTION_LENGTH, exit_instr_length);
-        vmcs_write(vcpu, VMX_ENTRY_INTERRUPT_INFO, intr_info);
-    } else {
-        vmwrite(vcpu, VMX_ENTRY_INSTRUCTION_LENGTH, exit_instr_length);
-        vmwrite(vcpu, VMX_ENTRY_INTERRUPT_INFO, intr_info);
-    }
+    vmcs_write(vcpu, VMX_ENTRY_INSTRUCTION_LENGTH, exit_instr_length);
+    vmcs_write(vcpu, VMX_ENTRY_INTERRUPT_INFO, intr_info);
 
     hax_debug("Guest is injecting exception info:%x\n", intr_info);
     vcpu->event_injected = 1;

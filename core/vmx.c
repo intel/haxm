@@ -298,14 +298,21 @@ void get_interruption_info_t(interruption_info_t *info, uint8_t v, uint8_t t)
     info->valid = 1;
 }
 
+void vcpu_vmcs_flush_cache_r(struct vcpu_t *vcpu)
+{
+    memset(&vcpu->vmx.vmcs_cache_r, 0, sizeof(struct vmx_vmcs_cache_r_t));
+}
+
 #define COMP_PENDING_0(name)
 #define COMP_PENDING_1(name) \
-    if (vcpu->vmx.vmcs_cache_w.name##_dirty) \
-        vmwrite(vcpu, name, vcpu->vmx.vmcs.name##_value);
+    if (vcpu->vmx.vmcs_cache_w.name##_dirty) { \
+        vmwrite(vcpu, name, vcpu->vmx.vmcs.name##_value); \
+        vcpu->vmx.vmcs_cache_w.name##_dirty = 0; \
+    }
 #define COMP_PENDING(cache_r, cache_w, width, name) \
     COMP_PENDING_##cache_w(name)
 
-void vcpu_handle_vmcs_pending(struct vcpu_t* vcpu)
+void vcpu_vmcs_flush_cache_w(struct vcpu_t *vcpu)
 {
     if (!vcpu || !vcpu->vmx.vmcs_cache_w.dirty)
         return;
