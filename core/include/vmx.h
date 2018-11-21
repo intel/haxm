@@ -877,11 +877,6 @@ struct vcpu_vmx_data {
 
     uint64_t cr0_mask, cr0_shadow;
     uint64_t cr4_mask, cr4_shadow;
-    uint32_t entry_exception_vector;
-    uint32_t entry_exception_error_code;
-
-    interruption_info_t entry_intr_info;
-    uint32_t entry_instr_length;
 
     exit_reason_t exit_reason;
     exit_qualification_t exit_qualification;
@@ -914,12 +909,12 @@ void vmx_vmwrite(struct vcpu_t *vcpu, const char *name,
  */
 #define COMP_R_0(width, name)                                                 \
     static inline COMP_TYPE_##width                                           \
-                  vmcs_read_##name(struct vcpu_vmx_data* vcpu_vmx) {          \
+                  vmcs_read_##name(struct vcpu_vmx_data *vcpu_vmx) {          \
         return vmread(vcpu_vmx->parent, name);                                \
     }
 #define COMP_R_1(width, name)                                                 \
     static inline COMP_TYPE_##width                                           \
-                  vmcs_read_##name(struct vcpu_vmx_data* vcpu_vmx) {          \
+                  vmcs_read_##name(struct vcpu_vmx_data *vcpu_vmx) {          \
         if (vcpu_vmx->vmcs_cache_r.name##_cache)                              \
             return vcpu_vmx->vmcs.name##_value;                               \
         vcpu_vmx->vmcs.name##_value = vmread(vcpu_vmx->parent, name);         \
@@ -932,12 +927,12 @@ void vmx_vmwrite(struct vcpu_t *vcpu, const char *name,
   * Writes the VMCS-component <name> to the specified VCPU (cached if enabled).
   */
 #define COMP_W_0(width, name)                                                 \
-    static inline void vmcs_write_##name(struct vcpu_vmx_data* vcpu_vmx,      \
+    static inline void vmcs_write_##name(struct vcpu_vmx_data *vcpu_vmx,      \
                                          COMP_TYPE_##width value) {           \
         vmwrite(vcpu_vmx->parent, name, value);                               \
     }
 #define COMP_W_1(width, name)                                                 \
-    static inline void vmcs_write_##name(struct vcpu_vmx_data* vcpu_vmx,      \
+    static inline void vmcs_write_##name(struct vcpu_vmx_data *vcpu_vmx,      \
                                          COMP_TYPE_##width value) {           \
         vcpu_vmx->vmcs.name##_value = value;                                  \
         /*vcpu_vmx->vmcs_cache_r.name##_cache = 1;*/                          \

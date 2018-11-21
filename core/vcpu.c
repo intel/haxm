@@ -557,7 +557,6 @@ static void vcpu_init(struct vcpu_t *vcpu)
     vcpu->cr_pat = 0x0007040600070406ULL;
     vcpu->cpuid_features_flag_mask = 0xffffffffffffffffULL;
     vcpu->cur_state = GS_VALID;
-    vmx(vcpu, entry_exception_vector) = ~0u;
     vmx(vcpu, cr0_mask) = 0;
     vmx(vcpu, cr0_shadow) = 0;
     vmx(vcpu, cr4_mask) = 0;

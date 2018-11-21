@@ -162,7 +162,6 @@ struct vcpu_t {
         uint64_t fs_base_dirty                   : 1;
         uint64_t interruptibility_dirty          : 1;
         uint64_t pcpu_ctls_dirty                 : 1;
-        uint64_t padding                         : 46;
     };
 
     /* For TSC offseting feature*/
