@@ -327,6 +327,11 @@ void vcpu_vmcs_flush_cache_w(struct vcpu_t *vcpu)
     vcpu->vmx.vmcs_cache_w.dirty = 0;
 }
 
+mword vcpu_get_rip(struct vcpu_t *vcpu)
+{
+    return vmcs_read(vcpu, GUEST_RIP);
+}
+
 uint16_t vcpu_get_seg_selector(struct vcpu_t *vcpu, int seg)
 {
     uint16_t value;

@@ -375,8 +375,6 @@ int cpu_vmx_execute(struct vcpu_t *vcpu, struct hax_tunnel *htun)
          * reason is, we have no schedule hook to get notified of preemption
          * This should be changed later after get better idea
          */
-        vcpu->state->_rip = vmread(vcpu, GUEST_RIP);
-
         hax_handle_idt_vectoring(vcpu);
 
         vmx(vcpu, exit_qualification).raw = vmread(
@@ -599,7 +597,7 @@ static void cpu_vmentry_failed(struct vcpu_t *vcpu, vmx_result_t result)
     uint64_t error, reason;
 
     hax_error("VM entry failed: RIP=%08lx\n",
-              (mword)vmread(vcpu, GUEST_RIP));
+              (mword)vmcs_read(vcpu, GUEST_RIP));
 
     //dump_vmcs();
 

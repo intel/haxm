@@ -1751,6 +1751,7 @@ static void advance_rip(struct vcpu_t *vcpu)
         vcpu->interruptibility_dirty = 1;
     }
 
+    state->_rip = vcpu_get_rip(vcpu);
     state->_rip += vmcs_read(vcpu, VM_EXIT_INFO_INSTRUCTION_LENGTH);
     vcpu->rip_dirty = 1;
 }
@@ -1966,8 +1967,8 @@ static void vmwrite_cr(struct vcpu_t *vcpu)
         cr4_mask |= CR4_PAE;
         eptp = vm_get_eptp(vcpu->vm);
         hax_assert(eptp != INVALID_EPTP);
-        // hax_debug("Guest eip:%llx, EPT mode, eptp:%llx\n", vcpu->state->_rip,
-        //           eptp);
+        // hax_debug("Guest eip:%llx, EPT mode, eptp:%llx\n",
+        //           vcpu_get_rip(vcpu), eptp);
         vmwrite(vcpu, GUEST_CR3, state->_cr3);
         scpu_ctls |= ENABLE_EPT;
         // Set PDPTEs for vCPU if it's in or about to enter PAE paging mode
@@ -2096,7 +2097,7 @@ static int vcpu_emulate_insn(struct vcpu_t *vcpu)
     em_context_t *em_ctxt = &vcpu->emulate_ctxt;
     uint8_t instr[INSTR_MAX_LEN] = {0};
     uint32_t exit_instr_length = vmcs_read(vcpu, VM_EXIT_INFO_INSTRUCTION_LENGTH);
-    uint64_t rip = vcpu->state->_rip;
+    uint64_t rip = vcpu_get_rip(vcpu);
     segment_desc_t cs;
     uint64_t va;
 
@@ -2347,14 +2348,14 @@ static int exit_exc_nmi(struct vcpu_t *vcpu, struct hax_tunnel *htun)
         }
         case VECTOR_DB: {
             htun->_exit_status = HAX_EXIT_DEBUG;
-            htun->debug.rip = vcpu->state->_rip;
+            htun->debug.rip = vcpu_get_rip(vcpu);
             htun->debug.dr6 = vmx(vcpu, exit_qualification).raw;
             htun->debug.dr7 = vmread(vcpu, GUEST_DR7);
             return HAX_EXIT;
         }
         case VECTOR_BP: {
             htun->_exit_status = HAX_EXIT_DEBUG;
-            htun->debug.rip = vcpu->state->_rip;
+            htun->debug.rip = vcpu_get_rip(vcpu);
             htun->debug.dr6 = 0;
             htun->debug.dr7 = 0;
             return HAX_EXIT;
@@ -2736,7 +2737,7 @@ static int exit_invlpg(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 
 static int exit_rdtsc(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
-    hax_debug("rdtsc exiting: rip: %llx\n", vcpu->state->_rip);
+    hax_debug("rdtsc exiting: rip: %lx\n", vcpu_get_rip(vcpu));
     return HAX_RESUME;
 }
 
