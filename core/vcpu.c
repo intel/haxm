@@ -2096,8 +2096,8 @@ static int vcpu_emulate_insn(struct vcpu_t *vcpu)
     em_context_t *em_ctxt = &vcpu->emulate_ctxt;
     uint8_t instr[INSTR_MAX_LEN] = {0};
     uint32_t exit_instr_length = vmcs_read(vcpu, VM_EXIT_INFO_INSTRUCTION_LENGTH);
-    uint64_t cs_base = vcpu->state->_cs.base;
     uint64_t rip = vcpu->state->_rip;
+    segment_desc_t cs;
     uint64_t va;
 
     // Clean up the emulation context of the previous MMIO instruction, so that
@@ -2105,11 +2105,12 @@ static int vcpu_emulate_insn(struct vcpu_t *vcpu)
     vcpu_init_emulator(vcpu);
 
     // Detect guest mode
+    cs.ar = vcpu_get_seg_ar(vcpu, SEG_CS);
     if (!(vcpu->state->_cr0 & CR0_PE))
         mode = EM_MODE_REAL;
-    else if (vcpu->state->_cs.long_mode == 1)
+    else if (cs.long_mode == 1)
         mode = EM_MODE_PROT64;
-    else if (vcpu->state->_cs.operand_size == 1)
+    else if (cs.operand_size == 1)
         mode = EM_MODE_PROT32;
     else
         mode = EM_MODE_PROT16;
@@ -2117,12 +2118,13 @@ static int vcpu_emulate_insn(struct vcpu_t *vcpu)
 
     // Fetch the instruction at guest CS:IP = CS.Base + IP, omitting segment
     // limit and privilege checks
-    va = (mode == EM_MODE_PROT64) ? rip : cs_base + rip;
+    cs.base = vcpu_get_seg_base(vcpu, SEG_CS);
+    va = (mode == EM_MODE_PROT64) ? rip : cs.base + rip;
 #ifdef CONFIG_HAX_EPT2
     if (mmio_fetch_instruction(vcpu, va, instr, INSTR_MAX_LEN)) {
         hax_panic_vcpu(vcpu, "%s: mmio_fetch_instruction() failed: vcpu_id=%u,"
                        " gva=0x%llx (CS:IP=0x%llx:0x%llx)\n",
-                       __func__, vcpu->vcpu_id, va, cs_base, rip);
+                       __func__, vcpu->vcpu_id, va, cs.base, rip);
         dump_vmcs(vcpu);
         return -1;
     }
@@ -2130,7 +2132,7 @@ static int vcpu_emulate_insn(struct vcpu_t *vcpu)
     if (!vcpu_read_guest_virtual(vcpu, va, &instr, INSTR_MAX_LEN, INSTR_MAX_LEN,
                                  0)) {
         hax_panic_vcpu(vcpu, "Error reading instruction at 0x%llx for decoding"
-                       " (CS:IP=0x%llx:0x%llx)\n", va, cs_base, rip);
+                       " (CS:IP=0x%llx:0x%llx)\n", va, cs.base, rip);
         dump_vmcs(vcpu);
         return -1;
     }
@@ -2142,7 +2144,7 @@ static int vcpu_emulate_insn(struct vcpu_t *vcpu)
         hax_panic_vcpu(vcpu, "em_decode_insn() failed: vcpu_id=%u,"
                        " len=%u, CS:IP=0x%llx:0x%llx, instr[0..5]="
                        "0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n", vcpu->vcpu_id,
-                       exit_instr_length, cs_base, rip, instr[0], instr[1],
+                       exit_instr_length, cs.base, rip, instr[0], instr[1],
                        instr[2], instr[3], instr[4], instr[5]);
         dump_vmcs(vcpu);
         return HAX_RESUME;
@@ -2151,7 +2153,7 @@ static int vcpu_emulate_insn(struct vcpu_t *vcpu)
         hax_debug("Inferred instruction length %u does not match VM-exit"
                   " instruction length %u (CS:IP=0x%llx:0x%llx, instr[0..5]="
                   "0x%x 0x%x 0x%x 0x%x 0x%x 0x%x)\n", em_ctxt->len,
-                  exit_instr_length, cs_base, rip, instr[0], instr[1],
+                  exit_instr_length, cs.base, rip, instr[0], instr[1],
                   instr[2], instr[3], instr[4], instr[5]);
     }
     rc = em_emulate_insn(em_ctxt);
@@ -2159,7 +2161,7 @@ static int vcpu_emulate_insn(struct vcpu_t *vcpu)
         hax_panic_vcpu(vcpu, "em_emulate_insn() failed: vcpu_id=%u,"
                        " len=%u, CS:IP=0x%llx:0x%llx, instr[0..5]="
                        "0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n", vcpu->vcpu_id,
-                       exit_instr_length, cs_base, rip, instr[0], instr[1],
+                       exit_instr_length, cs.base, rip, instr[0], instr[1],
                        instr[2], instr[3], instr[4], instr[5]);
         dump_vmcs(vcpu);
         return HAX_RESUME;
@@ -2206,22 +2208,7 @@ void vcpu_write_rflags(void *obj, uint64_t value)
 static uint64_t vcpu_get_segment_base(void *obj, uint32_t segment)
 {
     struct vcpu_t *vcpu = obj;
-    switch (segment) {
-    case SEG_CS:
-        return vcpu->state->_cs.base;
-    case SEG_DS:
-        return vcpu->state->_ds.base;
-    case SEG_ES:
-        return vcpu->state->_es.base;
-    case SEG_FS:
-        return vcpu->state->_fs.base;
-    case SEG_GS:
-        return vcpu->state->_gs.base;
-    case SEG_SS:
-        return vcpu->state->_ss.base;
-    default:
-        return vcpu->state->_ds.base;
-    }
+    return vcpu_get_seg_base(vcpu, segment);
 }
 
 static void vcpu_advance_rip(void *obj, uint64_t len)
@@ -3299,7 +3286,7 @@ static int handle_msr_read(struct vcpu_t *vcpu, uint32_t msr, uint64_t *val)
         }
         case IA32_FS_BASE: {
             if (vcpu->fs_base_dirty)
-                *val = vcpu->state->_fs.base;
+                *val = vcpu_get_seg_base(vcpu, SEG_FS);
             else
                 *val = vmread(vcpu, GUEST_FS_BASE);
             break;

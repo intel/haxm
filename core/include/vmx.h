@@ -344,12 +344,12 @@ typedef enum component_index_t component_index_t;
     COMP(0, 0, W_UL, GUEST_CR0)                              \
     COMP(0, 0, W_UL, GUEST_CR3)                              \
     COMP(0, 0, W_UL, GUEST_CR4)                              \
-    COMP(0, 0, W_UL, GUEST_ES_BASE)                          \
-    COMP(0, 0, W_UL, GUEST_CS_BASE)                          \
-    COMP(0, 0, W_UL, GUEST_SS_BASE)                          \
-    COMP(0, 0, W_UL, GUEST_DS_BASE)                          \
-    COMP(0, 0, W_UL, GUEST_FS_BASE)                          \
-    COMP(0, 0, W_UL, GUEST_GS_BASE)                          \
+    COMP(1, 0, W_UL, GUEST_ES_BASE)                          \
+    COMP(1, 0, W_UL, GUEST_CS_BASE)                          \
+    COMP(1, 0, W_UL, GUEST_SS_BASE)                          \
+    COMP(1, 0, W_UL, GUEST_DS_BASE)                          \
+    COMP(1, 0, W_UL, GUEST_FS_BASE)                          \
+    COMP(1, 0, W_UL, GUEST_GS_BASE)                          \
     COMP(0, 0, W_UL, GUEST_LDTR_BASE)                        \
     COMP(0, 0, W_UL, GUEST_TR_BASE)                          \
     COMP(0, 0, W_UL, GUEST_GDTR_BASE)                        \
@@ -385,20 +385,20 @@ typedef enum component_index_t component_index_t;
     COMP(1, 0, W_32, VM_EXIT_INFO_INSTRUCTION_LENGTH)        \
     COMP(0, 0, W_32, VM_EXIT_INFO_INSTRUCTION_INFO)          \
     COMP(0, 0, W_32, HOST_SYSENTER_CS)                       \
-    COMP(0, 0, W_32, GUEST_ES_AR)                            \
-    COMP(0, 0, W_32, GUEST_CS_AR)                            \
-    COMP(0, 0, W_32, GUEST_SS_AR)                            \
-    COMP(0, 0, W_32, GUEST_DS_AR)                            \
-    COMP(0, 0, W_32, GUEST_FS_AR)                            \
-    COMP(0, 0, W_32, GUEST_GS_AR)                            \
+    COMP(1, 0, W_32, GUEST_ES_AR)                            \
+    COMP(1, 0, W_32, GUEST_CS_AR)                            \
+    COMP(1, 0, W_32, GUEST_SS_AR)                            \
+    COMP(1, 0, W_32, GUEST_DS_AR)                            \
+    COMP(1, 0, W_32, GUEST_FS_AR)                            \
+    COMP(1, 0, W_32, GUEST_GS_AR)                            \
     COMP(0, 0, W_32, GUEST_LDTR_AR)                          \
     COMP(0, 0, W_32, GUEST_TR_AR)                            \
-    COMP(0, 0, W_32, GUEST_ES_LIMIT)                         \
-    COMP(0, 0, W_32, GUEST_CS_LIMIT)                         \
-    COMP(0, 0, W_32, GUEST_SS_LIMIT)                         \
-    COMP(0, 0, W_32, GUEST_DS_LIMIT)                         \
-    COMP(0, 0, W_32, GUEST_FS_LIMIT)                         \
-    COMP(0, 0, W_32, GUEST_GS_LIMIT)                         \
+    COMP(1, 0, W_32, GUEST_ES_LIMIT)                         \
+    COMP(1, 0, W_32, GUEST_CS_LIMIT)                         \
+    COMP(1, 0, W_32, GUEST_SS_LIMIT)                         \
+    COMP(1, 0, W_32, GUEST_DS_LIMIT)                         \
+    COMP(1, 0, W_32, GUEST_FS_LIMIT)                         \
+    COMP(1, 0, W_32, GUEST_GS_LIMIT)                         \
     COMP(0, 0, W_32, GUEST_LDTR_LIMIT)                       \
     COMP(0, 0, W_32, GUEST_TR_LIMIT)                         \
     COMP(0, 0, W_32, GUEST_GDTR_LIMIT)                       \
@@ -416,12 +416,12 @@ typedef enum component_index_t component_index_t;
     COMP(0, 0, W_16, HOST_GS_SELECTOR)                       \
     COMP(0, 0, W_16, HOST_SS_SELECTOR)                       \
     COMP(0, 0, W_16, HOST_TR_SELECTOR)                       \
-    COMP(0, 0, W_16, GUEST_ES_SELECTOR)                      \
-    COMP(0, 0, W_16, GUEST_CS_SELECTOR)                      \
-    COMP(0, 0, W_16, GUEST_SS_SELECTOR)                      \
-    COMP(0, 0, W_16, GUEST_DS_SELECTOR)                      \
-    COMP(0, 0, W_16, GUEST_FS_SELECTOR)                      \
-    COMP(0, 0, W_16, GUEST_GS_SELECTOR)                      \
+    COMP(1, 0, W_16, GUEST_ES_SELECTOR)                      \
+    COMP(1, 0, W_16, GUEST_CS_SELECTOR)                      \
+    COMP(1, 0, W_16, GUEST_SS_SELECTOR)                      \
+    COMP(1, 0, W_16, GUEST_DS_SELECTOR)                      \
+    COMP(1, 0, W_16, GUEST_FS_SELECTOR)                      \
+    COMP(1, 0, W_16, GUEST_GS_SELECTOR)                      \
     COMP(0, 0, W_16, GUEST_LDTR_SELECTOR)                    \
     COMP(0, 0, W_16, GUEST_TR_SELECTOR)                      
 

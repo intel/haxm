@@ -326,3 +326,127 @@ void vcpu_vmcs_flush_cache_w(struct vcpu_t *vcpu)
     }
     vcpu->vmx.vmcs_cache_w.dirty = 0;
 }
+
+uint16_t vcpu_get_seg_selector(struct vcpu_t *vcpu, int seg)
+{
+    uint16_t value;
+
+    switch (seg) {
+    case SEG_CS:
+        value = vmcs_read(vcpu, GUEST_CS_SELECTOR);
+        break;
+    case SEG_SS:
+        value = vmcs_read(vcpu, GUEST_SS_SELECTOR);
+        break;
+    case SEG_DS:
+        value = vmcs_read(vcpu, GUEST_DS_SELECTOR);
+        break;
+    case SEG_ES:
+        value = vmcs_read(vcpu, GUEST_ES_SELECTOR);
+        break;
+    case SEG_FS:
+        value = vmcs_read(vcpu, GUEST_FS_SELECTOR);
+        break;
+    case SEG_GS:
+        value = vmcs_read(vcpu, GUEST_GS_SELECTOR);
+        break;
+    default:
+        hax_error("vcpu_get_seg_selector: Unexpected segment (%d)\n", seg);
+        value = 0;
+    }
+    return value;
+}
+
+mword vcpu_get_seg_base(struct vcpu_t *vcpu, int seg)
+{
+    mword value;
+
+    switch (seg) {
+    case SEG_CS:
+        value = vmcs_read(vcpu, GUEST_CS_BASE);
+        break;
+    case SEG_SS:
+        value = vmcs_read(vcpu, GUEST_SS_BASE);
+        break;
+    case SEG_DS:
+        value = vmcs_read(vcpu, GUEST_DS_BASE);
+        break;
+    case SEG_ES:
+        value = vmcs_read(vcpu, GUEST_ES_BASE);
+        break;
+    case SEG_FS:
+        value = vmcs_read(vcpu, GUEST_FS_BASE);
+        break;
+    case SEG_GS:
+        value = vmcs_read(vcpu, GUEST_GS_BASE);
+        break;
+    default:
+        hax_error("vcpu_get_seg_base: Unexpected segment (%d)\n", seg);
+        value = 0;
+    }
+    return value;
+}
+
+uint32_t vcpu_get_seg_limit(struct vcpu_t *vcpu, int seg)
+{
+    uint32_t value;
+
+    switch (seg) {
+    case SEG_CS:
+        value = vmcs_read(vcpu, GUEST_CS_LIMIT);
+        break;
+    case SEG_SS:
+        value = vmcs_read(vcpu, GUEST_SS_LIMIT);
+        break;
+    case SEG_DS:
+        value = vmcs_read(vcpu, GUEST_DS_LIMIT);
+        break;
+    case SEG_ES:
+        value = vmcs_read(vcpu, GUEST_ES_LIMIT);
+        break;
+    case SEG_FS:
+        value = vmcs_read(vcpu, GUEST_FS_LIMIT);
+        break;
+    case SEG_GS:
+        value = vmcs_read(vcpu, GUEST_GS_LIMIT);
+        break;
+    default:
+        hax_error("vcpu_get_seg_limit: Unexpected segment (%d)\n", seg);
+        value = 0;
+    }
+    return value;
+}
+
+uint32_t vcpu_get_seg_ar(struct vcpu_t *vcpu, int seg)
+{
+    uint32_t value;
+
+    switch (seg) {
+    case SEG_CS:
+        value = vmcs_read(vcpu, GUEST_CS_AR);
+        break;
+    case SEG_SS:
+        value = vmcs_read(vcpu, GUEST_SS_AR);
+        break;
+    case SEG_DS:
+        value = vmcs_read(vcpu, GUEST_DS_AR);
+        break;
+    case SEG_ES:
+        value = vmcs_read(vcpu, GUEST_ES_AR);
+        break;
+    case SEG_FS:
+        value = vmcs_read(vcpu, GUEST_FS_AR);
+        break;
+    case SEG_GS:
+        value = vmcs_read(vcpu, GUEST_GS_AR);
+        break;
+    default:
+        hax_error("vcpu_get_seg_ar: Unexpected segment (%d)\n", seg);
+        value = 0;
+    }
+
+    if (value & (1 << 16) /* ar.null */) {
+        return 0;
+    }
+    return value;
+}

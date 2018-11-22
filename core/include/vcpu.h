@@ -254,4 +254,11 @@ bool vcpu_is_panic(struct vcpu_t *vcpu);
 void hax_panic_vcpu(struct vcpu_t *v, char *fmt, ...);
 #endif
 
+// Extension-specific operations
+
+uint16_t vcpu_get_seg_selector(struct vcpu_t *vcpu, int seg);
+mword vcpu_get_seg_base(struct vcpu_t *vcpu, int seg);
+uint32_t vcpu_get_seg_limit(struct vcpu_t *vcpu, int seg);
+uint32_t vcpu_get_seg_ar(struct vcpu_t *vcpu, int seg);
+
 #endif  // HAX_CORE_VCPU_H_
