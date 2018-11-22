@@ -1062,6 +1062,7 @@ static void load_dirty_vmcs_fields(struct vcpu_t *vcpu)
     // rflags
     if (vcpu->debug_control_dirty) {
         // Single-stepping
+        state->_rflags = vcpu_get_rflags(vcpu);
         if (vcpu->debug_control & HAX_DEBUG_STEP) {
             state->_rflags |= EFLAGS_TF;
         } else {
@@ -2173,12 +2174,20 @@ static int vcpu_emulate_insn(struct vcpu_t *vcpu)
 static uint64_t vcpu_read_gpr(void *obj, uint32_t reg_index, uint32_t size)
 {
     struct vcpu_t *vcpu = obj;
+    uint64_t value;
+
     if (reg_index >= 16) {
         hax_panic_vcpu(vcpu, "vcpu_read_gpr: Invalid register index\n");
         return 0;
     }
-    uint64_t value = 0;
-    memcpy(&value, &vcpu->state->_regs[reg_index], size);
+    switch (reg_index) {
+    case REG_RSP:
+        value = vcpu_get_rsp(vcpu);
+        break;
+    default:
+        value = 0;
+        memcpy(&value, &vcpu->state->_regs[reg_index], size);
+    }
     return value;
 }
 
@@ -2196,7 +2205,7 @@ static void vcpu_write_gpr(void *obj, uint32_t reg_index, uint64_t value,
 uint64_t vcpu_read_rflags(void *obj)
 {
     struct vcpu_t *vcpu = obj;
-    return vcpu->state->_rflags;
+    return vcpu_get_rflags(vcpu);
 }
 
 void vcpu_write_rflags(void *obj, uint64_t value)
@@ -3042,6 +3051,7 @@ static int handle_string_io(struct vcpu_t *vcpu, exit_qualification_t *qual,
 {
     struct vcpu_state_t *state = vcpu->state;
     uint64_t count, total_size;
+    uint64_t rflags;
     uint elem_size, n, copy_size;
     hax_vaddr_t gla, start_gva;
 
@@ -3065,7 +3075,8 @@ static int handle_string_io(struct vcpu_t *vcpu, exit_qualification_t *qual,
     // attribute of the instruction, or to check the presence of a segment
     // override prefix that can make OUTS read from ES:ESI instead of DS:ESI).
     gla = vmread(vcpu, VM_EXIT_INFO_GUEST_LINEAR_ADDRESS);
-    if (state->_rflags & EFLAGS_DF) {
+    rflags = vcpu_get_rflags(vcpu);
+    if (rflags & EFLAGS_DF) {
         start_gva = gla - (n - 1) * elem_size;
         htun->io._df = 1;
     } else {
@@ -3091,7 +3102,7 @@ static int handle_string_io(struct vcpu_t *vcpu, exit_qualification_t *qual,
         advance_rip(vcpu);
     }
 
-    if (state->_rflags & EFLAGS_DF) {
+    if (rflags & EFLAGS_DF) {
         if (qual->io.direction == HAX_IO_OUT) {
             state->_rsi -= copy_size;
         } else {
@@ -3843,12 +3854,7 @@ int vcpu_set_regs(struct vcpu_t *vcpu, struct vcpu_state_t *ustate)
     int i;
     int cr_dirty = 0, dr_dirty = 0;
     preempt_flag flags;
-    int rsp_dirty = 0;
     uint32_t vmcs_err = 0;
-
-    if (state->_rsp != ustate->_rsp) {
-        rsp_dirty = 1;
-    }
 
     for (i = 0; i < 16; i++) {
         state->_regs[i] = ustate->_regs[i];
@@ -3865,11 +3871,11 @@ int vcpu_set_regs(struct vcpu_t *vcpu, struct vcpu_state_t *ustate)
         state->_rip = ustate->_rip;
         vcpu->rip_dirty = 1;
     }
-    if (state->_rflags != ustate->_rflags) {
+    if (vcpu_get_rflags(vcpu) != ustate->_rflags) {
         state->_rflags = ustate->_rflags;
         vcpu->rflags_dirty = 1;
     }
-    if (rsp_dirty) {
+    if (vcpu_get_rsp(vcpu) != ustate->_rsp) {
         state->_rsp = ustate->_rsp;
         vmwrite(vcpu, GUEST_RSP, state->_rsp);
     }

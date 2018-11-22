@@ -256,6 +256,8 @@ void hax_panic_vcpu(struct vcpu_t *v, char *fmt, ...);
 
 // Extension-specific operations
 
+mword vcpu_get_rflags(struct vcpu_t *vcpu);
+mword vcpu_get_rsp(struct vcpu_t *vcpu);
 mword vcpu_get_rip(struct vcpu_t *vcpu);
 uint16_t vcpu_get_seg_selector(struct vcpu_t *vcpu, int seg);
 mword vcpu_get_seg_base(struct vcpu_t *vcpu, int seg);

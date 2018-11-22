@@ -339,8 +339,8 @@ typedef enum component_index_t component_index_t;
     COMP(0, 0, W_UL, HOST_SYSENTER_ESP)                      \
     COMP(0, 0, W_UL, HOST_SYSENTER_EIP)                      \
     COMP(1, 0, W_UL, GUEST_RIP)                              \
-    COMP(0, 0, W_UL, GUEST_RFLAGS)                           \
-    COMP(0, 0, W_UL, GUEST_RSP)                              \
+    COMP(1, 0, W_UL, GUEST_RFLAGS)                           \
+    COMP(1, 0, W_UL, GUEST_RSP)                              \
     COMP(0, 0, W_UL, GUEST_CR0)                              \
     COMP(0, 0, W_UL, GUEST_CR3)                              \
     COMP(0, 0, W_UL, GUEST_CR4)                              \

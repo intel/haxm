@@ -327,6 +327,16 @@ void vcpu_vmcs_flush_cache_w(struct vcpu_t *vcpu)
     vcpu->vmx.vmcs_cache_w.dirty = 0;
 }
 
+mword vcpu_get_rflags(struct vcpu_t *vcpu)
+{
+    return vmcs_read(vcpu, GUEST_RFLAGS);
+}
+
+mword vcpu_get_rsp(struct vcpu_t *vcpu)
+{
+    return vmcs_read(vcpu, GUEST_RSP);
+}
+
 mword vcpu_get_rip(struct vcpu_t *vcpu)
 {
     return vmcs_read(vcpu, GUEST_RIP);

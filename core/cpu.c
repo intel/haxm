@@ -382,8 +382,6 @@ int cpu_vmx_execute(struct vcpu_t *vcpu, struct hax_tunnel *htun)
         vmx(vcpu, interruptibility_state).raw = vmread(
                 vcpu, GUEST_INTERRUPTIBILITY);
 
-        state->_rflags = vmread(vcpu, GUEST_RFLAGS);
-        state->_rsp = vmread(vcpu, GUEST_RSP);
         vmread_cr(vcpu);
 
         if (vcpu->nr_pending_intrs > 0 || hax_intr_is_blocked(vcpu))

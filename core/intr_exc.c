@@ -119,10 +119,11 @@ static void hax_enable_intr_window(struct vcpu_t *vcpu)
  */
 uint hax_intr_is_blocked(struct vcpu_t *vcpu)
 {
-    struct vcpu_state_t *state = vcpu->state;
     uint32_t intr_status;
+    uint64_t rflags;
 
-    if (!(state->_eflags & EFLAGS_IF))
+    rflags = vcpu_get_rflags(vcpu);
+    if (!(rflags & EFLAGS_IF))
         return 1;
 
     intr_status = vmx(vcpu, interruptibility_state).raw;
