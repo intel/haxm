@@ -320,7 +320,7 @@ typedef enum component_index_t component_index_t;
     COMP(0, 0, W_UL, VMX_CR0_READ_SHADOW)                    \
     COMP(0, 0, W_UL, VMX_CR4_READ_SHADOW)                    \
     COMP(0, 0, W_UL, VMX_CR3_TARGET_VAL_BASE)                \
-    COMP(0, 0, W_UL, VM_EXIT_INFO_QUALIFICATION)             \
+    COMP(1, 0, W_UL, VM_EXIT_INFO_QUALIFICATION)             \
     COMP(0, 0, W_UL, VM_EXIT_INFO_IO_ECX)                    \
     COMP(0, 0, W_UL, VM_EXIT_INFO_IO_ESI)                    \
     COMP(0, 0, W_UL, VM_EXIT_INFO_IO_EDI)                    \
@@ -377,7 +377,7 @@ typedef enum component_index_t component_index_t;
     COMP(0, 0, W_32, VMX_CR3_TARGET_COUNT)                   \
     COMP(0, 0, W_32, VMX_PREEMPTION_TIMER)                   \
     COMP(0, 0, W_32, VMX_INSTRUCTION_ERROR_CODE)             \
-    COMP(0, 0, W_32, VM_EXIT_INFO_REASON)                    \
+    COMP(1, 0, W_32, VM_EXIT_INFO_REASON)                    \
     COMP(1, 0, W_32, VM_EXIT_INFO_INTERRUPT_INFO)            \
     COMP(1, 0, W_32, VM_EXIT_INFO_EXCEPTION_ERROR_CODE)      \
     COMP(1, 0, W_32, VM_EXIT_INFO_IDT_VECTORING)             \
@@ -405,7 +405,7 @@ typedef enum component_index_t component_index_t;
     COMP(0, 0, W_32, GUEST_IDTR_LIMIT)                       \
     COMP(0, 0, W_32, GUEST_SYSENTER_CS)                      \
     COMP(0, 0, W_32, GUEST_SMBASE)                           \
-    COMP(0, 0, W_32, GUEST_INTERRUPTIBILITY)                 \
+    COMP(1, 0, W_32, GUEST_INTERRUPTIBILITY)                 \
     COMP(0, 0, W_32, GUEST_ACTIVITY_STATE)                   \
     /* 16-bit components */                                  \
     COMP(0, 0, W_16, VMX_VPID)                               \

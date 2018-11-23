@@ -313,7 +313,6 @@ int cpu_vmx_execute(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     vmx_result_t res = 0;
     int ret;
     preempt_flag flags;
-    struct vcpu_state_t *state = vcpu->state;
     uint32_t vmcs_err = 0;
 
     while (1) {
@@ -367,7 +366,7 @@ int cpu_vmx_execute(struct vcpu_t *vcpu, struct hax_tunnel *htun)
             return -EINVAL;
         }
 
-        exit_reason.raw = vmread(vcpu, VM_EXIT_INFO_REASON);
+        exit_reason.raw = vmcs_read(vcpu, VM_EXIT_INFO_REASON);
         hax_debug("....exit_reason.raw %x, cpu %d %d\n", exit_reason.raw,
                   vcpu->cpu_id, hax_cpuid());
 
@@ -376,11 +375,6 @@ int cpu_vmx_execute(struct vcpu_t *vcpu, struct hax_tunnel *htun)
          * This should be changed later after get better idea
          */
         hax_handle_idt_vectoring(vcpu);
-
-        vmx(vcpu, exit_qualification).raw = vmread(
-                vcpu, VM_EXIT_INFO_QUALIFICATION);
-        vmx(vcpu, interruptibility_state).raw = vmread(
-                vcpu, GUEST_INTERRUPTIBILITY);
 
         vmread_cr(vcpu);
 
@@ -599,7 +593,7 @@ static void cpu_vmentry_failed(struct vcpu_t *vcpu, vmx_result_t result)
 
     //dump_vmcs();
 
-    reason = vmread(vcpu, VM_EXIT_INFO_REASON);
+    reason = vmcs_read(vcpu, VM_EXIT_INFO_REASON);
     if (result == VMX_FAIL_VALID) {
         error = vmread(vcpu, VMX_INSTRUCTION_ERROR_CODE);
         hax_error("VMfailValid. Prev exit: %llx. Error code: %llu (%s)\n",

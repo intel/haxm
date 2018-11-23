@@ -779,12 +779,12 @@ retry:
     return TF_OK;
 }
 
-bool handle_vtlb(struct vcpu_t *vcpu)
+bool handle_vtlb(struct vcpu_t *vcpu, hax_vaddr_t addr)
 {
     uint32_t access = vmcs_read(vcpu, VM_EXIT_INFO_EXCEPTION_ERROR_CODE);
     pagemode_t mode = vcpu_get_pagemode(vcpu);
     hax_paddr_t pdir = vcpu->state->_cr3 & (mode == PM_PAE ? ~0x1fULL : ~0xfffULL);
-    hax_vaddr_t cr2 = vmx(vcpu, exit_qualification).address;
+    hax_vaddr_t cr2 = addr;
 
     uint32_t ret = vtlb_handle_page_fault(vcpu, mode, pdir, cr2, access);
 

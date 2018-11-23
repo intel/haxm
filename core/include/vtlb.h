@@ -100,10 +100,10 @@ void vcpu_invalidate_tlb_addr(struct vcpu_t *vcpu, hax_vaddr_t va);
 uint vcpu_vtlb_alloc(struct vcpu_t *vcpu);
 void vcpu_vtlb_free(struct vcpu_t *vcpu);
 
-bool handle_vtlb(struct vcpu_t *vcpu);
+bool handle_vtlb(struct vcpu_t *vcpu, hax_vaddr_t addr);
 
-uint vcpu_translate(struct vcpu_t *vcpu, hax_vaddr_t va, uint access, hax_paddr_t *pa,
-                    uint64_t *len, bool update);
+uint vcpu_translate(struct vcpu_t *vcpu, hax_vaddr_t va, uint access,
+                    hax_paddr_t *pa, uint64_t *len, bool update);
 
 uint32_t vcpu_read_guest_virtual(struct vcpu_t *vcpu, hax_vaddr_t addr, void *dst,
                                uint32_t dst_buflen, uint32_t size, uint flag);

@@ -107,7 +107,7 @@ static void handle_machine_check(struct vcpu_t *vcpu);
 
 static void handle_cpuid_virtual(struct vcpu_t *vcpu, uint32_t eax, uint32_t ecx);
 static void handle_mem_fault(struct vcpu_t *vcpu, struct hax_tunnel *htun);
-static void check_flush(struct vcpu_t *vcpu, uint32_t bits);
+static void check_flush(struct vcpu_t *vcpu, int cr, uint32_t bits);
 static void vmwrite_efer(struct vcpu_t *vcpu);
 
 static int handle_msr_read(struct vcpu_t *vcpu, uint32_t msr, uint64_t *val);
@@ -1272,8 +1272,6 @@ void vcpu_save_host_state(struct vcpu_t *vcpu)
     vmwrite(vcpu, HOST_IDTR_BASE, get_kernel_idtr_base());
 
     // Handle SYSENTER/SYSEXIT MSR
-    vmwrite(vcpu, HOST_SYSENTER_CS, ia32_rdmsr(IA32_SYSENTER_CS));
-    vmwrite(vcpu, HOST_SYSENTER_EIP, ia32_rdmsr(IA32_SYSENTER_EIP));
     vmwrite(vcpu, HOST_SYSENTER_ESP, ia32_rdmsr(IA32_SYSENTER_ESP));
 
     // LDTR is unusable from spec, do we need ldt for host?
@@ -1413,6 +1411,9 @@ static void fill_common_vmcs(struct vcpu_t *vcpu)
     vmwrite(vcpu, HOST_TR_BASE, get_kernel_tr_base());
     vmwrite(vcpu, HOST_GDTR_BASE, get_kernel_gdtr_base());
     vmwrite(vcpu, HOST_IDTR_BASE, get_kernel_idtr_base());
+
+    vmwrite(vcpu, HOST_SYSENTER_CS, ia32_rdmsr(IA32_SYSENTER_CS));
+    vmwrite(vcpu, HOST_SYSENTER_EIP, ia32_rdmsr(IA32_SYSENTER_EIP));
 
     // The host RIP, used during VM-exit events, is only updated if HAXM
     // is reloaded. Thus never changes during the lifetime of the VCPU.
@@ -1744,7 +1745,7 @@ int vtlb_active(struct vcpu_t *vcpu)
 static void advance_rip(struct vcpu_t *vcpu)
 {
     struct vcpu_state_t *state = vcpu->state;
-    uint32_t interruptibility = vmx(vcpu, interruptibility_state).raw;
+    uint32_t interruptibility = vmcs_read(vcpu, GUEST_INTERRUPTIBILITY);
 
     if (interruptibility & 3u) {
         interruptibility &= ~3u;
@@ -2320,6 +2321,8 @@ static void vcpu_init_emulator(struct vcpu_t *vcpu)
 static int exit_exc_nmi(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
     struct vcpu_state_t *state = vcpu->state;
+    exit_qualification_t qual = { .raw =
+        vmcs_read(vcpu, VM_EXIT_INFO_QUALIFICATION) };
     interruption_info_t exit_intr_info;
 
     exit_intr_info.raw = vmcs_read(vcpu, VM_EXIT_INFO_INTERRUPT_INFO);
@@ -2333,7 +2336,7 @@ static int exit_exc_nmi(struct vcpu_t *vcpu, struct hax_tunnel *htun)
         }
         case VECTOR_PF: {
             if (vtlb_active(vcpu)) {
-                if (handle_vtlb(vcpu))
+                if (handle_vtlb(vcpu, qual.address))
                     return HAX_RESUME;
 
                 return vcpu_emulate_insn(vcpu);
@@ -2358,7 +2361,7 @@ static int exit_exc_nmi(struct vcpu_t *vcpu, struct hax_tunnel *htun)
         case VECTOR_DB: {
             htun->_exit_status = HAX_EXIT_DEBUG;
             htun->debug.rip = vcpu_get_rip(vcpu);
-            htun->debug.dr6 = vmx(vcpu, exit_qualification).raw;
+            htun->debug.dr6 = qual.raw;
             htun->debug.dr7 = vmread(vcpu, GUEST_DR7);
             return HAX_EXIT;
         }
@@ -2372,7 +2375,7 @@ static int exit_exc_nmi(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     }
 
     if (exit_intr_info.vector == VECTOR_PF) {
-        state->_cr2 = vmx(vcpu, exit_qualification.address);
+        state->_cr2 = qual.address;
     }
 
     return HAX_RESUME;
@@ -2738,8 +2741,11 @@ static int exit_hlt(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 
 static int exit_invlpg(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
+    exit_qualification_t qual = { .raw =
+        vmcs_read(vcpu, VM_EXIT_INFO_QUALIFICATION) };
+
     advance_rip(vcpu);
-    vcpu_invalidate_tlb_addr(vcpu, vmx(vcpu, exit_qualification).address);
+    vcpu_invalidate_tlb_addr(vcpu, qual.address);
     htun->_exit_reason = vmx(vcpu, exit_reason).basic_reason;
     return HAX_RESUME;
 }
@@ -2750,9 +2756,9 @@ static int exit_rdtsc(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     return HAX_RESUME;
 }
 
-static void check_flush(struct vcpu_t *vcpu, uint32_t bits)
+static void check_flush(struct vcpu_t *vcpu, int cr, uint32_t bits)
 {
-    switch (vmx(vcpu, exit_qualification).cr.creg) {
+    switch (cr) {
         case 0: {
             if (bits & (CR0_PE | CR0_PG)) {
                 vcpu_invalidate_tlb(vcpu, 1);
@@ -2783,18 +2789,20 @@ static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     uint64_t cr_ptr;
     int cr;
     struct vcpu_state_t *state = vcpu->state;
+    exit_qualification_t qual = { .raw =
+        vmcs_read(vcpu, VM_EXIT_INFO_QUALIFICATION) };
     bool is_ept_pae = false;
     preempt_flag flags;
     uint32_t vmcs_err = 0;
 
     htun->_exit_reason = vmx(vcpu, exit_reason).basic_reason;
 
-    cr = vmx(vcpu, exit_qualification).cr.creg;
+    cr = qual.cr.creg;
     cr_ptr = vcpu_read_cr(state, cr);
 
-    switch (vmx(vcpu, exit_qualification).cr.type) {
+    switch (qual.cr.type) {
         case 0: { // MOV CR <- GPR
-            uint64_t val = state->_regs[(vmx(vcpu, exit_qualification).cr.gpr)];
+            uint64_t val = state->_regs[qual.cr.gpr];
 
             hax_debug("cr_access W CR%d: %08llx -> %08llx\n", cr, cr_ptr, val);
             if (cr == 0) {
@@ -2859,7 +2867,7 @@ static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
                 hax_error("Unsupported CR%d access\n", cr);
                 break;
             }
-            check_flush(vcpu, cr_ptr ^ val);
+            check_flush(vcpu, cr, cr_ptr ^ val);
             vcpu_write_cr(state, cr, val);
 
             if (is_ept_pae) {
@@ -2899,7 +2907,7 @@ static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
         case 1: { // MOV CR -> GPR
             hax_info("cr_access R CR%d\n", cr);
 
-            state->_regs[vmx(vcpu, exit_qualification).cr.gpr] = cr_ptr;
+            state->_regs[qual.cr.gpr] = cr_ptr;
             if (cr == 8) {
                 hax_info("Unsupported CR%d access\n", cr);
                 break;
@@ -2926,7 +2934,7 @@ static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
         case 3: { // LMSW
             hax_info("LMSW\n");
             state->_cr0 = (state->_cr0 & ~0xfULL) |
-                          (vmx(vcpu, exit_qualification).cr.lmsw_source & 0xf);
+                          (qual.cr.lmsw_source & 0xf);
             if ((vmcs_err = load_vmcs(vcpu, &flags))) {
                 hax_panic_vcpu(vcpu, "load_vmcs failed while LMSW %x\n",
                                vmcs_err);
@@ -2954,8 +2962,10 @@ static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 static int exit_dr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
     uint64_t *dr = NULL;
-    int dreg = vmx(vcpu, exit_qualification.dr.dreg);
-    int gpr_reg = vmx(vcpu, exit_qualification).dr.gpr;
+    exit_qualification_t qual = { .raw =
+        vmcs_read(vcpu, VM_EXIT_INFO_QUALIFICATION) };
+    int dreg = qual.dr.dreg;
+    int gpr_reg = qual.dr.gpr;
     bool hbreak_enabled = !!(vcpu->debug_control & HAX_DEBUG_USE_HW_BP);
     struct vcpu_state_t *state = vcpu->state;
 
@@ -3017,7 +3027,7 @@ static int exit_dr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
         }
     }
 
-    if (vmx(vcpu, exit_qualification.dr.direction)) {
+    if (qual.dr.direction) {
         // MOV DR -> GPR
         if (hbreak_enabled) {
             // HAX hardware breakpoint enabled, return dr default value
@@ -3046,7 +3056,7 @@ static int exit_dr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     return HAX_RESUME;
 }
 
-static int handle_string_io(struct vcpu_t *vcpu, exit_qualification_t *qual,
+static int handle_string_io(struct vcpu_t *vcpu, exit_qualification_t qual,
                             struct hax_tunnel *htun)
 {
     struct vcpu_state_t *state = vcpu->state;
@@ -3058,7 +3068,7 @@ static int handle_string_io(struct vcpu_t *vcpu, exit_qualification_t *qual,
     // 1 indicates string I/O (i.e. OUTS or INS)
     htun->io._flags = 1;
 
-    count = qual->io.rep ? state->_rcx : 1;
+    count = qual.io.rep ? state->_rcx : 1;
     elem_size = htun->io._size;
     total_size = count * elem_size;
 
@@ -3086,7 +3096,7 @@ static int handle_string_io(struct vcpu_t *vcpu, exit_qualification_t *qual,
     // For INS (see handle_io_post())
     htun->io._vaddr = start_gva;
 
-    if (qual->io.direction == HAX_IO_OUT) {
+    if (qual.io.direction == HAX_IO_OUT) {
         if (!vcpu_read_guest_virtual(vcpu, start_gva, vcpu->io_buf,
                                      IOS_MAX_BUFFER, copy_size, 0)) {
             hax_panic_vcpu(vcpu, "%s: vcpu_read_guest_virtual() failed,"
@@ -3103,13 +3113,13 @@ static int handle_string_io(struct vcpu_t *vcpu, exit_qualification_t *qual,
     }
 
     if (rflags & EFLAGS_DF) {
-        if (qual->io.direction == HAX_IO_OUT) {
+        if (qual.io.direction == HAX_IO_OUT) {
             state->_rsi -= copy_size;
         } else {
             state->_rdi -= copy_size;
         }
     } else {
-        if (qual->io.direction == HAX_IO_OUT) {
+        if (qual.io.direction == HAX_IO_OUT) {
             state->_rsi += copy_size;
         } else {
             state->_rdi += copy_size;
@@ -3120,15 +3130,15 @@ static int handle_string_io(struct vcpu_t *vcpu, exit_qualification_t *qual,
     return HAX_EXIT;
 }
 
-static int handle_io(struct vcpu_t *vcpu, exit_qualification_t *qual,
+static int handle_io(struct vcpu_t *vcpu, exit_qualification_t qual,
                      struct hax_tunnel *htun)
 {
     struct vcpu_state_t *state = vcpu->state;
     htun->io._count = 1;
     htun->io._flags = 0;
 
-    if (qual->io.direction == HAX_IO_OUT) {
-        switch (qual->io.size + 1) {
+    if (qual.io.direction == HAX_IO_OUT) {
+        switch (qual.io.size + 1) {
             case 1: {
                 *((uint8_t *)vcpu->io_buf) = state->_al;
                 break;
@@ -3154,7 +3164,8 @@ static int handle_io(struct vcpu_t *vcpu, exit_qualification_t *qual,
 static int exit_io_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
     struct vcpu_state_t *state = vcpu->state;
-    exit_qualification_t *qual = &vmx(vcpu, exit_qualification);
+    exit_qualification_t qual = { .raw =
+        vmcs_read(vcpu, VM_EXIT_INFO_QUALIFICATION) };
 
     htun->_exit_reason = vmx(vcpu, exit_reason).basic_reason;
 
@@ -3165,14 +3176,14 @@ static int exit_io_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     htun->io._size = 0;
     htun->io._count = 0;
 
-    htun->io._port = qual->io.encoding ? qual->io.port : state->_dx;
-    htun->io._size = qual->io.size + 1;
-    htun->io._direction = qual->io.direction;
+    htun->io._port = qual.io.encoding ? qual.io.port : state->_dx;
+    htun->io._size = qual.io.size + 1;
+    htun->io._direction = qual.io.direction;
 
     hax_debug("exit_io_access port %x, size %d\n", htun->io._port,
               htun->io._size);
 
-    if (qual->io.string)
+    if (qual.io.string)
         return handle_string_io(vcpu, qual, htun);
 
     return handle_io(vcpu, qual, htun);
@@ -3700,7 +3711,8 @@ static int exit_ept_misconfiguration(struct vcpu_t *vcpu,
 
 static int exit_ept_violation(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
-    exit_qualification_t *qual = &vmx(vcpu, exit_qualification);
+    exit_qualification_t qual = { .raw =
+        vmcs_read(vcpu, VM_EXIT_INFO_QUALIFICATION) };
     hax_paddr_t gpa;
     int ret = 0;
 #ifdef CONFIG_HAX_EPT2
@@ -3709,7 +3721,7 @@ static int exit_ept_violation(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 
     htun->_exit_reason = vmx(vcpu, exit_reason).basic_reason;
 
-    if (qual->ept.gla1 == 0 && qual->ept.gla2 == 1) {
+    if (qual.ept.gla1 == 0 && qual.ept.gla2 == 1) {
         hax_panic_vcpu(vcpu, "Incorrect EPT seting\n");
         dump_vmcs(vcpu);
         return HAX_RESUME;
@@ -3719,12 +3731,12 @@ static int exit_ept_violation(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 
 #ifdef CONFIG_HAX_EPT2
     ret = ept_handle_access_violation(&vcpu->vm->gpa_space, &vcpu->vm->ept_tree,
-                                      *qual, gpa, &fault_gfn);
+                                      qual, gpa, &fault_gfn);
     if (ret == -EFAULT) {
         // Extract bits 5..0 from Exit Qualification. They indicate the type of
         // the faulting access (HAX_PAGEFAULT_ACC_R/W/X) and the types of access
         // allowed (HAX_PAGEFAULT_PERM_R/W/X).
-        htun->pagefault.flags = qual->raw & 0x3f;
+        htun->pagefault.flags = qual.raw & 0x3f;
         htun->pagefault.gpa = fault_gfn << PG_ORDER_4K;
         htun->pagefault.reserved1 = 0;
         htun->pagefault.reserved2 = 0;

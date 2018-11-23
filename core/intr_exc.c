@@ -126,7 +126,7 @@ uint hax_intr_is_blocked(struct vcpu_t *vcpu)
     if (!(rflags & EFLAGS_IF))
         return 1;
 
-    intr_status = vmx(vcpu, interruptibility_state).raw;
+    intr_status = vmcs_read(vcpu, GUEST_INTERRUPTIBILITY);
     if (intr_status & 3)
         return 1;
     return 0;
