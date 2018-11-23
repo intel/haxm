@@ -1685,6 +1685,15 @@ int vcpu_execute(struct vcpu_t *vcpu)
     }
     err = cpu_vmx_execute(vcpu, htun);
     vcpu_is_panic(vcpu);
+
+    if (vcpu->nr_pending_intrs > 0 || hax_intr_is_blocked(vcpu))
+        htun->ready_for_interrupt_injection = 0;
+    else
+        htun->ready_for_interrupt_injection = 1;
+
+    if (htun->_exit_status == HAX_EXIT_HLT)
+        htun->ready_for_interrupt_injection = 1;
+
 out:
     if (err) {
         vcpu->cur_state = GS_STALE;
@@ -2729,7 +2738,6 @@ static int exit_hlt(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     if (hax_valid_vector(vector))
         return HAX_RESUME;
 
-    htun->ready_for_interrupt_injection = 1;
     return HAX_EXIT;
 }
 

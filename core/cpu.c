@@ -353,11 +353,6 @@ int cpu_vmx_execute(struct vcpu_t *vcpu, struct hax_tunnel *htun)
          */
         hax_handle_idt_vectoring(vcpu);
 
-        if (vcpu->nr_pending_intrs > 0 || hax_intr_is_blocked(vcpu))
-            htun->ready_for_interrupt_injection = 0;
-        else
-            htun->ready_for_interrupt_injection = 1;
-
         vcpu->cur_state = GS_STALE;
         vmcs_err = put_vmcs(vcpu, &flags);
         if (vmcs_err) {
