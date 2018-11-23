@@ -327,6 +327,40 @@ void vcpu_vmcs_flush_cache_w(struct vcpu_t *vcpu)
     vcpu->vmx.vmcs_cache_w.dirty = 0;
 }
 
+mword vcpu_get_cr0(struct vcpu_t *vcpu)
+{
+    struct vcpu_state_t *state = vcpu->state;
+    mword cr0, cr0_mask;
+
+    // Update only the bits the guest is allowed to change
+    // This must use the actual cr0 mask, not _cr0_mask.
+    cr0 = vmcs_read(vcpu, GUEST_CR0);
+    cr0_mask = vmcs_read(vcpu, VMX_CR0_MASK); // should cache this
+    state->_cr0 = (cr0 & ~cr0_mask) | (state->_cr0 & cr0_mask);
+    return state->_cr0;
+}
+
+mword vcpu_get_cr3(struct vcpu_t *vcpu)
+{
+    struct vcpu_state_t *state = vcpu->state;
+
+    // update CR3 only if guest is allowed to change it
+    if (!(vmx(vcpu, pcpu_ctls) & CR3_LOAD_EXITING))
+        state->_cr3 = vmread(vcpu, GUEST_CR3);
+    return state->_cr3;
+}
+
+mword vcpu_get_cr4(struct vcpu_t *vcpu)
+{
+    struct vcpu_state_t *state = vcpu->state;
+    mword cr4, cr4_mask;
+
+    cr4 = vmread(vcpu, GUEST_CR4);
+    cr4_mask = vmread(vcpu, VMX_CR4_MASK); // should cache this
+    state->_cr4 = (cr4 & ~cr4_mask) | (state->_cr4 & cr4_mask);
+    return state->_cr4;
+}
+
 mword vcpu_get_rflags(struct vcpu_t *vcpu)
 {
     return vmcs_read(vcpu, GUEST_RFLAGS);

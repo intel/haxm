@@ -172,35 +172,28 @@ static inline void set_idt(struct vcpu_state_t *state, uint64_t base,
     state->_idt.limit = limit;
 }
 
-static uint64_t vcpu_read_cr(struct vcpu_state_t *state, uint32_t n)
+static uint64_t vcpu_read_cr(struct vcpu_t *vcpu, uint32_t n)
 {
     uint64_t val = 0;
 
     switch (n) {
-        case 0: {
-            val = state->_cr0;
-            break;
-        }
-        case 2: {
-            val = state->_cr2;
-            break;
-        }
-        case 3: {
-            val = state->_cr3;
-            break;
-        }
-        case 4: {
-            val = state->_cr4;
-            break;
-        }
-        default: {
-            hax_error("Unsupported CR%d access\n", n);
-            break;
-        }
+    case 0:
+        val = vcpu_get_cr0(vcpu);
+        break;
+    case 2:
+        val = vcpu->state->_cr2;
+        break;
+    case 3:
+        val = vcpu_get_cr3(vcpu);
+        break;
+    case 4:
+        val = vcpu_get_cr4(vcpu);
+        break;
+    default:
+        hax_error("Unsupported CR%d access\n", n);
+        break;
     }
-
     hax_debug("vcpu_read_cr cr %x val %llx\n", n, val);
-
     return val;
 }
 
@@ -1665,7 +1658,7 @@ int vcpu_execute(struct vcpu_t *vcpu)
     hax_mutex_lock(vcpu->tmutex);
     hax_debug("vcpu begin to run....\n");
     // QEMU will do realmode stuff for us
-    if (!hax->ug_enable_flag && !(vcpu->state->_cr0 & CR0_PE)) {
+    if (!hax->ug_enable_flag && !(vcpu_get_cr0(vcpu) & CR0_PE)) {
         htun->_exit_reason = 0;
         htun->_exit_status = HAX_EXIT_REALMODE;
         hax_debug("Guest is in realmode.\n");
@@ -1723,14 +1716,14 @@ int vcpu_vmexit_handler(struct vcpu_t *vcpu, exit_reason_t exit_reason,
 
 int vtlb_active(struct vcpu_t *vcpu)
 {
-    struct vcpu_state_t *state = vcpu->state;
     struct per_cpu_data *cpu_data = current_cpu_data();
+    uint64_t cr0 = vcpu_get_cr0(vcpu);
 
     if (hax->ug_enable_flag)
         return 0;
 
-    hax_debug("vtlb active: cr0, %llx\n", state->_cr0);
-    if ((state->_cr0 & CR0_PG) == 0)
+    hax_debug("vtlb active: cr0, %llx\n", cr0);
+    if ((cr0 & CR0_PG) == 0)
         return 1;
 
     if (config.disable_ept)
@@ -2099,6 +2092,7 @@ static int vcpu_emulate_insn(struct vcpu_t *vcpu)
     em_context_t *em_ctxt = &vcpu->emulate_ctxt;
     uint8_t instr[INSTR_MAX_LEN] = {0};
     uint32_t exit_instr_length = vmcs_read(vcpu, VM_EXIT_INFO_INSTRUCTION_LENGTH);
+    uint64_t cr0 = vcpu_get_cr0(vcpu);
     uint64_t rip = vcpu_get_rip(vcpu);
     segment_desc_t cs;
     uint64_t va;
@@ -2109,7 +2103,7 @@ static int vcpu_emulate_insn(struct vcpu_t *vcpu)
 
     // Detect guest mode
     cs.ar = vcpu_get_seg_ar(vcpu, SEG_CS);
-    if (!(vcpu->state->_cr0 & CR0_PE))
+    if (!(cr0 & CR0_PE))
         mode = EM_MODE_REAL;
     else if (cs.long_mode == 1)
         mode = EM_MODE_PROT64;
@@ -2794,11 +2788,14 @@ static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     bool is_ept_pae = false;
     preempt_flag flags;
     uint32_t vmcs_err = 0;
+    state->_cr0 = vcpu_get_cr0(vcpu);
+    state->_cr3 = vcpu_get_cr3(vcpu);
+    state->_cr4 = vcpu_get_cr4(vcpu);
 
     htun->_exit_reason = vmx(vcpu, exit_reason).basic_reason;
 
     cr = qual.cr.creg;
-    cr_ptr = vcpu_read_cr(state, cr);
+    cr_ptr = vcpu_read_cr(vcpu, cr);
 
     switch (qual.cr.type) {
         case 0: { // MOV CR <- GPR
@@ -3259,6 +3256,7 @@ static int handle_msr_read(struct vcpu_t *vcpu, uint32_t msr, uint64_t *val)
     int index, r = 0;
     struct vcpu_state_t *state = vcpu->state;
     struct gstate *gstate = &vcpu->gstate;
+    uint64_t cr0, cr4;
 
     switch (msr) {
         case IA32_TSC: {
@@ -3278,7 +3276,9 @@ static int handle_msr_read(struct vcpu_t *vcpu, uint32_t msr, uint64_t *val)
             break;
         }
         case IA32_EFER: {
-            if (!(state->_cr4 & CR4_PAE) && (state->_cr0 & CR0_PG)) {
+            cr0 = vcpu_get_cr0(vcpu);
+            cr4 = vcpu_get_cr4(vcpu);
+            if (!(cr4 & CR4_PAE) && (cr0 & CR0_PG)) {
                 r = 1;
             } else {
                 *val = state->_efer;
@@ -3462,8 +3462,9 @@ static int handle_msr_read(struct vcpu_t *vcpu, uint32_t msr, uint64_t *val)
 static void vmwrite_efer(struct vcpu_t *vcpu)
 {
     struct vcpu_state_t *state = vcpu->state;
+    uint64_t cr0 = vcpu_get_cr0(vcpu);
 
-    if ((state->_cr0 & CR0_PG) && (state->_efer & IA32_EFER_LME)) {
+    if ((state->_efer & IA32_EFER_LME) && (cr0 & CR0_PG)) {
         state->_efer |= IA32_EFER_LMA;
 
         vmwrite(vcpu, VMX_ENTRY_CONTROLS, vmread(vcpu, VMX_ENTRY_CONTROLS) |
@@ -3515,6 +3516,7 @@ static int handle_msr_write(struct vcpu_t *vcpu, uint32_t msr, uint64_t val)
     int index, r = 0;
     struct vcpu_state_t *state = vcpu->state;
     struct gstate *gstate = &vcpu->gstate;
+    uint64_t cr0, cr4;
 
     switch (msr) {
         case IA32_TSC: {
@@ -3539,10 +3541,12 @@ static int handle_msr_write(struct vcpu_t *vcpu, uint32_t msr, uint64_t val)
             break;
         }
         case IA32_EFER: {
+            cr0 = vcpu_get_cr0(vcpu);
+            cr4 = vcpu_get_cr4(vcpu);
             hax_info("Guest writing to EFER[%u]: 0x%x -> 0x%llx, _cr0=0x%llx,"
                      " _cr4=0x%llx\n", vcpu->vcpu_id, state->_efer, val,
-                     state->_cr0, state->_cr4);
-            if ((state->_cr0 & CR0_PG) && !(state->_cr4 & CR4_PAE)) {
+                     cr0, cr4);
+            if ((cr0 & CR0_PG) && !(cr4 & CR4_PAE)) {
                 state->_efer = 0;
             } else {
                 state->_efer = val;

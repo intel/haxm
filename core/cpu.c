@@ -186,29 +186,6 @@ void cpu_pmu_init(void *arg)
     pmu_info->cpuid_edx = cpuid_args.edx;
 }
 
-static void vmread_cr(struct vcpu_t *vcpu)
-{
-    struct vcpu_state_t *state = vcpu->state;
-    mword cr4, cr4_mask;
-
-    // Update only the bits the guest is allowed to change
-    // This must use the actual cr0 mask, not _cr0_mask.
-    mword cr0 = vmread(vcpu, GUEST_CR0);
-    mword cr0_mask = vmread(vcpu, VMX_CR0_MASK); // should cache this
-    hax_debug("vmread_cr cr0 %lx, cr0_mask %lx, state->_cr0 %llx\n", cr0,
-              cr0_mask, state->_cr0);
-    state->_cr0 = (cr0 & ~cr0_mask) | (state->_cr0 & cr0_mask);
-    hax_debug("vmread_cr, state->_cr0 %llx\n", state->_cr0);
-
-    // update CR3 only if guest is allowed to change it
-    if (!(vmx(vcpu, pcpu_ctls) & CR3_LOAD_EXITING))
-        state->_cr3 = vmread(vcpu, GUEST_CR3);
-
-    cr4 = vmread(vcpu, GUEST_CR4);
-    cr4_mask = vmread(vcpu, VMX_CR4_MASK); // should cache this
-    state->_cr4 = (cr4 & ~cr4_mask) | (state->_cr4 & cr4_mask);
-}
-
 vmx_result_t cpu_vmx_vmptrld(struct per_cpu_data *cpu_data, hax_paddr_t vmcs,
                              struct vcpu_t *vcpu)
 {
@@ -375,8 +352,6 @@ int cpu_vmx_execute(struct vcpu_t *vcpu, struct hax_tunnel *htun)
          * This should be changed later after get better idea
          */
         hax_handle_idt_vectoring(vcpu);
-
-        vmread_cr(vcpu);
 
         if (vcpu->nr_pending_intrs > 0 || hax_intr_is_blocked(vcpu))
             htun->ready_for_interrupt_injection = 0;

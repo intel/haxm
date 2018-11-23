@@ -315,8 +315,8 @@ typedef enum component_index_t component_index_t;
     COMP(0, 0, W_64, GUEST_PDPTE2)                           \
     COMP(0, 0, W_64, GUEST_PDPTE3)                           \
     /* Natural-width components */                           \
-    COMP(0, 0, W_UL, VMX_CR0_MASK)                           \
-    COMP(0, 0, W_UL, VMX_CR4_MASK)                           \
+    COMP(1, 0, W_UL, VMX_CR0_MASK)                           \
+    COMP(1, 0, W_UL, VMX_CR4_MASK)                           \
     COMP(0, 0, W_UL, VMX_CR0_READ_SHADOW)                    \
     COMP(0, 0, W_UL, VMX_CR4_READ_SHADOW)                    \
     COMP(0, 0, W_UL, VMX_CR3_TARGET_VAL_BASE)                \
@@ -341,9 +341,9 @@ typedef enum component_index_t component_index_t;
     COMP(1, 0, W_UL, GUEST_RIP)                              \
     COMP(1, 0, W_UL, GUEST_RFLAGS)                           \
     COMP(1, 0, W_UL, GUEST_RSP)                              \
-    COMP(0, 0, W_UL, GUEST_CR0)                              \
-    COMP(0, 0, W_UL, GUEST_CR3)                              \
-    COMP(0, 0, W_UL, GUEST_CR4)                              \
+    COMP(1, 0, W_UL, GUEST_CR0)                              \
+    COMP(1, 0, W_UL, GUEST_CR3)                              \
+    COMP(1, 0, W_UL, GUEST_CR4)                              \
     COMP(1, 0, W_UL, GUEST_ES_BASE)                          \
     COMP(1, 0, W_UL, GUEST_CS_BASE)                          \
     COMP(1, 0, W_UL, GUEST_SS_BASE)                          \

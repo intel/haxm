@@ -1162,10 +1162,13 @@ uint vcpu_translate(struct vcpu_t *vcpu, hax_vaddr_t va, uint access, hax_paddr_
 
 pagemode_t vcpu_get_pagemode(struct vcpu_t *vcpu)
 {
-    if (!(vcpu->state->_cr0 & CR0_PG))
+    uint64_t cr0 = vcpu_get_cr0(vcpu);
+    uint64_t cr4 = vcpu_get_cr4(vcpu);
+
+    if (!(cr0 & CR0_PG))
         return PM_FLAT;
 
-    if (!(vcpu->state->_cr4 & CR4_PAE))
+    if (!(cr4 & CR4_PAE))
         return PM_2LVL;
 
     // Only support pure 32-bit paging. May support PAE paging in future.

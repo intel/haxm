@@ -569,9 +569,9 @@ uint32_t pw_perform_page_walk(
     uint64_t efer_value = vcpu->state->_efer;
     bool is_nxe = ((efer_value & IA32_EFER_XD) != 0);
     bool is_lme = ((efer_value & IA32_EFER_LME) != 0);
-    uint64_t cr0 = vcpu->state->_cr0;
-    uint64_t cr3 = vcpu->state->_cr3;
-    uint64_t cr4 = vcpu->state->_cr4;
+    uint64_t cr0 = vcpu_get_cr0(vcpu);
+    uint64_t cr3 = vcpu_get_cr3(vcpu);
+    uint64_t cr4 = vcpu_get_cr4(vcpu);
     bool is_wp = ((cr0 & CR0_WP) != 0);
     bool is_pae = ((cr4 & CR4_PAE) != 0);
     bool is_pse = ((cr4 & CR4_PSE) != 0);
