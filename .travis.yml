@@ -48,4 +48,4 @@ matrix:
         - export PROPS="//p:DefaultWindowsSDKVersion=10.0.17763.0 //p:SpectreMitigation=false"
         - MSBuild.exe haxm.sln $PROPS //p:Configuration="Debug" //p:Platform="Win32"
         - MSBuild.exe haxm.sln $PROPS //p:Configuration="Debug" //p:Platform="x64"
-        - build/tests/x64/haxm-tests.exe
+        - build/tests/x64/Debug/haxm-tests.exe

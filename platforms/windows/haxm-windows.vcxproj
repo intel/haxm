@@ -72,12 +72,12 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Label="Configuration">
-    <OutDir>$(SolutionDir)build\out\$(Platform)\$(ConfigurationName)\</OutDir>
-    <IntDir>$(SolutionDir)build\intermediates\$(ProjectName)\$(Platform)\$(ConfigurationName)\</IntDir>
+    <OutDir>$(SolutionDir)build\out\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)build\intermediates\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup>
     <Link>
-      <AdditionalDependencies>$(SolutionDir)build\core\$(Platform)\$(ConfigurationName)\haxlib.lib;$(DDK_LIB_PATH)wdmsec.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>$(SolutionDir)build\core\$(Platform)\$(Configuration)\haxlib.lib;$(DDK_LIB_PATH)wdmsec.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <ClCompile>
       <SDLCheck>true</SDLCheck>
