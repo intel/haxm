@@ -27,6 +27,11 @@ with HAXM, please send an email to [secure@intel.com][intel-security-email], and
 use the PGP key located at https://www.intel.com/security to encrypt any
 sensitive information.
 
+## Code of Conduct
+This project has adopted the Contributor Covenant, in the hope of building a
+welcoming and inclusive community. All participants in the project should adhere
+to this [code of conduct](CODE_OF_CONDUCT.md).
+
 [intel-haxm]: https://software.intel.com/en-us/android/articles/intel-hardware-accelerated-execution-manager
 [intel-vt]: https://www.intel.com/content/www/us/en/virtualization/virtualization-technology/intel-virtualization-technology.html
 [android-studio]: https://developer.android.com/studio/index.html
