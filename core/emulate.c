@@ -47,6 +47,8 @@
 #define INSN_NOFLAGS ((uint64_t)1 <<  6)
 /* Instruction has two memory operands */
 #define INSN_TWOMEM  ((uint64_t)1 <<  7)
+/* Instruction takes bit test operands */
+#define INSN_BITOP   ((uint64_t)1 <<  8)
 /* String instruction */
 #define INSN_STRING  (INSN_REP|INSN_REPX)
 
@@ -246,19 +248,19 @@ static const struct em_opcode_t opcode_table_0F[256] = {
     X16(N), X16(N),
     /* 0xA0 - 0xAF */
     X3(N),
-    F(em_bt, op_modrm_rm, op_modrm_reg, op_none, INSN_MODRM),
+    F(em_bt, op_modrm_rm, op_modrm_reg, op_none, INSN_MODRM | INSN_BITOP),
     X7(N),
-    F(em_bts, op_modrm_rm, op_modrm_reg, op_none, INSN_MODRM),
+    F(em_bts, op_modrm_rm, op_modrm_reg, op_none, INSN_MODRM | INSN_BITOP),
     X4(N),
     /* 0xB0 - 0xBF */
     X3(N),
-    F(em_btr, op_modrm_rm, op_modrm_reg, op_none, INSN_MODRM),
+    F(em_btr, op_modrm_rm, op_modrm_reg, op_none, INSN_MODRM | INSN_BITOP),
     X2(N),
     I(em_movzx, op_modrm_reg, op_modrm_rm8, op_none, INSN_MODRM | INSN_MOV),
     I(em_movzx, op_modrm_reg, op_modrm_rm16, op_none, INSN_MODRM | INSN_MOV),
     X2(N),
-    G(opcode_group8, op_modrm_rm, op_simm8, op_none, 0),
-    F(em_btc, op_modrm_rm, op_modrm_reg, op_none, INSN_MODRM),
+    G(opcode_group8, op_modrm_rm, op_simm8, op_none, INSN_BITOP),
+    F(em_btc, op_modrm_rm, op_modrm_reg, op_none, INSN_MODRM | INSN_BITOP),
     X2(N),
     I(em_movsx, op_modrm_reg, op_modrm_rm8, op_none, INSN_MODRM | INSN_MOV),
     I(em_movsx, op_modrm_reg, op_modrm_rm16, op_none, INSN_MODRM | INSN_MOV),
@@ -380,6 +382,41 @@ static em_status_t segmented_write(struct em_context_t *ctxt,
         flags |= EM_OPS_NO_TRANSLATION;
     }
     return ctxt->ops->write_memory(ctxt->vcpu, la, data, size, flags);
+}
+
+static em_status_t operand_read_bitop(struct em_context_t *ctxt)
+{
+    em_status_t rc;
+    struct em_operand_t *base = &ctxt->dst;
+    struct em_operand_t *offs = &ctxt->src1;
+    int64_t offset;
+
+    if (base->flags & OP_READ_PENDING) {
+        rc = ctxt->ops->read_memory_post(ctxt->vcpu, &base->value, base->size);
+        return rc;
+    }
+
+    offset = READ_GPR(offs->reg.index, offs->size);
+    switch (offs->size) {
+    case 2:
+        offset = (int16_t)offset;
+        break;
+    case 4:
+        offset = (int32_t)offset;
+        break;
+    case 8:
+        offset = (int64_t)offset;
+        break;
+    default:
+        return EM_ERROR;
+    }
+    base->mem.ea += (offset >> 3);
+    offs->value = (offset & 0x7);
+    rc = segmented_read(ctxt, &base->mem, &base->value, base->size);
+    if (rc != EM_CONTINUE) {
+        base->flags |= OP_READ_PENDING;
+    }
+    return rc;
 }
 
 static em_status_t operand_read(struct em_context_t *ctxt,
@@ -1072,17 +1109,24 @@ restart:
     if (!(opcode->flags & INSN_NOFLAGS)) {
         ctxt->rflags = ctxt->ops->read_rflags(ctxt->vcpu);
     }
-    if (!(opcode->flags & INSN_MOV)) {
-        rc = operand_read(ctxt, &ctxt->dst);
+    if (opcode->flags & INSN_BITOP &&
+        ctxt->dst.type == OP_MEM && ctxt->src1.type == OP_REG) {
+        rc = operand_read_bitop(ctxt);
+        if (rc != EM_CONTINUE)
+            goto exit;
+    } else {
+        if (!(opcode->flags & INSN_MOV)) {
+            rc = operand_read(ctxt, &ctxt->dst);
+            if (rc != EM_CONTINUE)
+                goto exit;
+        }
+        rc = operand_read(ctxt, &ctxt->src1);
+        if (rc != EM_CONTINUE)
+            goto exit;
+        rc = operand_read(ctxt, &ctxt->src2);
         if (rc != EM_CONTINUE)
             goto exit;
     }
-    rc = operand_read(ctxt, &ctxt->src1);
-    if (rc != EM_CONTINUE)
-        goto exit;
-    rc = operand_read(ctxt, &ctxt->src2);
-    if (rc != EM_CONTINUE)
-        goto exit;
 
     // Emulate instruction
     if (opcode->flags & INSN_FASTOP) {
