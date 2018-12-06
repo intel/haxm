@@ -65,5 +65,7 @@ struct config_t {
 };
 
 #define HAX_MAX_VCPUS 16
+// Matches the number of bits in vm_mid_bits (see vm.c)
+#define HAX_MAX_VMS 64
 
 #endif  // HAX_CORE_CONFIG_H_
