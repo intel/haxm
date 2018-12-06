@@ -35,9 +35,9 @@
 #include "include/hax_core_interface.h"
 #include "include/ept.h"
 #include "include/paging.h"
+#include "include/config.h"
 
-static uint8_t vm_mid_bits = 0;
-#define VM_MID_BIT 8
+static uint64_t vm_mid_bits = 0;
 
 #ifdef HAX_ARCH_X86_32
 static void gpfn_to_hva_recycle_total(struct vm_t *vm, uint64_t cr3_cur,
@@ -48,7 +48,7 @@ static int get_free_vm_mid(void)
 {
     int i;
 
-    for (i = 0; i < VM_MID_BIT; i++) {
+    for (i = 0; i < HAX_MAX_VMS; i++) {
         if (!hax_test_and_set_bit(i, (uint64_t *)&vm_mid_bits))
             return i;
     }
@@ -64,7 +64,7 @@ static void hax_put_vm_mid(int id)
 
 static int valid_vm_mid(int vm_id)
 {
-    return (vm_id >= 0) && (vm_id < VM_MID_BIT);
+    return (vm_id >= 0) && (vm_id < HAX_MAX_VMS);
 }
 
 int hax_vm_set_qemuversion(struct vm_t *vm, struct hax_qemu_version *ver)
