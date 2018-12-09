@@ -17,15 +17,41 @@ matrix:
       os: linux
       dist: trusty
       sudo: false
+      env:
+        - CHROOT=trusty_i386
+        - CHROOT_DIR=/tmp/chroot/${CHROOT}
       before_install:
         - sudo apt-get update
         - sudo apt-get install -y linux-headers-`uname -r`
-        - wget http://mirrors.kernel.org/ubuntu/pool/universe/n/nasm/nasm_2.13.02-0.1_amd64.deb
+        - wget -P /tmp/downloads http://mirrors.kernel.org/ubuntu/pool/universe/n/nasm/nasm_2.13.02-0.1_amd64.deb
         - sudo apt-get install -y dpkg
-        - sudo dpkg -i nasm_2.13.02-0.1_amd64.deb
+        - sudo dpkg -i /tmp/downloads/nasm_2.13.02-0.1_amd64.deb
+        # Cross-compiling to 32-bit Linux
+        - mkdir -p ${CHROOT_DIR}/haxm
+        - cp -r . ${CHROOT_DIR}/haxm
+        - sudo apt-get install -y debootstrap schroot
+        - |
+          ( echo "[${CHROOT}]"
+            echo "type=directory"
+            echo "directory=${CHROOT_DIR}"
+            echo "personality=linux32"
+            echo "users=`id -un`"
+            echo "root-users=`id -un`"
+          ) | sudo tee /etc/schroot/chroot.d/${CHROOT}.conf > /dev/null
+        - sudo debootstrap --variant=buildd --arch=i386 trusty ${CHROOT_DIR}
+        - schroot -c ${CHROOT} -u root -- sed -i "1p ; 1s| trusty | trusty-updates |" /etc/apt/sources.list
+        - schroot -c ${CHROOT} -u root -- apt update
+        - schroot -c ${CHROOT} -u root -- apt-cache search linux-header
+        - schroot -c ${CHROOT} -u root -- apt install -y linux-headers-`uname -r`
+        - wget -P /tmp/downloads http://mirrors.kernel.org/ubuntu/pool/universe/n/nasm/nasm_2.13.02-0.1_i386.deb
+        - schroot -c ${CHROOT} -u root -- apt install -y dpkg
+        - schroot -c ${CHROOT} -u root -- dpkg -i /tmp/downloads/nasm_2.13.02-0.1_i386.deb
+
       script:
         - cd platforms/linux
         - make -j$(nproc)
+        # Cross-compiling to 32-bit Linux
+        - schroot -c ${CHROOT} --directory ${CHROOT_DIR}/haxm/platforms/linux -- make -j$(nproc)
 
     - name: "haxm-windows"
       os: windows
