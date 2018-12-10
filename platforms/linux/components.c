@@ -325,9 +325,11 @@ static long hax_vcpu_ioctl(struct file *filp, unsigned int cmd,
         return -ENODEV;
 
     switch (cmd) {
+    case HAX_VCPU_IOCTL_RUN__LEGACY:
     case HAX_VCPU_IOCTL_RUN:
         ret = vcpu_execute(cvcpu);
         break;
+    case HAX_VCPU_IOCTL_SETUP_TUNNEL__LEGACY:
     case HAX_VCPU_IOCTL_SETUP_TUNNEL: {
         struct hax_tunnel_info info;
         ret = hax_vcpu_setup_hax_tunnel(cvcpu, &info);
@@ -337,6 +339,7 @@ static long hax_vcpu_ioctl(struct file *filp, unsigned int cmd,
         }
         break;
     }
+    case HAX_VCPU_IOCTL_SET_MSRS__LEGACY:
     case HAX_VCPU_IOCTL_SET_MSRS: {
         struct hax_msr_data msrs;
         struct vmx_msr *msr;
@@ -360,8 +363,13 @@ static long hax_vcpu_ioctl(struct file *filp, unsigned int cmd,
             }
         }
         msrs.done = i;
+        if (copy_to_user(argp, &msrs, sizeof(msrs))) {
+            ret = -EFAULT;
+            break;
+        }
         break;
     }
+    case HAX_VCPU_IOCTL_GET_MSRS__LEGACY:
     case HAX_VCPU_IOCTL_GET_MSRS: {
         struct hax_msr_data msrs;
         struct vmx_msr *msr;
@@ -390,6 +398,7 @@ static long hax_vcpu_ioctl(struct file *filp, unsigned int cmd,
         }
         break;
     }
+    case HAX_VCPU_IOCTL_SET_FPU__LEGACY:
     case HAX_VCPU_IOCTL_SET_FPU: {
         struct fx_layout fl;
         if (copy_from_user(&fl, argp, sizeof(fl))) {
@@ -399,6 +408,7 @@ static long hax_vcpu_ioctl(struct file *filp, unsigned int cmd,
         ret = vcpu_put_fpu(cvcpu, &fl);
         break;
     }
+    case HAX_VCPU_IOCTL_GET_FPU__LEGACY:
     case HAX_VCPU_IOCTL_GET_FPU: {
         struct fx_layout fl;
         ret = vcpu_get_fpu(cvcpu, &fl);
@@ -408,7 +418,8 @@ static long hax_vcpu_ioctl(struct file *filp, unsigned int cmd,
         }
         break;
     }
-    case HAX_VCPU_SET_REGS: {
+    case HAX_VCPU_IOCTL_SET_REGS__LEGACY:
+    case HAX_VCPU_IOCTL_SET_REGS: {
         struct vcpu_state_t vc_state;
         if (copy_from_user(&vc_state, argp, sizeof(vc_state))) {
             ret = -EFAULT;
@@ -417,7 +428,8 @@ static long hax_vcpu_ioctl(struct file *filp, unsigned int cmd,
         ret = vcpu_set_regs(cvcpu, &vc_state);
         break;
     }
-    case HAX_VCPU_GET_REGS: {
+    case HAX_VCPU_IOCTL_GET_REGS__LEGACY:
+    case HAX_VCPU_IOCTL_GET_REGS: {
         struct vcpu_state_t vc_state;
         ret = vcpu_get_regs(cvcpu, &vc_state);
         if (copy_to_user(argp, &vc_state, sizeof(vc_state))) {
@@ -426,6 +438,7 @@ static long hax_vcpu_ioctl(struct file *filp, unsigned int cmd,
         }
         break;
     }
+    case HAX_VCPU_IOCTL_INTERRUPT__LEGACY:
     case HAX_VCPU_IOCTL_INTERRUPT: {
         uint8_t vector;
         if (copy_from_user(&vector, argp, sizeof(vector))) {
@@ -435,7 +448,8 @@ static long hax_vcpu_ioctl(struct file *filp, unsigned int cmd,
         vcpu_interrupt(cvcpu, vector);
         break;
     }
-    case HAX_IOCTL_VCPU_DEBUG: {
+    case HAX_VCPU_IOCTL_DEBUG__LEGACY:
+    case HAX_VCPU_IOCTL_DEBUG: {
         struct hax_debug_t hax_debug;
         if (copy_from_user(&hax_debug, argp, sizeof(hax_debug))) {
             ret = -EFAULT;
@@ -510,8 +524,8 @@ static long hax_vm_ioctl(struct file *filp, unsigned int cmd,
         return -ENODEV;
 
     switch (cmd) {
-    case HAX_VM_IOCTL_VCPU_CREATE:
-    case HAX_VM_IOCTL_VCPU_CREATE_ORIG: {
+    case HAX_VM_IOCTL_VCPU_CREATE__LEGACY:
+    case HAX_VM_IOCTL_CREATE_VCPU: {
         uint32_t vcpu_id, vm_id;
         struct vcpu_t *cvcpu;
 
@@ -528,7 +542,7 @@ static long hax_vm_ioctl(struct file *filp, unsigned int cmd,
         }
         break;
     }
-    case HAX_VM_IOCTL_ALLOC_RAM: {
+    case HAX_VM_IOCTL_ALLOC_RAM__LEGACY: {
         struct hax_alloc_ram_info info;
         if (copy_from_user(&info, argp, sizeof(info))) {
             ret = -EFAULT;
@@ -539,6 +553,7 @@ static long hax_vm_ioctl(struct file *filp, unsigned int cmd,
         ret = hax_vm_add_ramblock(cvm, info.va, info.size);
         break;
     }
+    case HAX_VM_IOCTL_ADD_RAMBLOCK__LEGACY:
     case HAX_VM_IOCTL_ADD_RAMBLOCK: {
         struct hax_ramblock_info info;
         if (copy_from_user(&info, argp, sizeof(info))) {
@@ -556,6 +571,7 @@ static long hax_vm_ioctl(struct file *filp, unsigned int cmd,
         ret = hax_vm_add_ramblock(cvm, info.start_va, info.size);
         break;
     }
+    case HAX_VM_IOCTL_SET_RAM__LEGACY:
     case HAX_VM_IOCTL_SET_RAM: {
         struct hax_set_ram_info info;
         if (copy_from_user(&info, argp, sizeof(info))) {
@@ -566,6 +582,7 @@ static long hax_vm_ioctl(struct file *filp, unsigned int cmd,
         break;
     }
 #ifdef CONFIG_HAX_EPT2
+    case HAX_VM_IOCTL_SET_RAM2__LEGACY:
     case HAX_VM_IOCTL_SET_RAM2: {
         struct hax_set_ram_info2 info;
         if (copy_from_user(&info, argp, sizeof(info))) {
@@ -581,6 +598,7 @@ static long hax_vm_ioctl(struct file *filp, unsigned int cmd,
         ret = hax_vm_set_ram2(cvm, &info);
         break;
     }
+    case HAX_VM_IOCTL_PROTECT_RAM__LEGACY:
     case HAX_VM_IOCTL_PROTECT_RAM: {
         struct hax_protect_ram_info info;
         if (copy_from_user(&info, argp, sizeof(info))) {
@@ -597,14 +615,8 @@ static long hax_vm_ioctl(struct file *filp, unsigned int cmd,
         break;
     }
 #endif
-    case HAX_VM_IOCTL_NOTIFY_QEMU_VERSION: {
-        struct hax_qemu_version info;
-        if (copy_from_user(&info, argp, sizeof(info))) {
-            ret = -EFAULT;
-            break;
-        }
-        // TODO: Print information about the process that sent the ioctl.
-        ret = hax_vm_set_qemuversion(cvm, &info);
+    case HAX_VM_IOCTL_NOTIFY_QEMU_VERSION__LEGACY: {
+        // TODO: Currently no-op. Remove after grace period (2020-01-01)
         break;
     }
     default:

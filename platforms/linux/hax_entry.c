@@ -69,7 +69,8 @@ static long hax_dev_ioctl(struct file *filp, unsigned int cmd,
     void *argp = (void *)arg;
 
     switch (cmd) {
-    case HAX_IOCTL_VERSION: {
+    case HAX_IOCTL_VERSION__LEGACY:
+    case HAX_IOCTL_GET_API_VERSION: {
         struct hax_module_version version = {};
         version.cur_version = HAX_CUR_VERSION;
         version.compat_version = HAX_COMPAT_VERSION;
@@ -77,6 +78,7 @@ static long hax_dev_ioctl(struct file *filp, unsigned int cmd,
             return -EFAULT;
         break;
     }
+    case HAX_IOCTL_CAPABILITY__LEGACY:
     case HAX_IOCTL_CAPABILITY: {
         struct hax_capabilityinfo capab = {};
         hax_get_capability(&capab, sizeof(capab), NULL);
@@ -84,13 +86,14 @@ static long hax_dev_ioctl(struct file *filp, unsigned int cmd,
             return -EFAULT;
         break;
     }
-    case HAX_IOCTL_SET_MEMLIMIT: {
+    case HAX_IOCTL_SET_MEMLIMIT__LEGACY: {
         struct hax_set_memlimit memlimit = {};
         if (copy_from_user(&memlimit, argp, sizeof(memlimit)))
             return -EFAULT;
         ret = hax_set_memlimit(&memlimit, sizeof(memlimit), NULL);
         break;
     }
+    case HAX_IOCTL_CREATE_VM__LEGACY:
     case HAX_IOCTL_CREATE_VM: {
         int vm_id;
         struct vm_t *cvm;

@@ -2053,6 +2053,7 @@ static void vcpu_exit_fpu_state(struct vcpu_t *vcpu)
 //   http://wiki.osdev.org/X86-64_Instruction_Encoding
 #define INSTR_MAX_LEN               15
 
+<<<<<<< HEAD
 static bool qemu_support_fastmmio(struct vcpu_t *vcpu)
 {
     struct vm_t *vm = vcpu->vm;
@@ -2068,6 +2069,9 @@ static bool qemu_support_fastmmio_extra(struct vcpu_t *vcpu)
 }
 
 static bool is_mmio_address(struct vcpu_t *vcpu, hax_paddr_t gpa)
+=======
+static bool is_mmio_address(struct vcpu_t *vcpu, paddr_t gpa)
+>>>>>>> Unified IOCTL definitions
 {
     hax_paddr_t hpa;
     if (vtlb_active(vcpu)) {
@@ -4163,23 +4167,6 @@ int vcpu_pause(struct vcpu_t *vcpu)
     hax_smp_mb();
     if (vcpu->is_running) {
         hax_smp_call_function(&cpu_online_map, _vcpu_take_off, NULL);
-    }
-
-    return 0;
-}
-
-int vcpu_takeoff(struct vcpu_t *vcpu)
-{
-    int cpu_id;
-    hax_cpumap_t targets;
-
-    // Don't change the sequence unless you are sure
-    if (vcpu->is_running) {
-        cpu_id = vcpu->cpu_id;
-        hax_assert(cpu_id != hax_cpuid());
-        targets = cpu2cpumap(cpu_id);
-        // If not considering Windows XP, definitely we don't need this
-        hax_smp_call_function(&targets, _vcpu_take_off, NULL);
     }
 
     return 0;

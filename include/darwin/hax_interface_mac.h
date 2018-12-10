@@ -33,42 +33,21 @@
 
 #include <mach/mach_types.h>
 
-/* The mac specific interface to qemu because of mac's
- * special handling like hax tunnel allocation etc */
-/* HAX model level ioctl */
-#define HAX_IOCTL_VERSION _IOWR(0, 0x20, struct hax_module_version)
-#define HAX_IOCTL_CREATE_VM _IOWR(0, 0x21, uint32_t)
-#define HAX_IOCTL_DESTROY_VM _IOW(0, 0x22, uint32_t)
-#define HAX_IOCTL_CAPABILITY _IOR(0, 0x23, struct hax_capabilityinfo)
-#define HAX_IOCTL_SET_MEMLIMIT _IOWR(0, 0x24, struct hax_set_memlimit)
+#define HAX_IOCTL_GROUP 'H'
 
-// Only for backward compatibility with old Qemu.
-#define HAX_VM_IOCTL_VCPU_CREATE_ORIG _IOR(0, 0x80, int)
+#define HAX_IOCTL_HAX_IO(code, type) \
+    _IO(HAX_IOCTL_GROUP, code)
+#define HAX_IOCTL_HAX_IOR(code, type) \
+    _IOR(HAX_IOCTL_GROUP, code, type)
+#define HAX_IOCTL_HAX_IOW(code, type) \
+    _IOW(HAX_IOCTL_GROUP, code, type)
+#define HAX_IOCTL_HAX_IOWR(code, type) \
+    _IOWR(HAX_IOCTL_GROUP, code, type)
 
-#define HAX_VM_IOCTL_VCPU_CREATE _IOWR(0, 0x80, uint32_t)
-#define HAX_VM_IOCTL_ALLOC_RAM _IOWR(0, 0x81, struct hax_alloc_ram_info)
-#define HAX_VM_IOCTL_SET_RAM _IOWR(0, 0x82, struct hax_set_ram_info)
-#define HAX_VM_IOCTL_VCPU_DESTROY _IOR(0, 0x83, uint32_t)
-#define HAX_VM_IOCTL_ADD_RAMBLOCK _IOW(0, 0x85, struct hax_ramblock_info)
-#define HAX_VM_IOCTL_SET_RAM2 _IOWR(0, 0x86, struct hax_set_ram_info2)
-#define HAX_VM_IOCTL_PROTECT_RAM _IOWR(0, 0x87, struct hax_protect_ram_info)
-
-#define HAX_VCPU_IOCTL_RUN _IO(0, 0xc0)
-#define HAX_VCPU_IOCTL_SET_MSRS _IOWR(0, 0xc1, struct hax_msr_data)
-#define HAX_VCPU_IOCTL_GET_MSRS _IOWR(0, 0xc2, struct hax_msr_data)
-
-#define HAX_VCPU_IOCTL_SET_FPU _IOW(0, 0xc3, struct fx_layout)
-#define HAX_VCPU_IOCTL_GET_FPU _IOR(0, 0xc4, struct fx_layout)
-
-#define HAX_VCPU_IOCTL_SETUP_TUNNEL _IOWR(0, 0xc5, struct hax_tunnel_info)
-#define HAX_VCPU_IOCTL_INTERRUPT _IOWR(0, 0xc6, uint32_t)
-#define HAX_VCPU_SET_REGS _IOWR(0, 0xc7, struct vcpu_state_t)
-#define HAX_VCPU_GET_REGS _IOWR(0, 0xc8, struct vcpu_state_t)
-
-/* API 2.0 */
-#define HAX_VM_IOCTL_NOTIFY_QEMU_VERSION _IOW(0, 0x84, struct hax_qemu_version)
-
-#define HAX_IOCTL_VCPU_DEBUG _IOW(0, 0xc9, struct hax_debug_t)
+#define HAX_LEGACY_IOCTL(access, code_posix, code_windows, type) \
+    HAX_IOCTL_##access(code_posix, type)
+#define HAX_IOCTL(access, code, type) \
+    HAX_IOCTL_##access(code, type)
 
 #define HAX_KERNEL64_CS 0x80
 #define HAX_KERNEL32_CS 0x08

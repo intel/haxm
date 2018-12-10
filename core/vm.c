@@ -67,17 +67,6 @@ static int valid_vm_mid(int vm_id)
     return (vm_id >= 0) && (vm_id < HAX_MAX_VMS);
 }
 
-int hax_vm_set_qemuversion(struct vm_t *vm, struct hax_qemu_version *ver)
-{
-    if (ver->cur_version >= 0x2) {
-        vm->features |= VM_FEATURES_FASTMMIO_BASIC;
-        if (ver->cur_version >= 0x4) {
-            vm->features |= VM_FEATURES_FASTMMIO_EXTRA;
-        }
-    }
-    return 0;
-}
-
 uint64_t vm_get_eptp(struct vm_t *vm)
 {
     uint64_t eptp_value;

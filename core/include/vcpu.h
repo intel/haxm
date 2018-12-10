@@ -274,7 +274,6 @@ int hax_vm_create_host(struct vm_t *cvm, int vm_id);
 
 int vcpu_pause(struct vcpu_t *vcpu);
 int vcpu_unpause(struct vcpu_t *vcpu);
-int vcpu_takeoff(struct vcpu_t *vcpu);
 
 void *vcpu_vmcs_va(struct vcpu_t *vcpu);
 hax_paddr_t vcpu_vmcs_pa(struct vcpu_t *vcpu);
