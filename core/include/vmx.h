@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2009 Intel Corporation
+ * Copyright (c) 2018 Kryptos Logic
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -102,6 +103,7 @@ enum {
     VMX_EXIT_XRSTORS                 = 64
 };
 
+// Intel SDM Vol. 3D: Appendix B: Field Encoding in VMCS
 enum component_index_t {
     VMX_PIN_CONTROLS                            = 0x00004000,
     VMX_PRIMARY_PROCESSOR_CONTROLS              = 0x00004002,
@@ -255,6 +257,208 @@ enum component_index_t {
 };
 
 typedef enum component_index_t component_index_t;
+
+// VMCS component types
+#define COMP_TYPE_W_16 uint16_t
+#define COMP_TYPE_W_32 uint32_t
+#define COMP_TYPE_W_64 uint64_t
+#ifdef HAX_ARCH_X86_64
+#define COMP_TYPE_W_UL uint64_t
+#else
+#define COMP_TYPE_W_UL uint32_t
+#endif
+
+/**
+ * VMCS Cache
+ * ==========
+ * Stores all VMCS components declared through the macro
+ * COMP(cache_r, cache_w, width, value), with the arguments:
+ * - cache_r: Boolean value to toggle read-cache:
+ *   - 0  Reading cache disabled
+ *   - 1  Reading cache enabled
+ * - cache_w: Boolean value to toggle write-cache:
+ *   - 0  Writing cache disabled
+ *   - 1  Writing cache enabled
+ * - width: Component width.
+ *   - W_16 (0): 16-bit unsigned integer.
+ *   - W_64 (1): 64-bit unsigned integer.
+ *   - W_32 (2): 32-bit unsigned integer.
+ *   - W_UL (3): Natural-width unsigned integer.
+ * - name: Component name, defined as encoding value.
+ *
+ * For optimal memory packing, components should be declared
+ * in the following order: W_64, W_UL, W_32, W_16.
+ */
+#define VMCS_COMPS                                           \
+    /* 64-bit components */                                  \
+    COMP(0, 0, W_64, VMX_IO_BITMAP_A)                        \
+    COMP(0, 0, W_64, VMX_IO_BITMAP_B)                        \
+    COMP(0, 0, W_64, VMX_MSR_BITMAP)                         \
+    COMP(0, 0, W_64, VMX_EXIT_MSR_STORE_ADDRESS)             \
+    COMP(0, 0, W_64, VMX_EXIT_MSR_LOAD_ADDRESS)              \
+    COMP(0, 0, W_64, VMX_ENTRY_MSR_LOAD_ADDRESS)             \
+    COMP(0, 0, W_64, VMX_TSC_OFFSET)                         \
+    COMP(0, 0, W_64, VMX_VAPIC_PAGE)                         \
+    COMP(0, 0, W_64, VMX_APIC_ACCESS_PAGE)                   \
+    COMP(0, 0, W_64, VMX_EPTP)                               \
+    COMP(1, 0, W_64, VM_EXIT_INFO_GUEST_PHYSICAL_ADDRESS)    \
+    COMP(0, 0, W_64, HOST_PAT)                               \
+    COMP(0, 0, W_64, HOST_EFER)                              \
+    COMP(0, 0, W_64, HOST_PERF_GLOBAL_CTRL)                  \
+    COMP(0, 0, W_64, GUEST_VMCS_LINK_PTR)                    \
+    COMP(0, 0, W_64, GUEST_DEBUGCTL)                         \
+    COMP(0, 0, W_64, GUEST_PAT)                              \
+    COMP(0, 0, W_64, GUEST_EFER)                             \
+    COMP(0, 0, W_64, GUEST_PERF_GLOBAL_CTRL)                 \
+    COMP(0, 0, W_64, GUEST_PDPTE0)                           \
+    COMP(0, 0, W_64, GUEST_PDPTE1)                           \
+    COMP(0, 0, W_64, GUEST_PDPTE2)                           \
+    COMP(0, 0, W_64, GUEST_PDPTE3)                           \
+    /* Natural-width components */                           \
+    COMP(1, 0, W_UL, VMX_CR0_MASK)                           \
+    COMP(1, 0, W_UL, VMX_CR4_MASK)                           \
+    COMP(0, 0, W_UL, VMX_CR0_READ_SHADOW)                    \
+    COMP(0, 0, W_UL, VMX_CR4_READ_SHADOW)                    \
+    COMP(0, 0, W_UL, VMX_CR3_TARGET_VAL_BASE)                \
+    COMP(1, 0, W_UL, VM_EXIT_INFO_QUALIFICATION)             \
+    COMP(0, 0, W_UL, VM_EXIT_INFO_IO_ECX)                    \
+    COMP(0, 0, W_UL, VM_EXIT_INFO_IO_ESI)                    \
+    COMP(0, 0, W_UL, VM_EXIT_INFO_IO_EDI)                    \
+    COMP(0, 0, W_UL, VM_EXIT_INFO_IO_EIP)                    \
+    COMP(0, 0, W_UL, VM_EXIT_INFO_GUEST_LINEAR_ADDRESS)      \
+    COMP(0, 0, W_UL, HOST_RIP)                               \
+    COMP(0, 0, W_UL, HOST_RSP)                               \
+    COMP(0, 0, W_UL, HOST_CR0)                               \
+    COMP(0, 0, W_UL, HOST_CR3)                               \
+    COMP(0, 0, W_UL, HOST_CR4)                               \
+    COMP(0, 0, W_UL, HOST_FS_BASE)                           \
+    COMP(0, 0, W_UL, HOST_GS_BASE)                           \
+    COMP(0, 0, W_UL, HOST_TR_BASE)                           \
+    COMP(0, 0, W_UL, HOST_GDTR_BASE)                         \
+    COMP(0, 0, W_UL, HOST_IDTR_BASE)                         \
+    COMP(0, 0, W_UL, HOST_SYSENTER_ESP)                      \
+    COMP(0, 0, W_UL, HOST_SYSENTER_EIP)                      \
+    COMP(1, 0, W_UL, GUEST_RIP)                              \
+    COMP(1, 0, W_UL, GUEST_RFLAGS)                           \
+    COMP(1, 0, W_UL, GUEST_RSP)                              \
+    COMP(1, 0, W_UL, GUEST_CR0)                              \
+    COMP(1, 0, W_UL, GUEST_CR3)                              \
+    COMP(1, 0, W_UL, GUEST_CR4)                              \
+    COMP(1, 0, W_UL, GUEST_ES_BASE)                          \
+    COMP(1, 0, W_UL, GUEST_CS_BASE)                          \
+    COMP(1, 0, W_UL, GUEST_SS_BASE)                          \
+    COMP(1, 0, W_UL, GUEST_DS_BASE)                          \
+    COMP(1, 0, W_UL, GUEST_FS_BASE)                          \
+    COMP(1, 0, W_UL, GUEST_GS_BASE)                          \
+    COMP(0, 0, W_UL, GUEST_LDTR_BASE)                        \
+    COMP(0, 0, W_UL, GUEST_TR_BASE)                          \
+    COMP(0, 0, W_UL, GUEST_GDTR_BASE)                        \
+    COMP(0, 0, W_UL, GUEST_IDTR_BASE)                        \
+    COMP(0, 0, W_UL, GUEST_DR7)                              \
+    COMP(0, 0, W_UL, GUEST_PENDING_DBE)                      \
+    COMP(0, 0, W_UL, GUEST_SYSENTER_ESP)                     \
+    COMP(0, 0, W_UL, GUEST_SYSENTER_EIP)                     \
+    /* 32-bit components */                                  \
+    COMP(0, 0, W_32, VMX_PIN_CONTROLS)                       \
+    COMP(0, 0, W_32, VMX_PRIMARY_PROCESSOR_CONTROLS)         \
+    COMP(0, 0, W_32, VMX_SECONDARY_PROCESSOR_CONTROLS)       \
+    COMP(0, 0, W_32, VMX_EXCEPTION_BITMAP)                   \
+    COMP(0, 0, W_32, VMX_PAGE_FAULT_ERROR_CODE_MASK)         \
+    COMP(0, 0, W_32, VMX_PAGE_FAULT_ERROR_CODE_MATCH)        \
+    COMP(0, 0, W_32, VMX_EXIT_CONTROLS)                      \
+    COMP(0, 0, W_32, VMX_EXIT_MSR_STORE_COUNT)               \
+    COMP(0, 0, W_32, VMX_EXIT_MSR_LOAD_COUNT)                \
+    COMP(0, 0, W_32, VMX_ENTRY_CONTROLS)                     \
+    COMP(0, 0, W_32, VMX_ENTRY_MSR_LOAD_COUNT)               \
+    COMP(0, 1, W_32, VMX_ENTRY_INTERRUPT_INFO)               \
+    COMP(0, 1, W_32, VMX_ENTRY_EXCEPTION_ERROR_CODE)         \
+    COMP(0, 1, W_32, VMX_ENTRY_INSTRUCTION_LENGTH)           \
+    COMP(0, 0, W_32, VMX_TPR_THRESHOLD)                      \
+    COMP(0, 0, W_32, VMX_CR3_TARGET_COUNT)                   \
+    COMP(0, 0, W_32, VMX_PREEMPTION_TIMER)                   \
+    COMP(0, 0, W_32, VMX_INSTRUCTION_ERROR_CODE)             \
+    COMP(1, 0, W_32, VM_EXIT_INFO_REASON)                    \
+    COMP(1, 0, W_32, VM_EXIT_INFO_INTERRUPT_INFO)            \
+    COMP(1, 0, W_32, VM_EXIT_INFO_EXCEPTION_ERROR_CODE)      \
+    COMP(1, 0, W_32, VM_EXIT_INFO_IDT_VECTORING)             \
+    COMP(0, 0, W_32, VM_EXIT_INFO_IDT_VECTORING_ERROR_CODE)  \
+    COMP(1, 0, W_32, VM_EXIT_INFO_INSTRUCTION_LENGTH)        \
+    COMP(0, 0, W_32, VM_EXIT_INFO_INSTRUCTION_INFO)          \
+    COMP(0, 0, W_32, HOST_SYSENTER_CS)                       \
+    COMP(1, 0, W_32, GUEST_ES_AR)                            \
+    COMP(1, 0, W_32, GUEST_CS_AR)                            \
+    COMP(1, 0, W_32, GUEST_SS_AR)                            \
+    COMP(1, 0, W_32, GUEST_DS_AR)                            \
+    COMP(1, 0, W_32, GUEST_FS_AR)                            \
+    COMP(1, 0, W_32, GUEST_GS_AR)                            \
+    COMP(0, 0, W_32, GUEST_LDTR_AR)                          \
+    COMP(0, 0, W_32, GUEST_TR_AR)                            \
+    COMP(1, 0, W_32, GUEST_ES_LIMIT)                         \
+    COMP(1, 0, W_32, GUEST_CS_LIMIT)                         \
+    COMP(1, 0, W_32, GUEST_SS_LIMIT)                         \
+    COMP(1, 0, W_32, GUEST_DS_LIMIT)                         \
+    COMP(1, 0, W_32, GUEST_FS_LIMIT)                         \
+    COMP(1, 0, W_32, GUEST_GS_LIMIT)                         \
+    COMP(0, 0, W_32, GUEST_LDTR_LIMIT)                       \
+    COMP(0, 0, W_32, GUEST_TR_LIMIT)                         \
+    COMP(0, 0, W_32, GUEST_GDTR_LIMIT)                       \
+    COMP(0, 0, W_32, GUEST_IDTR_LIMIT)                       \
+    COMP(0, 0, W_32, GUEST_SYSENTER_CS)                      \
+    COMP(0, 0, W_32, GUEST_SMBASE)                           \
+    COMP(1, 0, W_32, GUEST_INTERRUPTIBILITY)                 \
+    COMP(0, 0, W_32, GUEST_ACTIVITY_STATE)                   \
+    /* 16-bit components */                                  \
+    COMP(0, 0, W_16, VMX_VPID)                               \
+    COMP(0, 0, W_16, HOST_CS_SELECTOR)                       \
+    COMP(0, 0, W_16, HOST_DS_SELECTOR)                       \
+    COMP(0, 0, W_16, HOST_ES_SELECTOR)                       \
+    COMP(0, 0, W_16, HOST_FS_SELECTOR)                       \
+    COMP(0, 0, W_16, HOST_GS_SELECTOR)                       \
+    COMP(0, 0, W_16, HOST_SS_SELECTOR)                       \
+    COMP(0, 0, W_16, HOST_TR_SELECTOR)                       \
+    COMP(1, 0, W_16, GUEST_ES_SELECTOR)                      \
+    COMP(1, 0, W_16, GUEST_CS_SELECTOR)                      \
+    COMP(1, 0, W_16, GUEST_SS_SELECTOR)                      \
+    COMP(1, 0, W_16, GUEST_DS_SELECTOR)                      \
+    COMP(1, 0, W_16, GUEST_FS_SELECTOR)                      \
+    COMP(1, 0, W_16, GUEST_GS_SELECTOR)                      \
+    COMP(0, 0, W_16, GUEST_LDTR_SELECTOR)                    \
+    COMP(0, 0, W_16, GUEST_TR_SELECTOR)                      
+
+ // Macros for declaring cache and R/W-flags declarations
+#define COMP_CACHE_R_0(name)
+#define COMP_CACHE_R_1(name) \
+    bool name##_cache : 1;
+#define COMP_CACHE_W_0(name)
+#define COMP_CACHE_W_1(name) \
+    bool name##_dirty : 1;
+
+#define COMP_CACHE_R(cache_r, cache_w, width, name) \
+    COMP_CACHE_R_##cache_r(name)
+#define COMP_CACHE_W(cache_r, cache_w, width, name) \
+    COMP_CACHE_W_##cache_w(name)
+#define COMP_DECLARE(cache_r, cache_w, width, name) \
+    COMP_TYPE_##width name##_value;
+
+// Structures
+struct vmx_vmcs_t {
+#define COMP COMP_DECLARE
+    VMCS_COMPS
+#undef COMP
+};
+
+struct vmx_vmcs_cache_r_t {
+#define COMP COMP_CACHE_R
+    VMCS_COMPS
+#undef COMP
+};
+
+struct vmx_vmcs_cache_w_t {
+    bool dirty : 1;
+#define COMP COMP_CACHE_W
+    VMCS_COMPS
+#undef COMP
+};
 
 // PIN-BASED CONTROLS
 #define EXT_INTERRUPT_EXITING                  0x00000001
@@ -467,6 +671,21 @@ union instruction_info_t {
 
 typedef union instruction_info_t instruction_info_t;
 
+// Intel SDM Vol. 3C: Table 24-3. Format of Interruptibility State
+union interruptibility_state_t {
+    uint32_t raw;
+    struct {
+        uint32_t sti_blocking : 1;
+        uint32_t movss_blocking : 1;
+        uint32_t smi_blocking : 1;
+        uint32_t nmi_blocking : 1;
+        uint32_t reserved : 28;
+    };
+    uint64_t pad;
+} PACKED;
+
+typedef union interruptibility_state_t interruptibility_state_t;
+
 // 64-bit OK
 union interruption_info_t {
     uint32_t raw;
@@ -636,6 +855,34 @@ struct invept_desc {
 struct vcpu_state_t;
 struct vcpu_t;
 
+struct vcpu_vmx_data {
+    struct vcpu_t *parent;
+    struct vmx_vmcs_t vmcs;
+    struct vmx_vmcs_cache_r_t vmcs_cache_r;
+    struct vmx_vmcs_cache_w_t vmcs_cache_w;
+
+    uint32_t pin_ctls_base;
+    uint32_t pcpu_ctls_base;
+    uint32_t scpu_ctls_base;
+    uint32_t entry_ctls_base;
+    uint32_t exc_bitmap_base;
+    uint32_t exit_ctls_base;
+
+    uint32_t pin_ctls;
+    uint32_t pcpu_ctls;
+    uint32_t scpu_ctls;
+    uint32_t entry_ctls;
+    uint32_t exc_bitmap;
+    uint32_t exit_ctls;
+
+    uint64_t cr0_mask, cr0_shadow;
+    uint64_t cr4_mask, cr4_shadow;
+
+    exit_reason_t exit_reason;
+    exit_qualification_t exit_qualification;
+    interruptibility_state_t interruptibility_state;
+};
+
 vmx_result_t ASMCALL asm_invept(uint type, struct invept_desc *desc);
 vmx_result_t ASMCALL asm_vmclear(const hax_paddr_t *addr_in);
 vmx_result_t ASMCALL asm_vmptrld(const hax_paddr_t *addr_in);
@@ -655,6 +902,75 @@ void vmx_vmwrite(struct vcpu_t *vcpu, const char *name,
                  component_index_t component, uint64_t source_val);
 
 #define vmwrite(vcpu, x, y) vmx_vmwrite(vcpu, #x, x, y)
+
+/**
+ * vmcs_read_<name>
+ * Reads the VMCS-component <name> from the specified VCPU (cached if enabled).
+ */
+#define COMP_R_0(width, name)                                                 \
+    static inline COMP_TYPE_##width                                           \
+                  vmcs_read_##name(struct vcpu_vmx_data *vcpu_vmx) {          \
+        return vmread(vcpu_vmx->parent, name);                                \
+    }
+#define COMP_R_1(width, name)                                                 \
+    static inline COMP_TYPE_##width                                           \
+                  vmcs_read_##name(struct vcpu_vmx_data *vcpu_vmx) {          \
+        if (vcpu_vmx->vmcs_cache_r.name##_cache)                              \
+            return vcpu_vmx->vmcs.name##_value;                               \
+        vcpu_vmx->vmcs.name##_value = vmread(vcpu_vmx->parent, name);         \
+        vcpu_vmx->vmcs_cache_r.name##_cache = 1;                              \
+        return vcpu_vmx->vmcs.name##_value;                                   \
+    }
+
+ /**
+  * vmcs_write_<name>
+  * Writes the VMCS-component <name> to the specified VCPU (cached if enabled).
+  */
+#define COMP_W_0(width, name)                                                 \
+    static inline void vmcs_write_##name(struct vcpu_vmx_data *vcpu_vmx,      \
+                                         COMP_TYPE_##width value) {           \
+        vmwrite(vcpu_vmx->parent, name, value);                               \
+    }
+#define COMP_W_1(width, name)                                                 \
+    static inline void vmcs_write_##name(struct vcpu_vmx_data *vcpu_vmx,      \
+                                         COMP_TYPE_##width value) {           \
+        vcpu_vmx->vmcs.name##_value = value;                                  \
+        /*vcpu_vmx->vmcs_cache_r.name##_cache = 1;*/                          \
+        vcpu_vmx->vmcs_cache_w.name##_dirty = 1;                              \
+        vcpu_vmx->vmcs_cache_w.dirty = 1;                                     \
+    }
+
+// Declarations
+#define COMP_R(cache_r, cache_w, width, name) \
+    COMP_R_##cache_r(width, name);
+#define COMP_W(cache_r, cache_w, width, name) \
+    COMP_W_##cache_w(width, name);
+
+// Helper functions
+#define COMP COMP_R
+VMCS_COMPS
+#undef COMP
+
+#define COMP COMP_W
+VMCS_COMPS
+#undef COMP
+
+#define vmcs_read(vcpu, name) \
+    vmcs_read_##name(&vcpu->vmx)
+#define vmcs_write(vcpu, name, value) \
+    vmcs_write_##name(&vcpu->vmx, value)
+
+/**
+ * Flush VMCS read-cache after guest-exit.
+ * @param  vcpu  VCPU object
+ */
+void vcpu_vmcs_flush_cache_r(struct vcpu_t *vcpu);
+
+/**
+ * Flush VMCS write-cache before guest-enter (calling vmwrite if required).
+ * @param  vcpu  VCPU object
+ */
+void vcpu_vmcs_flush_cache_w(struct vcpu_t *vcpu);
 
 #define VMREAD_SEG(vcpu, seg, val)                                 \
         ((val).selector = vmread(vcpu, GUEST_##seg##_SELECTOR),    \

@@ -107,7 +107,7 @@ static void handle_machine_check(struct vcpu_t *vcpu);
 
 static void handle_cpuid_virtual(struct vcpu_t *vcpu, uint32_t eax, uint32_t ecx);
 static void handle_mem_fault(struct vcpu_t *vcpu, struct hax_tunnel *htun);
-static void check_flush(struct vcpu_t *vcpu, uint32_t bits);
+static void check_flush(struct vcpu_t *vcpu, int cr, uint32_t bits);
 static void vmwrite_efer(struct vcpu_t *vcpu);
 
 static int handle_msr_read(struct vcpu_t *vcpu, uint32_t msr, uint64_t *val);
@@ -172,35 +172,28 @@ static inline void set_idt(struct vcpu_state_t *state, uint64_t base,
     state->_idt.limit = limit;
 }
 
-static uint64_t vcpu_read_cr(struct vcpu_state_t *state, uint32_t n)
+static uint64_t vcpu_read_cr(struct vcpu_t *vcpu, uint32_t n)
 {
     uint64_t val = 0;
 
     switch (n) {
-        case 0: {
-            val = state->_cr0;
-            break;
-        }
-        case 2: {
-            val = state->_cr2;
-            break;
-        }
-        case 3: {
-            val = state->_cr3;
-            break;
-        }
-        case 4: {
-            val = state->_cr4;
-            break;
-        }
-        default: {
-            hax_error("Unsupported CR%d access\n", n);
-            break;
-        }
+    case 0:
+        val = vcpu_get_cr0(vcpu);
+        break;
+    case 2:
+        val = vcpu->state->_cr2;
+        break;
+    case 3:
+        val = vcpu_get_cr3(vcpu);
+        break;
+    case 4:
+        val = vcpu_get_cr4(vcpu);
+        break;
+    default:
+        hax_error("Unsupported CR%d access\n", n);
+        break;
     }
-
     hax_debug("vcpu_read_cr cr %x val %llx\n", n, val);
-
     return val;
 }
 
@@ -557,11 +550,11 @@ static void vcpu_init(struct vcpu_t *vcpu)
     vcpu->cr_pat = 0x0007040600070406ULL;
     vcpu->cpuid_features_flag_mask = 0xffffffffffffffffULL;
     vcpu->cur_state = GS_VALID;
-    vmx(vcpu, entry_exception_vector) = ~0u;
     vmx(vcpu, cr0_mask) = 0;
     vmx(vcpu, cr0_shadow) = 0;
     vmx(vcpu, cr4_mask) = 0;
     vmx(vcpu, cr4_shadow) = 0;
+    vmx(vcpu, parent) = vcpu;
 
     vcpu->ref_count = 1;
 
@@ -1062,6 +1055,7 @@ static void load_dirty_vmcs_fields(struct vcpu_t *vcpu)
     // rflags
     if (vcpu->debug_control_dirty) {
         // Single-stepping
+        state->_rflags = vcpu_get_rflags(vcpu);
         if (vcpu->debug_control & HAX_DEBUG_STEP) {
             state->_rflags |= EFLAGS_TF;
         } else {
@@ -1271,8 +1265,6 @@ void vcpu_save_host_state(struct vcpu_t *vcpu)
     vmwrite(vcpu, HOST_IDTR_BASE, get_kernel_idtr_base());
 
     // Handle SYSENTER/SYSEXIT MSR
-    vmwrite(vcpu, HOST_SYSENTER_CS, ia32_rdmsr(IA32_SYSENTER_CS));
-    vmwrite(vcpu, HOST_SYSENTER_EIP, ia32_rdmsr(IA32_SYSENTER_EIP));
     vmwrite(vcpu, HOST_SYSENTER_ESP, ia32_rdmsr(IA32_SYSENTER_ESP));
 
     // LDTR is unusable from spec, do we need ldt for host?
@@ -1412,6 +1404,13 @@ static void fill_common_vmcs(struct vcpu_t *vcpu)
     vmwrite(vcpu, HOST_TR_BASE, get_kernel_tr_base());
     vmwrite(vcpu, HOST_GDTR_BASE, get_kernel_gdtr_base());
     vmwrite(vcpu, HOST_IDTR_BASE, get_kernel_idtr_base());
+
+    vmwrite(vcpu, HOST_SYSENTER_CS, ia32_rdmsr(IA32_SYSENTER_CS));
+    vmwrite(vcpu, HOST_SYSENTER_EIP, ia32_rdmsr(IA32_SYSENTER_EIP));
+
+    // The host RIP, used during VM-exit events, is only updated if HAXM
+    // is reloaded. Thus never changes during the lifetime of the VCPU.
+    vmwrite(vcpu, HOST_RIP, (mword)vmx_get_rip());
 
 #define WRITE_CONTROLS(vcpu, f, v) {                                    \
     uint32_t g = v & cpu_data->vmx_info.v##_1 | cpu_data->vmx_info.v##_0; \
@@ -1659,7 +1658,7 @@ int vcpu_execute(struct vcpu_t *vcpu)
     hax_mutex_lock(vcpu->tmutex);
     hax_debug("vcpu begin to run....\n");
     // QEMU will do realmode stuff for us
-    if (!hax->ug_enable_flag && !(vcpu->state->_cr0 & CR0_PE)) {
+    if (!hax->ug_enable_flag && !(vcpu_get_cr0(vcpu) & CR0_PE)) {
         htun->_exit_reason = 0;
         htun->_exit_status = HAX_EXIT_REALMODE;
         hax_debug("Guest is in realmode.\n");
@@ -1686,6 +1685,15 @@ int vcpu_execute(struct vcpu_t *vcpu)
     }
     err = cpu_vmx_execute(vcpu, htun);
     vcpu_is_panic(vcpu);
+
+    if (vcpu->nr_pending_intrs > 0 || hax_intr_is_blocked(vcpu))
+        htun->ready_for_interrupt_injection = 0;
+    else
+        htun->ready_for_interrupt_injection = 1;
+
+    if (htun->_exit_status == HAX_EXIT_HLT)
+        htun->ready_for_interrupt_injection = 1;
+
 out:
     if (err) {
         vcpu->cur_state = GS_STALE;
@@ -1717,14 +1725,14 @@ int vcpu_vmexit_handler(struct vcpu_t *vcpu, exit_reason_t exit_reason,
 
 int vtlb_active(struct vcpu_t *vcpu)
 {
-    struct vcpu_state_t *state = vcpu->state;
     struct per_cpu_data *cpu_data = current_cpu_data();
+    uint64_t cr0 = vcpu_get_cr0(vcpu);
 
     if (hax->ug_enable_flag)
         return 0;
 
-    hax_debug("vtlb active: cr0, %llx\n", state->_cr0);
-    if ((state->_cr0 & CR0_PG) == 0)
+    hax_debug("vtlb active: cr0, %llx\n", cr0);
+    if ((cr0 & CR0_PG) == 0)
         return 1;
 
     if (config.disable_ept)
@@ -1739,7 +1747,7 @@ int vtlb_active(struct vcpu_t *vcpu)
 static void advance_rip(struct vcpu_t *vcpu)
 {
     struct vcpu_state_t *state = vcpu->state;
-    uint32_t interruptibility = vmx(vcpu, interruptibility_state).raw;
+    uint32_t interruptibility = vmcs_read(vcpu, GUEST_INTERRUPTIBILITY);
 
     if (interruptibility & 3u) {
         interruptibility &= ~3u;
@@ -1747,7 +1755,8 @@ static void advance_rip(struct vcpu_t *vcpu)
         vcpu->interruptibility_dirty = 1;
     }
 
-    state->_rip += vmx(vcpu, exit_instr_length);
+    state->_rip = vcpu_get_rip(vcpu);
+    state->_rip += vmcs_read(vcpu, VM_EXIT_INFO_INSTRUCTION_LENGTH);
     vcpu->rip_dirty = 1;
 }
 
@@ -1962,8 +1971,8 @@ static void vmwrite_cr(struct vcpu_t *vcpu)
         cr4_mask |= CR4_PAE;
         eptp = vm_get_eptp(vcpu->vm);
         hax_assert(eptp != INVALID_EPTP);
-        // hax_debug("Guest eip:%llx, EPT mode, eptp:%llx\n", vcpu->state->_rip,
-        //           eptp);
+        // hax_debug("Guest eip:%llx, EPT mode, eptp:%llx\n",
+        //           vcpu_get_rip(vcpu), eptp);
         vmwrite(vcpu, GUEST_CR3, state->_cr3);
         scpu_ctls |= ENABLE_EPT;
         // Set PDPTEs for vCPU if it's in or about to enter PAE paging mode
@@ -2091,8 +2100,10 @@ static int vcpu_emulate_insn(struct vcpu_t *vcpu)
     em_mode_t mode;
     em_context_t *em_ctxt = &vcpu->emulate_ctxt;
     uint8_t instr[INSTR_MAX_LEN] = {0};
-    uint64_t cs_base = vcpu->state->_cs.base;
-    uint64_t rip = vcpu->state->_rip;
+    uint32_t exit_instr_length = vmcs_read(vcpu, VM_EXIT_INFO_INSTRUCTION_LENGTH);
+    uint64_t cr0 = vcpu_get_cr0(vcpu);
+    uint64_t rip = vcpu_get_rip(vcpu);
+    segment_desc_t cs;
     uint64_t va;
 
     // Clean up the emulation context of the previous MMIO instruction, so that
@@ -2100,11 +2111,12 @@ static int vcpu_emulate_insn(struct vcpu_t *vcpu)
     vcpu_init_emulator(vcpu);
 
     // Detect guest mode
-    if (!(vcpu->state->_cr0 & CR0_PE))
+    cs.ar = vcpu_get_seg_ar(vcpu, SEG_CS);
+    if (!(cr0 & CR0_PE))
         mode = EM_MODE_REAL;
-    else if (vcpu->state->_cs.long_mode == 1)
+    else if (cs.long_mode == 1)
         mode = EM_MODE_PROT64;
-    else if (vcpu->state->_cs.operand_size == 1)
+    else if (cs.operand_size == 1)
         mode = EM_MODE_PROT32;
     else
         mode = EM_MODE_PROT16;
@@ -2112,12 +2124,13 @@ static int vcpu_emulate_insn(struct vcpu_t *vcpu)
 
     // Fetch the instruction at guest CS:IP = CS.Base + IP, omitting segment
     // limit and privilege checks
-    va = (mode == EM_MODE_PROT64) ? rip : cs_base + rip;
+    cs.base = vcpu_get_seg_base(vcpu, SEG_CS);
+    va = (mode == EM_MODE_PROT64) ? rip : cs.base + rip;
 #ifdef CONFIG_HAX_EPT2
     if (mmio_fetch_instruction(vcpu, va, instr, INSTR_MAX_LEN)) {
         hax_panic_vcpu(vcpu, "%s: mmio_fetch_instruction() failed: vcpu_id=%u,"
                        " gva=0x%llx (CS:IP=0x%llx:0x%llx)\n",
-                       __func__, vcpu->vcpu_id, va, cs_base, rip);
+                       __func__, vcpu->vcpu_id, va, cs.base, rip);
         dump_vmcs(vcpu);
         return -1;
     }
@@ -2125,7 +2138,7 @@ static int vcpu_emulate_insn(struct vcpu_t *vcpu)
     if (!vcpu_read_guest_virtual(vcpu, va, &instr, INSTR_MAX_LEN, INSTR_MAX_LEN,
                                  0)) {
         hax_panic_vcpu(vcpu, "Error reading instruction at 0x%llx for decoding"
-                       " (CS:IP=0x%llx:0x%llx)\n", va, cs_base, rip);
+                       " (CS:IP=0x%llx:0x%llx)\n", va, cs.base, rip);
         dump_vmcs(vcpu);
         return -1;
     }
@@ -2137,16 +2150,16 @@ static int vcpu_emulate_insn(struct vcpu_t *vcpu)
         hax_panic_vcpu(vcpu, "em_decode_insn() failed: vcpu_id=%u,"
                        " len=%u, CS:IP=0x%llx:0x%llx, instr[0..5]="
                        "0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n", vcpu->vcpu_id,
-                       vcpu->vmx.exit_instr_length, cs_base, rip, instr[0],
-                       instr[1], instr[2], instr[3], instr[4], instr[5]);
+                       exit_instr_length, cs.base, rip, instr[0], instr[1],
+                       instr[2], instr[3], instr[4], instr[5]);
         dump_vmcs(vcpu);
         return HAX_RESUME;
     }
-    if (em_ctxt->len != vcpu->vmx.exit_instr_length) {
+    if (em_ctxt->len != exit_instr_length) {
         hax_debug("Inferred instruction length %u does not match VM-exit"
                   " instruction length %u (CS:IP=0x%llx:0x%llx, instr[0..5]="
                   "0x%x 0x%x 0x%x 0x%x 0x%x 0x%x)\n", em_ctxt->len,
-                  vcpu->vmx.exit_instr_length, cs_base, rip, instr[0], instr[1],
+                  exit_instr_length, cs.base, rip, instr[0], instr[1],
                   instr[2], instr[3], instr[4], instr[5]);
     }
     rc = em_emulate_insn(em_ctxt);
@@ -2154,8 +2167,8 @@ static int vcpu_emulate_insn(struct vcpu_t *vcpu)
         hax_panic_vcpu(vcpu, "em_emulate_insn() failed: vcpu_id=%u,"
                        " len=%u, CS:IP=0x%llx:0x%llx, instr[0..5]="
                        "0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n", vcpu->vcpu_id,
-                       vcpu->vmx.exit_instr_length, cs_base, rip, instr[0],
-                       instr[1], instr[2], instr[3], instr[4], instr[5]);
+                       exit_instr_length, cs.base, rip, instr[0], instr[1],
+                       instr[2], instr[3], instr[4], instr[5]);
         dump_vmcs(vcpu);
         return HAX_RESUME;
     }
@@ -2165,12 +2178,20 @@ static int vcpu_emulate_insn(struct vcpu_t *vcpu)
 static uint64_t vcpu_read_gpr(void *obj, uint32_t reg_index, uint32_t size)
 {
     struct vcpu_t *vcpu = obj;
+    uint64_t value;
+
     if (reg_index >= 16) {
         hax_panic_vcpu(vcpu, "vcpu_read_gpr: Invalid register index\n");
         return 0;
     }
-    uint64_t value = 0;
-    memcpy(&value, &vcpu->state->_regs[reg_index], size);
+    switch (reg_index) {
+    case REG_RSP:
+        value = vcpu_get_rsp(vcpu);
+        break;
+    default:
+        value = 0;
+        memcpy(&value, &vcpu->state->_regs[reg_index], size);
+    }
     return value;
 }
 
@@ -2188,7 +2209,7 @@ static void vcpu_write_gpr(void *obj, uint32_t reg_index, uint64_t value,
 uint64_t vcpu_read_rflags(void *obj)
 {
     struct vcpu_t *vcpu = obj;
-    return vcpu->state->_rflags;
+    return vcpu_get_rflags(vcpu);
 }
 
 void vcpu_write_rflags(void *obj, uint64_t value)
@@ -2201,22 +2222,7 @@ void vcpu_write_rflags(void *obj, uint64_t value)
 static uint64_t vcpu_get_segment_base(void *obj, uint32_t segment)
 {
     struct vcpu_t *vcpu = obj;
-    switch (segment) {
-    case SEG_CS:
-        return vcpu->state->_cs.base;
-    case SEG_DS:
-        return vcpu->state->_ds.base;
-    case SEG_ES:
-        return vcpu->state->_es.base;
-    case SEG_FS:
-        return vcpu->state->_fs.base;
-    case SEG_GS:
-        return vcpu->state->_gs.base;
-    case SEG_SS:
-        return vcpu->state->_ss.base;
-    default:
-        return vcpu->state->_ds.base;
-    }
+    return vcpu_get_seg_base(vcpu, segment);
 }
 
 static void vcpu_advance_rip(void *obj, uint64_t len)
@@ -2232,7 +2238,7 @@ static em_status_t vcpu_read_memory(void *obj, uint64_t ea, uint64_t *value,
     uint64_t pa;
 
     if (flags & EM_OPS_NO_TRANSLATION) {
-        pa = vmx(vcpu, exit_gpa);
+        pa = vmcs_read(vcpu, VM_EXIT_INFO_GUEST_PHYSICAL_ADDRESS);
     } else {
         vcpu_translate(vcpu, ea, 0, &pa, NULL, false);
     }
@@ -2270,7 +2276,7 @@ static em_status_t vcpu_write_memory(void *obj, uint64_t ea, uint64_t *value,
     uint64_t pa;
 
     if (flags & EM_OPS_NO_TRANSLATION) {
-        pa = vmx(vcpu, exit_gpa);
+        pa = vmcs_read(vcpu, VM_EXIT_INFO_GUEST_PHYSICAL_ADDRESS);
     } else {
         vcpu_translate(vcpu, ea, 0, &pa, NULL, false);
     }
@@ -2318,9 +2324,11 @@ static void vcpu_init_emulator(struct vcpu_t *vcpu)
 static int exit_exc_nmi(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
     struct vcpu_state_t *state = vcpu->state;
+    exit_qualification_t qual = { .raw =
+        vmcs_read(vcpu, VM_EXIT_INFO_QUALIFICATION) };
     interruption_info_t exit_intr_info;
 
-    exit_intr_info.raw = vmx(vcpu, exit_intr_info).raw;
+    exit_intr_info.raw = vmcs_read(vcpu, VM_EXIT_INFO_INTERRUPT_INFO);
     htun->_exit_reason = vmx(vcpu, exit_reason).basic_reason;
     hax_debug("exception vmexit vector:%x\n", exit_intr_info.vector);
 
@@ -2331,7 +2339,7 @@ static int exit_exc_nmi(struct vcpu_t *vcpu, struct hax_tunnel *htun)
         }
         case VECTOR_PF: {
             if (vtlb_active(vcpu)) {
-                if (handle_vtlb(vcpu))
+                if (handle_vtlb(vcpu, qual.address))
                     return HAX_RESUME;
 
                 return vcpu_emulate_insn(vcpu);
@@ -2355,14 +2363,14 @@ static int exit_exc_nmi(struct vcpu_t *vcpu, struct hax_tunnel *htun)
         }
         case VECTOR_DB: {
             htun->_exit_status = HAX_EXIT_DEBUG;
-            htun->debug.rip = vcpu->state->_rip;
-            htun->debug.dr6 = vmx(vcpu, exit_qualification).raw;
+            htun->debug.rip = vcpu_get_rip(vcpu);
+            htun->debug.dr6 = qual.raw;
             htun->debug.dr7 = vmread(vcpu, GUEST_DR7);
             return HAX_EXIT;
         }
         case VECTOR_BP: {
             htun->_exit_status = HAX_EXIT_DEBUG;
-            htun->debug.rip = vcpu->state->_rip;
+            htun->debug.rip = vcpu_get_rip(vcpu);
             htun->debug.dr6 = 0;
             htun->debug.dr7 = 0;
             return HAX_EXIT;
@@ -2370,7 +2378,7 @@ static int exit_exc_nmi(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     }
 
     if (exit_intr_info.vector == VECTOR_PF) {
-        state->_cr2 = vmx(vcpu, exit_qualification.address);
+        state->_cr2 = qual.address;
     }
 
     return HAX_RESUME;
@@ -2730,27 +2738,29 @@ static int exit_hlt(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     if (hax_valid_vector(vector))
         return HAX_RESUME;
 
-    htun->ready_for_interrupt_injection = 1;
     return HAX_EXIT;
 }
 
 static int exit_invlpg(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
+    exit_qualification_t qual = { .raw =
+        vmcs_read(vcpu, VM_EXIT_INFO_QUALIFICATION) };
+
     advance_rip(vcpu);
-    vcpu_invalidate_tlb_addr(vcpu, vmx(vcpu, exit_qualification).address);
+    vcpu_invalidate_tlb_addr(vcpu, qual.address);
     htun->_exit_reason = vmx(vcpu, exit_reason).basic_reason;
     return HAX_RESUME;
 }
 
 static int exit_rdtsc(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
-    hax_debug("rdtsc exiting: rip: %llx\n", vcpu->state->_rip);
+    hax_debug("rdtsc exiting: rip: %lx\n", vcpu_get_rip(vcpu));
     return HAX_RESUME;
 }
 
-static void check_flush(struct vcpu_t *vcpu, uint32_t bits)
+static void check_flush(struct vcpu_t *vcpu, int cr, uint32_t bits)
 {
-    switch (vmx(vcpu, exit_qualification).cr.creg) {
+    switch (cr) {
         case 0: {
             if (bits & (CR0_PE | CR0_PG)) {
                 vcpu_invalidate_tlb(vcpu, 1);
@@ -2781,18 +2791,23 @@ static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     uint64_t cr_ptr;
     int cr;
     struct vcpu_state_t *state = vcpu->state;
+    exit_qualification_t qual = { .raw =
+        vmcs_read(vcpu, VM_EXIT_INFO_QUALIFICATION) };
     bool is_ept_pae = false;
     preempt_flag flags;
     uint32_t vmcs_err = 0;
+    state->_cr0 = vcpu_get_cr0(vcpu);
+    state->_cr3 = vcpu_get_cr3(vcpu);
+    state->_cr4 = vcpu_get_cr4(vcpu);
 
     htun->_exit_reason = vmx(vcpu, exit_reason).basic_reason;
 
-    cr = vmx(vcpu, exit_qualification).cr.creg;
-    cr_ptr = vcpu_read_cr(state, cr);
+    cr = qual.cr.creg;
+    cr_ptr = vcpu_read_cr(vcpu, cr);
 
-    switch (vmx(vcpu, exit_qualification).cr.type) {
+    switch (qual.cr.type) {
         case 0: { // MOV CR <- GPR
-            uint64_t val = state->_regs[(vmx(vcpu, exit_qualification).cr.gpr)];
+            uint64_t val = state->_regs[qual.cr.gpr];
 
             hax_debug("cr_access W CR%d: %08llx -> %08llx\n", cr, cr_ptr, val);
             if (cr == 0) {
@@ -2857,7 +2872,7 @@ static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
                 hax_error("Unsupported CR%d access\n", cr);
                 break;
             }
-            check_flush(vcpu, cr_ptr ^ val);
+            check_flush(vcpu, cr, cr_ptr ^ val);
             vcpu_write_cr(state, cr, val);
 
             if (is_ept_pae) {
@@ -2897,7 +2912,7 @@ static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
         case 1: { // MOV CR -> GPR
             hax_info("cr_access R CR%d\n", cr);
 
-            state->_regs[vmx(vcpu, exit_qualification).cr.gpr] = cr_ptr;
+            state->_regs[qual.cr.gpr] = cr_ptr;
             if (cr == 8) {
                 hax_info("Unsupported CR%d access\n", cr);
                 break;
@@ -2924,7 +2939,7 @@ static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
         case 3: { // LMSW
             hax_info("LMSW\n");
             state->_cr0 = (state->_cr0 & ~0xfULL) |
-                          (vmx(vcpu, exit_qualification).cr.lmsw_source & 0xf);
+                          (qual.cr.lmsw_source & 0xf);
             if ((vmcs_err = load_vmcs(vcpu, &flags))) {
                 hax_panic_vcpu(vcpu, "load_vmcs failed while LMSW %x\n",
                                vmcs_err);
@@ -2952,8 +2967,10 @@ static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 static int exit_dr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
     uint64_t *dr = NULL;
-    int dreg = vmx(vcpu, exit_qualification.dr.dreg);
-    int gpr_reg = vmx(vcpu, exit_qualification).dr.gpr;
+    exit_qualification_t qual = { .raw =
+        vmcs_read(vcpu, VM_EXIT_INFO_QUALIFICATION) };
+    int dreg = qual.dr.dreg;
+    int gpr_reg = qual.dr.gpr;
     bool hbreak_enabled = !!(vcpu->debug_control & HAX_DEBUG_USE_HW_BP);
     struct vcpu_state_t *state = vcpu->state;
 
@@ -3015,7 +3032,7 @@ static int exit_dr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
         }
     }
 
-    if (vmx(vcpu, exit_qualification.dr.direction)) {
+    if (qual.dr.direction) {
         // MOV DR -> GPR
         if (hbreak_enabled) {
             // HAX hardware breakpoint enabled, return dr default value
@@ -3044,18 +3061,19 @@ static int exit_dr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     return HAX_RESUME;
 }
 
-static int handle_string_io(struct vcpu_t *vcpu, exit_qualification_t *qual,
+static int handle_string_io(struct vcpu_t *vcpu, exit_qualification_t qual,
                             struct hax_tunnel *htun)
 {
     struct vcpu_state_t *state = vcpu->state;
     uint64_t count, total_size;
+    uint64_t rflags;
     uint elem_size, n, copy_size;
     hax_vaddr_t gla, start_gva;
 
     // 1 indicates string I/O (i.e. OUTS or INS)
     htun->io._flags = 1;
 
-    count = qual->io.rep ? state->_rcx : 1;
+    count = qual.io.rep ? state->_rcx : 1;
     elem_size = htun->io._size;
     total_size = count * elem_size;
 
@@ -3072,7 +3090,8 @@ static int handle_string_io(struct vcpu_t *vcpu, exit_qualification_t *qual,
     // attribute of the instruction, or to check the presence of a segment
     // override prefix that can make OUTS read from ES:ESI instead of DS:ESI).
     gla = vmread(vcpu, VM_EXIT_INFO_GUEST_LINEAR_ADDRESS);
-    if (state->_rflags & EFLAGS_DF) {
+    rflags = vcpu_get_rflags(vcpu);
+    if (rflags & EFLAGS_DF) {
         start_gva = gla - (n - 1) * elem_size;
         htun->io._df = 1;
     } else {
@@ -3082,7 +3101,7 @@ static int handle_string_io(struct vcpu_t *vcpu, exit_qualification_t *qual,
     // For INS (see handle_io_post())
     htun->io._vaddr = start_gva;
 
-    if (qual->io.direction == HAX_IO_OUT) {
+    if (qual.io.direction == HAX_IO_OUT) {
         if (!vcpu_read_guest_virtual(vcpu, start_gva, vcpu->io_buf,
                                      IOS_MAX_BUFFER, copy_size, 0)) {
             hax_panic_vcpu(vcpu, "%s: vcpu_read_guest_virtual() failed,"
@@ -3098,14 +3117,14 @@ static int handle_string_io(struct vcpu_t *vcpu, exit_qualification_t *qual,
         advance_rip(vcpu);
     }
 
-    if (state->_rflags & EFLAGS_DF) {
-        if (qual->io.direction == HAX_IO_OUT) {
+    if (rflags & EFLAGS_DF) {
+        if (qual.io.direction == HAX_IO_OUT) {
             state->_rsi -= copy_size;
         } else {
             state->_rdi -= copy_size;
         }
     } else {
-        if (qual->io.direction == HAX_IO_OUT) {
+        if (qual.io.direction == HAX_IO_OUT) {
             state->_rsi += copy_size;
         } else {
             state->_rdi += copy_size;
@@ -3116,15 +3135,15 @@ static int handle_string_io(struct vcpu_t *vcpu, exit_qualification_t *qual,
     return HAX_EXIT;
 }
 
-static int handle_io(struct vcpu_t *vcpu, exit_qualification_t *qual,
+static int handle_io(struct vcpu_t *vcpu, exit_qualification_t qual,
                      struct hax_tunnel *htun)
 {
     struct vcpu_state_t *state = vcpu->state;
     htun->io._count = 1;
     htun->io._flags = 0;
 
-    if (qual->io.direction == HAX_IO_OUT) {
-        switch (qual->io.size + 1) {
+    if (qual.io.direction == HAX_IO_OUT) {
+        switch (qual.io.size + 1) {
             case 1: {
                 *((uint8_t *)vcpu->io_buf) = state->_al;
                 break;
@@ -3150,7 +3169,8 @@ static int handle_io(struct vcpu_t *vcpu, exit_qualification_t *qual,
 static int exit_io_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
     struct vcpu_state_t *state = vcpu->state;
-    exit_qualification_t *qual = &vmx(vcpu, exit_qualification);
+    exit_qualification_t qual = { .raw =
+        vmcs_read(vcpu, VM_EXIT_INFO_QUALIFICATION) };
 
     htun->_exit_reason = vmx(vcpu, exit_reason).basic_reason;
 
@@ -3161,14 +3181,14 @@ static int exit_io_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     htun->io._size = 0;
     htun->io._count = 0;
 
-    htun->io._port = qual->io.encoding ? qual->io.port : state->_dx;
-    htun->io._size = qual->io.size + 1;
-    htun->io._direction = qual->io.direction;
+    htun->io._port = qual.io.encoding ? qual.io.port : state->_dx;
+    htun->io._size = qual.io.size + 1;
+    htun->io._direction = qual.io.direction;
 
     hax_debug("exit_io_access port %x, size %d\n", htun->io._port,
               htun->io._size);
 
-    if (qual->io.string)
+    if (qual.io.string)
         return handle_string_io(vcpu, qual, htun);
 
     return handle_io(vcpu, qual, htun);
@@ -3244,6 +3264,7 @@ static int handle_msr_read(struct vcpu_t *vcpu, uint32_t msr, uint64_t *val)
     int index, r = 0;
     struct vcpu_state_t *state = vcpu->state;
     struct gstate *gstate = &vcpu->gstate;
+    uint64_t cr0, cr4;
 
     switch (msr) {
         case IA32_TSC: {
@@ -3263,7 +3284,9 @@ static int handle_msr_read(struct vcpu_t *vcpu, uint32_t msr, uint64_t *val)
             break;
         }
         case IA32_EFER: {
-            if (!(state->_cr4 & CR4_PAE) && (state->_cr0 & CR0_PG)) {
+            cr0 = vcpu_get_cr0(vcpu);
+            cr4 = vcpu_get_cr4(vcpu);
+            if (!(cr4 & CR4_PAE) && (cr0 & CR0_PG)) {
                 r = 1;
             } else {
                 *val = state->_efer;
@@ -3294,7 +3317,7 @@ static int handle_msr_read(struct vcpu_t *vcpu, uint32_t msr, uint64_t *val)
         }
         case IA32_FS_BASE: {
             if (vcpu->fs_base_dirty)
-                *val = vcpu->state->_fs.base;
+                *val = vcpu_get_seg_base(vcpu, SEG_FS);
             else
                 *val = vmread(vcpu, GUEST_FS_BASE);
             break;
@@ -3447,8 +3470,9 @@ static int handle_msr_read(struct vcpu_t *vcpu, uint32_t msr, uint64_t *val)
 static void vmwrite_efer(struct vcpu_t *vcpu)
 {
     struct vcpu_state_t *state = vcpu->state;
+    uint64_t cr0 = vcpu_get_cr0(vcpu);
 
-    if ((state->_cr0 & CR0_PG) && (state->_efer & IA32_EFER_LME)) {
+    if ((state->_efer & IA32_EFER_LME) && (cr0 & CR0_PG)) {
         state->_efer |= IA32_EFER_LMA;
 
         vmwrite(vcpu, VMX_ENTRY_CONTROLS, vmread(vcpu, VMX_ENTRY_CONTROLS) |
@@ -3500,6 +3524,7 @@ static int handle_msr_write(struct vcpu_t *vcpu, uint32_t msr, uint64_t val)
     int index, r = 0;
     struct vcpu_state_t *state = vcpu->state;
     struct gstate *gstate = &vcpu->gstate;
+    uint64_t cr0, cr4;
 
     switch (msr) {
         case IA32_TSC: {
@@ -3524,10 +3549,12 @@ static int handle_msr_write(struct vcpu_t *vcpu, uint32_t msr, uint64_t val)
             break;
         }
         case IA32_EFER: {
+            cr0 = vcpu_get_cr0(vcpu);
+            cr4 = vcpu_get_cr4(vcpu);
             hax_info("Guest writing to EFER[%u]: 0x%x -> 0x%llx, _cr0=0x%llx,"
                      " _cr4=0x%llx\n", vcpu->vcpu_id, state->_efer, val,
-                     state->_cr0, state->_cr4);
-            if ((state->_cr0 & CR0_PG) && !(state->_cr4 & CR4_PAE)) {
+                     cr0, cr4);
+            if ((cr0 & CR0_PG) && !(cr4 & CR4_PAE)) {
                 state->_efer = 0;
             } else {
                 state->_efer = val;
@@ -3679,7 +3706,7 @@ static int exit_ept_misconfiguration(struct vcpu_t *vcpu,
 
     htun->_exit_reason = vmx(vcpu, exit_reason).basic_reason;
 #ifdef CONFIG_HAX_EPT2
-    gpa = vmx(vcpu, exit_gpa);
+    gpa = vmcs_read(vcpu, VM_EXIT_INFO_GUEST_PHYSICAL_ADDRESS);
     ret = ept_handle_misconfiguration(&vcpu->vm->gpa_space, &vcpu->vm->ept_tree,
                                       gpa);
     if (ret > 0) {
@@ -3696,7 +3723,8 @@ static int exit_ept_misconfiguration(struct vcpu_t *vcpu,
 
 static int exit_ept_violation(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
-    exit_qualification_t *qual = &vmx(vcpu, exit_qualification);
+    exit_qualification_t qual = { .raw =
+        vmcs_read(vcpu, VM_EXIT_INFO_QUALIFICATION) };
     hax_paddr_t gpa;
     int ret = 0;
 #ifdef CONFIG_HAX_EPT2
@@ -3705,22 +3733,22 @@ static int exit_ept_violation(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 
     htun->_exit_reason = vmx(vcpu, exit_reason).basic_reason;
 
-    if (qual->ept.gla1 == 0 && qual->ept.gla2 == 1) {
+    if (qual.ept.gla1 == 0 && qual.ept.gla2 == 1) {
         hax_panic_vcpu(vcpu, "Incorrect EPT seting\n");
         dump_vmcs(vcpu);
         return HAX_RESUME;
     }
 
-    gpa = vmx(vcpu, exit_gpa);
+    gpa = vmcs_read(vcpu, VM_EXIT_INFO_GUEST_PHYSICAL_ADDRESS);
 
 #ifdef CONFIG_HAX_EPT2
     ret = ept_handle_access_violation(&vcpu->vm->gpa_space, &vcpu->vm->ept_tree,
-                                      *qual, gpa, &fault_gfn);
+                                      qual, gpa, &fault_gfn);
     if (ret == -EFAULT) {
         // Extract bits 5..0 from Exit Qualification. They indicate the type of
         // the faulting access (HAX_PAGEFAULT_ACC_R/W/X) and the types of access
         // allowed (HAX_PAGEFAULT_PERM_R/W/X).
-        htun->pagefault.flags = qual->raw & 0x3f;
+        htun->pagefault.flags = qual.raw & 0x3f;
         htun->pagefault.gpa = fault_gfn << PG_ORDER_4K;
         htun->pagefault.reserved1 = 0;
         htun->pagefault.reserved2 = 0;
@@ -3735,7 +3763,8 @@ static int exit_ept_violation(struct vcpu_t *vcpu, struct hax_tunnel *htun)
          * TODO: Handle this case properly.
          */
         hax_warning("%s: Unexpected EPT violation cause. Skipping instruction"
-                    " (len=%u)\n", __func__, vcpu->vmx.exit_instr_length);
+                    " (len=%u)\n", __func__,
+                    vmcs_read(vcpu, VM_EXIT_INFO_INSTRUCTION_LENGTH));
         advance_rip(vcpu);
         return HAX_EXIT;
     }
@@ -3849,12 +3878,7 @@ int vcpu_set_regs(struct vcpu_t *vcpu, struct vcpu_state_t *ustate)
     int i;
     int cr_dirty = 0, dr_dirty = 0;
     preempt_flag flags;
-    int rsp_dirty = 0;
     uint32_t vmcs_err = 0;
-
-    if (state->_rsp != ustate->_rsp) {
-        rsp_dirty = 1;
-    }
 
     for (i = 0; i < 16; i++) {
         state->_regs[i] = ustate->_regs[i];
@@ -3871,11 +3895,11 @@ int vcpu_set_regs(struct vcpu_t *vcpu, struct vcpu_state_t *ustate)
         state->_rip = ustate->_rip;
         vcpu->rip_dirty = 1;
     }
-    if (state->_rflags != ustate->_rflags) {
+    if (vcpu_get_rflags(vcpu) != ustate->_rflags) {
         state->_rflags = ustate->_rflags;
         vcpu->rflags_dirty = 1;
     }
-    if (rsp_dirty) {
+    if (vcpu_get_rsp(vcpu) != ustate->_rsp) {
         state->_rsp = ustate->_rsp;
         vmwrite(vcpu, GUEST_RSP, state->_rsp);
     }

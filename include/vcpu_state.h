@@ -31,20 +31,6 @@
 #ifndef HAX_VCPU_STATE_H_
 #define HAX_VCPU_STATE_H_
 
-union interruptibility_state_t {
-    uint32_t raw;
-    struct {
-        uint32_t sti_blocking   : 1;
-        uint32_t movss_blocking : 1;
-        uint32_t smi_blocking   : 1;
-        uint32_t nmi_blocking   : 1;
-        uint32_t reserved       : 28;
-    };
-    uint64_t pad;
-} PACKED;
-
-typedef union interruptibility_state_t interruptibility_state_t;
-
 // Segment descriptor
 struct segment_desc_t {
     uint16_t selector;
@@ -187,7 +173,7 @@ struct vcpu_state_t {
 
     uint32_t _activity_state;
     uint32_t pad;
-    interruptibility_state_t _interruptibility_state;
+    uint64_t pad2;
 } PACKED;
 
 void dump(void);

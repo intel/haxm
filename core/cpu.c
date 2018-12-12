@@ -186,29 +186,6 @@ void cpu_pmu_init(void *arg)
     pmu_info->cpuid_edx = cpuid_args.edx;
 }
 
-static void vmread_cr(struct vcpu_t *vcpu)
-{
-    struct vcpu_state_t *state = vcpu->state;
-    mword cr4, cr4_mask;
-
-    // Update only the bits the guest is allowed to change
-    // This must use the actual cr0 mask, not _cr0_mask.
-    mword cr0 = vmread(vcpu, GUEST_CR0);
-    mword cr0_mask = vmread(vcpu, VMX_CR0_MASK); // should cache this
-    hax_debug("vmread_cr cr0 %lx, cr0_mask %lx, state->_cr0 %llx\n", cr0,
-              cr0_mask, state->_cr0);
-    state->_cr0 = (cr0 & ~cr0_mask) | (state->_cr0 & cr0_mask);
-    hax_debug("vmread_cr, state->_cr0 %llx\n", state->_cr0);
-
-    // update CR3 only if guest is allowed to change it
-    if (!(vmx(vcpu, pcpu_ctls) & CR3_LOAD_EXITING))
-        state->_cr3 = vmread(vcpu, GUEST_CR3);
-
-    cr4 = vmread(vcpu, GUEST_CR4);
-    cr4_mask = vmread(vcpu, VMX_CR4_MASK); // should cache this
-    state->_cr4 = (cr4 & ~cr4_mask) | (state->_cr4 & cr4_mask);
-}
-
 vmx_result_t cpu_vmx_vmptrld(struct per_cpu_data *cpu_data, hax_paddr_t vmcs,
                              struct vcpu_t *vcpu)
 {
@@ -271,19 +248,12 @@ __attribute__ ((__noinline__))
 vmx_result_t cpu_vmx_run(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
     vmx_result_t result = 0;
-    mword host_rip;
 
     /* prepare the RIP */
     hax_debug("vm entry!\n");
     vcpu_save_host_state(vcpu);
     hax_disable_irq();
 
-    /*
-     * put the vmwrite before is_running, so that the vcpu->cpu_id is set
-     * when we check vcpu->is_running in vcpu_pause
-     */
-    host_rip = vmx_get_rip();
-    vmwrite(vcpu, HOST_RIP, (mword)host_rip);
     vcpu->is_running = 1;
 #ifdef  DEBUG_HOST_STATE
     vcpu_get_host_state(vcpu, 1);
@@ -304,6 +274,8 @@ vmx_result_t cpu_vmx_run(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     compare_host_state(vcpu);
 #endif
 
+    vcpu_vmcs_flush_cache_r(vcpu);
+
     if (result != VMX_SUCCEED) {
         cpu_vmentry_failed(vcpu, result);
         htun->_exit_reason = 0;
@@ -312,43 +284,12 @@ vmx_result_t cpu_vmx_run(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     return result;
 }
 
-void vcpu_handle_vmcs_pending(struct vcpu_t *vcpu)
-{
-    if (!vcpu || !vcpu->vmcs_pending)
-        return;
-    if (vcpu->vmcs_pending_entry_error_code) {
-        vmwrite(vcpu, VMX_ENTRY_EXCEPTION_ERROR_CODE,
-                vmx(vcpu, entry_exception_error_code));
-        vcpu->vmcs_pending_entry_error_code = 0;
-    }
-
-    if (vcpu->vmcs_pending_entry_instr_length) {
-        vmwrite(vcpu, VMX_ENTRY_INSTRUCTION_LENGTH,
-                vmx(vcpu, entry_instr_length));
-        vcpu->vmcs_pending_entry_instr_length = 0;
-    }
-
-    if (vcpu->vmcs_pending_entry_intr_info) {
-        vmwrite(vcpu, VMX_ENTRY_INTERRUPT_INFO,
-                vmx(vcpu, entry_intr_info).raw);
-        vcpu->vmcs_pending_entry_intr_info = 0;
-    }
-
-    if (vcpu->vmcs_pending_guest_cr3) {
-        vmwrite(vcpu, GUEST_CR3, vtlb_get_cr3(vcpu));
-        vcpu->vmcs_pending_guest_cr3 = 0;
-    }
-    vcpu->vmcs_pending = 0;
-    return;
-}
-
 /* Return the value same as ioctl value */
 int cpu_vmx_execute(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
     vmx_result_t res = 0;
     int ret;
     preempt_flag flags;
-    struct vcpu_state_t *state = vcpu->state;
     uint32_t vmcs_err = 0;
 
     while (1) {
@@ -366,7 +307,7 @@ int cpu_vmx_execute(struct vcpu_t *vcpu, struct hax_tunnel *htun)
             hax_panic_log(vcpu);
             return 0;
         }
-        vcpu_handle_vmcs_pending(vcpu);
+        vcpu_vmcs_flush_cache_w(vcpu);
         vcpu_inject_intr(vcpu, htun);
 
         /* sometimes, the code segment type from qemu can be 10 (code segment),
@@ -402,7 +343,7 @@ int cpu_vmx_execute(struct vcpu_t *vcpu, struct hax_tunnel *htun)
             return -EINVAL;
         }
 
-        exit_reason.raw = vmread(vcpu, VM_EXIT_INFO_REASON);
+        exit_reason.raw = vmcs_read(vcpu, VM_EXIT_INFO_REASON);
         hax_debug("....exit_reason.raw %x, cpu %d %d\n", exit_reason.raw,
                   vcpu->cpu_id, hax_cpuid());
 
@@ -410,36 +351,7 @@ int cpu_vmx_execute(struct vcpu_t *vcpu, struct hax_tunnel *htun)
          * reason is, we have no schedule hook to get notified of preemption
          * This should be changed later after get better idea
          */
-        vcpu->state->_rip = vmread(vcpu, GUEST_RIP);
-
         hax_handle_idt_vectoring(vcpu);
-
-        vmx(vcpu, exit_qualification).raw = vmread(
-                vcpu, VM_EXIT_INFO_QUALIFICATION);
-        vmx(vcpu, exit_intr_info).raw = vmread(
-                vcpu, VM_EXIT_INFO_INTERRUPT_INFO);
-        vmx(vcpu, exit_exception_error_code) = vmread(
-                vcpu, VM_EXIT_INFO_EXCEPTION_ERROR_CODE);
-        vmx(vcpu, exit_idt_vectoring) = vmread(
-                vcpu, VM_EXIT_INFO_IDT_VECTORING);
-        vmx(vcpu, exit_instr_length) = vmread(
-                vcpu, VM_EXIT_INFO_INSTRUCTION_LENGTH);
-        vmx(vcpu, exit_gpa) = vmread(
-                vcpu, VM_EXIT_INFO_GUEST_PHYSICAL_ADDRESS);
-        vmx(vcpu, interruptibility_state).raw = vmread(
-                vcpu, GUEST_INTERRUPTIBILITY);
-
-        state->_rflags = vmread(vcpu, GUEST_RFLAGS);
-        state->_rsp = vmread(vcpu, GUEST_RSP);
-        VMREAD_SEG(vcpu, CS, state->_cs);
-        VMREAD_SEG(vcpu, DS, state->_ds);
-        VMREAD_SEG(vcpu, ES, state->_es);
-        vmread_cr(vcpu);
-
-        if (vcpu->nr_pending_intrs > 0 || hax_intr_is_blocked(vcpu))
-            htun->ready_for_interrupt_injection = 0;
-        else
-            htun->ready_for_interrupt_injection = 1;
 
         vcpu->cur_state = GS_STALE;
         vmcs_err = put_vmcs(vcpu, &flags);
@@ -647,11 +559,11 @@ static void cpu_vmentry_failed(struct vcpu_t *vcpu, vmx_result_t result)
     uint64_t error, reason;
 
     hax_error("VM entry failed: RIP=%08lx\n",
-              (mword)vmread(vcpu, GUEST_RIP));
+              (mword)vmcs_read(vcpu, GUEST_RIP));
 
     //dump_vmcs();
 
-    reason = vmread(vcpu, VM_EXIT_INFO_REASON);
+    reason = vmcs_read(vcpu, VM_EXIT_INFO_REASON);
     if (result == VMX_FAIL_VALID) {
         error = vmread(vcpu, VMX_INSTRUCTION_ERROR_CODE);
         hax_error("VMfailValid. Prev exit: %llx. Error code: %llu (%s)\n",

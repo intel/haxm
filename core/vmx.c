@@ -35,6 +35,7 @@
 #include "include/hax_core_interface.h"
 #include "include/ia32.h"
 #include "include/ia32_defs.h"
+#include "include/vtlb.h"
 
 static void _vmx_vmwrite(struct vcpu_t *vcpu, const char *name,
                          component_index_t component,
@@ -295,4 +296,206 @@ void get_interruption_info_t(interruption_info_t *info, uint8_t v, uint8_t t)
     info->nmi_unmasking = 0;
     info->reserved = 0;
     info->valid = 1;
+}
+
+void vcpu_vmcs_flush_cache_r(struct vcpu_t *vcpu)
+{
+    memset(&vcpu->vmx.vmcs_cache_r, 0, sizeof(struct vmx_vmcs_cache_r_t));
+}
+
+#define COMP_PENDING_0(name)
+#define COMP_PENDING_1(name) \
+    if (vcpu->vmx.vmcs_cache_w.name##_dirty) { \
+        vmwrite(vcpu, name, vcpu->vmx.vmcs.name##_value); \
+        vcpu->vmx.vmcs_cache_w.name##_dirty = 0; \
+    }
+#define COMP_PENDING(cache_r, cache_w, width, name) \
+    COMP_PENDING_##cache_w(name)
+
+void vcpu_vmcs_flush_cache_w(struct vcpu_t *vcpu)
+{
+    if (!vcpu || !vcpu->vmx.vmcs_cache_w.dirty)
+        return;
+
+#define COMP COMP_PENDING
+    VMCS_COMPS
+#undef COMP
+    if (vcpu->vmcs_pending_guest_cr3) {
+        vmwrite(vcpu, GUEST_CR3, vtlb_get_cr3(vcpu));
+        vcpu->vmcs_pending_guest_cr3 = 0;
+    }
+    vcpu->vmx.vmcs_cache_w.dirty = 0;
+}
+
+mword vcpu_get_cr0(struct vcpu_t *vcpu)
+{
+    struct vcpu_state_t *state = vcpu->state;
+    mword cr0, cr0_mask;
+
+    // Update only the bits the guest is allowed to change
+    // This must use the actual cr0 mask, not _cr0_mask.
+    cr0 = vmcs_read(vcpu, GUEST_CR0);
+    cr0_mask = vmcs_read(vcpu, VMX_CR0_MASK); // should cache this
+    state->_cr0 = (cr0 & ~cr0_mask) | (state->_cr0 & cr0_mask);
+    return state->_cr0;
+}
+
+mword vcpu_get_cr3(struct vcpu_t *vcpu)
+{
+    struct vcpu_state_t *state = vcpu->state;
+
+    // update CR3 only if guest is allowed to change it
+    if (!(vmx(vcpu, pcpu_ctls) & CR3_LOAD_EXITING))
+        state->_cr3 = vmread(vcpu, GUEST_CR3);
+    return state->_cr3;
+}
+
+mword vcpu_get_cr4(struct vcpu_t *vcpu)
+{
+    struct vcpu_state_t *state = vcpu->state;
+    mword cr4, cr4_mask;
+
+    cr4 = vmread(vcpu, GUEST_CR4);
+    cr4_mask = vmread(vcpu, VMX_CR4_MASK); // should cache this
+    state->_cr4 = (cr4 & ~cr4_mask) | (state->_cr4 & cr4_mask);
+    return state->_cr4;
+}
+
+mword vcpu_get_rflags(struct vcpu_t *vcpu)
+{
+    return vmcs_read(vcpu, GUEST_RFLAGS);
+}
+
+mword vcpu_get_rsp(struct vcpu_t *vcpu)
+{
+    return vmcs_read(vcpu, GUEST_RSP);
+}
+
+mword vcpu_get_rip(struct vcpu_t *vcpu)
+{
+    return vmcs_read(vcpu, GUEST_RIP);
+}
+
+uint16_t vcpu_get_seg_selector(struct vcpu_t *vcpu, int seg)
+{
+    uint16_t value;
+
+    switch (seg) {
+    case SEG_CS:
+        value = vmcs_read(vcpu, GUEST_CS_SELECTOR);
+        break;
+    case SEG_SS:
+        value = vmcs_read(vcpu, GUEST_SS_SELECTOR);
+        break;
+    case SEG_DS:
+        value = vmcs_read(vcpu, GUEST_DS_SELECTOR);
+        break;
+    case SEG_ES:
+        value = vmcs_read(vcpu, GUEST_ES_SELECTOR);
+        break;
+    case SEG_FS:
+        value = vmcs_read(vcpu, GUEST_FS_SELECTOR);
+        break;
+    case SEG_GS:
+        value = vmcs_read(vcpu, GUEST_GS_SELECTOR);
+        break;
+    default:
+        hax_error("vcpu_get_seg_selector: Unexpected segment (%d)\n", seg);
+        value = 0;
+    }
+    return value;
+}
+
+mword vcpu_get_seg_base(struct vcpu_t *vcpu, int seg)
+{
+    mword value;
+
+    switch (seg) {
+    case SEG_CS:
+        value = vmcs_read(vcpu, GUEST_CS_BASE);
+        break;
+    case SEG_SS:
+        value = vmcs_read(vcpu, GUEST_SS_BASE);
+        break;
+    case SEG_DS:
+        value = vmcs_read(vcpu, GUEST_DS_BASE);
+        break;
+    case SEG_ES:
+        value = vmcs_read(vcpu, GUEST_ES_BASE);
+        break;
+    case SEG_FS:
+        value = vmcs_read(vcpu, GUEST_FS_BASE);
+        break;
+    case SEG_GS:
+        value = vmcs_read(vcpu, GUEST_GS_BASE);
+        break;
+    default:
+        hax_error("vcpu_get_seg_base: Unexpected segment (%d)\n", seg);
+        value = 0;
+    }
+    return value;
+}
+
+uint32_t vcpu_get_seg_limit(struct vcpu_t *vcpu, int seg)
+{
+    uint32_t value;
+
+    switch (seg) {
+    case SEG_CS:
+        value = vmcs_read(vcpu, GUEST_CS_LIMIT);
+        break;
+    case SEG_SS:
+        value = vmcs_read(vcpu, GUEST_SS_LIMIT);
+        break;
+    case SEG_DS:
+        value = vmcs_read(vcpu, GUEST_DS_LIMIT);
+        break;
+    case SEG_ES:
+        value = vmcs_read(vcpu, GUEST_ES_LIMIT);
+        break;
+    case SEG_FS:
+        value = vmcs_read(vcpu, GUEST_FS_LIMIT);
+        break;
+    case SEG_GS:
+        value = vmcs_read(vcpu, GUEST_GS_LIMIT);
+        break;
+    default:
+        hax_error("vcpu_get_seg_limit: Unexpected segment (%d)\n", seg);
+        value = 0;
+    }
+    return value;
+}
+
+uint32_t vcpu_get_seg_ar(struct vcpu_t *vcpu, int seg)
+{
+    uint32_t value;
+
+    switch (seg) {
+    case SEG_CS:
+        value = vmcs_read(vcpu, GUEST_CS_AR);
+        break;
+    case SEG_SS:
+        value = vmcs_read(vcpu, GUEST_SS_AR);
+        break;
+    case SEG_DS:
+        value = vmcs_read(vcpu, GUEST_DS_AR);
+        break;
+    case SEG_ES:
+        value = vmcs_read(vcpu, GUEST_ES_AR);
+        break;
+    case SEG_FS:
+        value = vmcs_read(vcpu, GUEST_FS_AR);
+        break;
+    case SEG_GS:
+        value = vmcs_read(vcpu, GUEST_GS_AR);
+        break;
+    default:
+        hax_error("vcpu_get_seg_ar: Unexpected segment (%d)\n", seg);
+        value = 0;
+    }
+
+    if (value & (1 << 16) /* ar.null */) {
+        return 0;
+    }
+    return value;
 }
