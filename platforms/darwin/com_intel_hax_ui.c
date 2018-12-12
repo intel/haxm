@@ -32,10 +32,14 @@
 
 #include <libkern/version.h>
 #include <sys/proc.h>
+#include <sys/ttycom.h>
 
 /* Major version number of Darwin/XNU kernel */
 extern const int version_major;
 static int hax_vcpu_major = 0;
+
+/* MAXCOMLEN + 1 == 17 (see bsd/sys/param.h) */
+#define TASK_NAME_LEN 17
 
 /*
  * A tricky point of the vcpu/vm reference count:
@@ -74,6 +78,8 @@ static int hax_vcpu_major = 0;
 
 #define HAX_VM_DEVFS_FMT_COMPAT   "hax_vm*/vm%02d"
 #define HAX_VM_DEVFS_FMT          "hax_vm/vm%02d"
+
+static void handle_unknown_ioctl(dev_t dev, ulong cmd, struct proc *p);
 
 static struct vcpu_t * get_vcpu_by_dev(dev_t dev) {
     int vm_id = minor2vcpuvmmid(dev);
@@ -238,15 +244,7 @@ static int hax_vcpu_ioctl(dev_t dev, ulong cmd, caddr_t data, int flag,
             break;
         }
         default: {
-            int pid;
-            char task_name[17];
-
-            pid = proc_pid(p);
-            proc_name(pid, task_name, sizeof(task_name));
-            hax_error("Unknown vcpu ioctl 0x%lx, pid=%d ('%s')\n", cmd, pid,
-                      task_name);
-            //printf("set regs ioctl %lx get regs %lx", HAX_VCPU_SET_REGS,
-            //       HAX_VCPU_GET_REGS);
+            handle_unknown_ioctl(dev, cmd, p);
             ret = -ENOSYS;
             break;
         }
@@ -442,8 +440,7 @@ static int hax_vm_ioctl(dev_t dev, ulong cmd, caddr_t data, int flag,
 #endif
         case HAX_VM_IOCTL_NOTIFY_QEMU_VERSION: {
             int pid;
-            /* MAXCOMLEN + 1 == 17 (see bsd/sys/param.h) */
-            char task_name[17];
+            char task_name[TASK_NAME_LEN];
             struct hax_qemu_version *info;
 
             pid = proc_pid(p);
@@ -461,14 +458,8 @@ static int hax_vm_ioctl(dev_t dev, ulong cmd, caddr_t data, int flag,
             break;
         }
         default: {
-            int pid;
-            char task_name[17];
-
+            handle_unknown_ioctl(dev, cmd, p);
             ret = -ENOSYS;
-            pid = proc_pid(p);
-            proc_name(pid, task_name, sizeof(task_name));
-            hax_error("Unknown VM IOCTL 0x%lx, pid=%d ('%s')\n", cmd, pid,
-                      task_name);
             break;
         }
     }
@@ -567,20 +558,13 @@ static int hax_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
         }
 
         default: {
-            int pid;
-            char task_name[17];
-
+            handle_unknown_ioctl(dev, cmd, p);
             ret = -ENOSYS;
-            pid = proc_pid(p);
-            proc_name(pid, task_name, sizeof(task_name));
-            hax_error("Unknown ioctl 0x%lx, pid=%d ('%s')\n", cmd, pid,
-                      task_name);
             break;
         }
     }
     return ret;
 }
-
 
 static int hax_open(dev_t dev, int flags, __unused int devtype,
                     __unused struct proc *p)
@@ -684,4 +668,37 @@ int com_intel_hax_exit_ui(void)
     }
 
     return 0;
+}
+
+static void handle_unknown_ioctl(dev_t dev, ulong cmd, struct proc *p)
+{
+    int dev_major = major(dev);
+    const char *dev_name = NULL;
+    int pid;
+    char task_name[TASK_NAME_LEN];
+
+    if (cmd == TIOCSCTTY) {
+        /* Because HAXM cdevsw's are created with d_type == D_TTY, the Darwin
+         * kernel may send us an TIOCSCTTY ioctl while servicing an open()
+         * syscall on these devices (see open1() in bsd/vfs/vfs_syscall.c).
+         * Suppress the bogus warning for this ioctl to avoid confusion.
+         */
+        return;
+    }
+
+    if (dev_major == hax_major) {
+        dev_name = "HAX";
+    } else if (dev_major == hax_vm_major) {
+        dev_name = "VM";
+    } else if (dev_major == hax_vcpu_major) {
+        dev_name = "VCPU";
+    } else {
+        dev_name = "??";
+        hax_error("%s: Unknown device major %d\n", __func__, dev_major);
+    }
+
+    pid = proc_pid(p);
+    proc_name(pid, task_name, sizeof(task_name));
+    hax_warning("Unknown %s ioctl 0x%lx from pid=%d ('%s')\n", dev_name, cmd,
+                pid, task_name);
 }
