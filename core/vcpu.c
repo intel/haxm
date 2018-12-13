@@ -194,7 +194,7 @@ static uint64_t vcpu_read_cr(struct vcpu_state_t *state, uint32_t n)
             break;
         }
         default: {
-            hax_error("Unsupported CR%d access\n", n);
+            hax_warning("Ignored unsupported CR%d read, returning 0\n", n);
             break;
         }
     }
@@ -1324,7 +1324,7 @@ static void fill_common_vmcs(struct vcpu_t *vcpu)
 
     pcpu_ctls = IO_BITMAP_ACTIVE | MSR_BITMAP_ACTIVE | DR_EXITING |
                 INTERRUPT_WINDOW_EXITING | USE_TSC_OFFSETTING | HLT_EXITING |
-                SECONDARY_CONTROLS;
+                CR8_LOAD_EXITING | CR8_STORE_EXITING | SECONDARY_CONTROLS;
 
     scpu_ctls = ENABLE_EPT;
 
@@ -2854,7 +2854,8 @@ static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
             }
 
             if (cr == 8) {
-                hax_error("Unsupported CR%d access\n", cr);
+                // TODO: Redirect CR8 write to user space (emulated APIC.TPR)
+                hax_warning("Ignored guest CR8 write, val=0x%llx\n", val);
                 break;
             }
             check_flush(vcpu, cr_ptr ^ val);
@@ -2897,11 +2898,8 @@ static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
         case 1: { // MOV CR -> GPR
             hax_info("cr_access R CR%d\n", cr);
 
+            // TODO: Redirect CR8 read to user space (emulated APIC.TPR)
             state->_regs[vmx(vcpu, exit_qualification).cr.gpr] = cr_ptr;
-            if (cr == 8) {
-                hax_info("Unsupported CR%d access\n", cr);
-                break;
-            }
             break;
         }
         case 2: { // CLTS
