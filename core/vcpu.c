@@ -194,7 +194,7 @@ static uint64_t vcpu_read_cr(struct vcpu_state_t *state, uint32_t n)
             break;
         }
         default: {
-            hax_error("Unsupported CR%d access\n", n);
+            hax_warning("Ignored unsupported CR%d read, returning 0\n", n);
             break;
         }
     }
@@ -1324,7 +1324,7 @@ static void fill_common_vmcs(struct vcpu_t *vcpu)
 
     pcpu_ctls = IO_BITMAP_ACTIVE | MSR_BITMAP_ACTIVE | DR_EXITING |
                 INTERRUPT_WINDOW_EXITING | USE_TSC_OFFSETTING | HLT_EXITING |
-                SECONDARY_CONTROLS;
+                CR8_LOAD_EXITING | CR8_STORE_EXITING | SECONDARY_CONTROLS;
 
     scpu_ctls = ENABLE_EPT;
 
@@ -2778,7 +2778,6 @@ static void check_flush(struct vcpu_t *vcpu, uint32_t bits)
 
 static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
-    uint64_t cr_ptr;
     int cr;
     struct vcpu_state_t *state = vcpu->state;
     bool is_ept_pae = false;
@@ -2788,19 +2787,25 @@ static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     htun->_exit_reason = vmx(vcpu, exit_reason).basic_reason;
 
     cr = vmx(vcpu, exit_qualification).cr.creg;
-    cr_ptr = vcpu_read_cr(state, cr);
 
     switch (vmx(vcpu, exit_qualification).cr.type) {
         case 0: { // MOV CR <- GPR
             uint64_t val = state->_regs[(vmx(vcpu, exit_qualification).cr.gpr)];
+            uint64_t old_val = 0;
 
-            hax_debug("cr_access W CR%d: %08llx -> %08llx\n", cr, cr_ptr, val);
+            if (cr == 8) {
+                // TODO: Redirect CR8 write to user space (emulated APIC.TPR)
+                hax_warning("Ignored guest CR8 write, val=0x%llx\n", val);
+                break;
+            }
+
+            old_val = vcpu_read_cr(state, cr);
             if (cr == 0) {
                 uint64_t cr0_pae_triggers;
 
                 hax_info("Guest writing to CR0[%u]: 0x%llx -> 0x%llx,"
                          " _cr4=0x%llx, _efer=0x%x\n", vcpu->vcpu_id,
-                         state->_cr0, val, state->_cr4, state->_efer);
+                         old_val, val, state->_cr4, state->_efer);
                 if ((val & CR0_PG) && !(val & CR0_PE)) {
                     hax_inject_exception(vcpu, VECTOR_GP, 0);
                     return HAX_RESUME;
@@ -2812,7 +2817,7 @@ static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
                         return HAX_RESUME;
                     }
                 }
-                if (!hax->ug_enable_flag && (cr_ptr & CR0_PE) &&
+                if (!hax->ug_enable_flag && (old_val & CR0_PE) &&
                     !(val & CR0_PE)) {
                     htun->_exit_status = HAX_EXIT_REALMODE;
                     hax_debug("Enter NON-PE from PE\n");
@@ -2823,19 +2828,17 @@ static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
                 cr0_pae_triggers = CR0_CD | CR0_NW | CR0_PG;
                 if ((val & CR0_PG) && (state->_cr4 & CR4_PAE) &&
                     !(state->_efer & IA32_EFER_LME) && !vtlb_active(vcpu) &&
-                    ((val ^ cr_ptr) & cr0_pae_triggers)) {
+                    ((val ^ old_val) & cr0_pae_triggers)) {
                     hax_info("%s: vCPU #%u triggers PDPT (re)load for EPT+PAE"
                              " mode (CR0 path)\n", __func__, vcpu->vcpu_id);
                     is_ept_pae = true;
                 }
-            }
-
-            if (cr == 4) {
+            } else if (cr == 4) {
                 uint64_t cr4_pae_triggers;
 
                 hax_info("Guest writing to CR4[%u]: 0x%llx -> 0x%llx,"
                          "_cr0=0x%llx, _efer=0x%x\n", vcpu->vcpu_id,
-                         state->_cr4, val, state->_cr0, state->_efer);
+                         old_val, val, state->_cr0, state->_efer);
                 if ((state->_efer & IA32_EFER_LMA) && !(val & CR4_PAE)) {
                     hax_inject_exception(vcpu, VECTOR_GP, 0);
                     return HAX_RESUME;
@@ -2846,18 +2849,16 @@ static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
                 cr4_pae_triggers = CR4_PAE | CR4_PGE | CR4_PSE;
                 if ((val & CR4_PAE) && (state->_cr0 & CR0_PG) &&
                     !(state->_efer & IA32_EFER_LME) && !vtlb_active(vcpu) &&
-                    ((val ^ cr_ptr) & cr4_pae_triggers)) {
+                    ((val ^ old_val) & cr4_pae_triggers)) {
                     hax_info("%s: vCPU #%u triggers PDPT (re)load for EPT+PAE"
                              " mode (CR4 path)\n", __func__, vcpu->vcpu_id);
                     is_ept_pae = true;
                 }
-            }
-
-            if (cr == 8) {
-                hax_error("Unsupported CR%d access\n", cr);
+            } else {
+                hax_error("Unsupported CR%d write, val=0x%llx\n", cr, val);
                 break;
             }
-            check_flush(vcpu, cr_ptr ^ val);
+            check_flush(vcpu, old_val ^ val);
             vcpu_write_cr(state, cr, val);
 
             if (is_ept_pae) {
@@ -2895,13 +2896,13 @@ static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
             break;
         }
         case 1: { // MOV CR -> GPR
+            uint64_t val;
+
             hax_info("cr_access R CR%d\n", cr);
 
-            state->_regs[vmx(vcpu, exit_qualification).cr.gpr] = cr_ptr;
-            if (cr == 8) {
-                hax_info("Unsupported CR%d access\n", cr);
-                break;
-            }
+            val = vcpu_read_cr(state, cr);
+            // TODO: Redirect CR8 read to user space (emulated APIC.TPR)
+            state->_regs[vmx(vcpu, exit_qualification).cr.gpr] = val;
             break;
         }
         case 2: { // CLTS
