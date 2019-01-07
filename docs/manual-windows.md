@@ -77,6 +77,8 @@ more details, please read [this article][windows-test-driver-install].
 1. Disable Hyper-V and enable _Test Mode_:
    1. Open an **elevated** (i.e. _Run as administrator_) Command Prompt.
    1. `bcdedit /set hypervisorlaunchtype off`
+      * Note: In some cases, this command is not enough to completely disable
+Hyper-V on Windows 10. See below for a more reliable method.
    1. `bcdedit /set testsigning on`
    1. Reboot.
 1. Install the test certificate:
@@ -86,6 +88,22 @@ by the `Debug` build configuration.
    1. In the test environment, open an **elevated** Command Prompt and run
 `certmgr /add X:\path\to\IntelHaxm.cer /s /r localMachine root`
 1. Optionally, install [DebugView][debugview] to capture HAXM debug output.
+
+#### Disabling Hyper-V on Windows 10
+Certain advanced Windows 10 features, such as _Device Guard_ (in particular,
+_Hypervisor-protected code integrity_ or HVCI) and _Credential Guard_, can
+prevent Hyper-V from being completely disabled. In other words, when any of
+these features are enabled, so is Hyper-V, even though Windows may report
+otherwise.
+
+The _Device Guard and Credential Guard hardware readiness tool_ released by
+Microsoft can disable the said Windows 10 features along with Hyper-V:
+1. Download the latest version of the tool from [here][dgreadiness-tool]. The
+following steps assume version 3.6.
+1. Unzip.
+1. Open an **elevated** (i.e. _Run as administrator_) Command Prompt.
+1. `@powershell -ExecutionPolicy RemoteSigned -Command "X:\path\to\dgreadiness_v3.6\DG_Readiness_Tool_v3.6.ps1 -Disable"`
+1. Reboot.
 
 ### Loading and unloading the test driver
 `HaxmLoader` is a small tool that can load and unload a test-signed driver
@@ -134,4 +152,5 @@ enter `hax*` for _Include_, and click on _OK_.
 [intel-ept-cpus]: https://ark.intel.com/Search/FeatureFilter?productType=processors&ExtendedPageTables=true
 [windows-test-driver-install]: https://docs.microsoft.com/en-us/windows-hardware/drivers/install/installing-test-signed-driver-packages
 [debugview]: https://docs.microsoft.com/en-us/sysinternals/downloads/debugview
+[dgreadiness-tool]: https://www.microsoft.com/en-us/download/details.aspx?id=53337
 [github-haxm-releases]: https://github.com/intel/haxm/releases
