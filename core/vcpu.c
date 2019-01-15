@@ -1859,6 +1859,7 @@ static int vcpu_prepare_pae_pdpt(struct vcpu_t *vcpu)
                   cr3, ret);
         return ret < 0 ? ret : -EIO;
     }
+    vcpu->pae_pdpt_dirty = 1;
     return 0;
 #else // !CONFIG_HAX_EPT2
     uint64_t gpfn = (cr3 & 0xfffff000) >> PG_ORDER_4K;
@@ -1880,6 +1881,7 @@ static int vcpu_prepare_pae_pdpt(struct vcpu_t *vcpu)
 #else  // !HAX_ARCH_X86_64, i.e. HAX_ARCH_X86_32
     hax_unmap_gpfn(vcpu->vm, buf, gpfn);
 #endif  // HAX_ARCH_X86_64
+    vcpu->pae_pdpt_dirty = 1;
     return 0;
 #endif  // CONFIG_HAX_EPT2
 }
@@ -1966,16 +1968,21 @@ static void vmwrite_cr(struct vcpu_t *vcpu)
         //           eptp);
         vmwrite(vcpu, GUEST_CR3, state->_cr3);
         scpu_ctls |= ENABLE_EPT;
-        // Set PDPTEs for vCPU if it's in or about to enter PAE paging mode
-        if ((state->_cr4 & CR4_PAE) && !(state->_efer & IA32_EFER_LME) &&
-            (state->_cr0 & CR0_PG)) {
-            // vcpu_prepare_pae_pdpt() has populated vcpu->pae_pdptes
-            // TODO: Enable CR3_LOAD_EXITING so as to update vcpu->pae_pdptes
-            // whenever guest writes to CR3 in EPT+PAE mode
+        if (vcpu->pae_pdpt_dirty) {
+            // vcpu_prepare_pae_pdpt() has updated vcpu->pae_pdptes
+            // Note that because we do not monitor guest writes to CR3, the only
+            // case where vcpu->pae_pdptes is newer than VMCS GUEST_PDPTE{0..3}
+            // is following a guest write to CR0 or CR4 that requires PDPTEs to
+            // be reloaded, i.e. the pae_pdpt_dirty case. When the guest is in
+            // PAE paging mode but !pae_pdpt_dirty, VMCS GUEST_PDPTE{0..3} are
+            // already up-to-date following each VM exit (see Intel SDM Vol. 3C
+            // 27.3.4), and we must not overwrite them with our cached values
+            // (vcpu->pae_pdptes), which may be outdated.
             vmwrite(vcpu, GUEST_PDPTE0, vcpu->pae_pdptes[0]);
             vmwrite(vcpu, GUEST_PDPTE1, vcpu->pae_pdptes[1]);
             vmwrite(vcpu, GUEST_PDPTE2, vcpu->pae_pdptes[2]);
             vmwrite(vcpu, GUEST_PDPTE3, vcpu->pae_pdptes[3]);
+            vcpu->pae_pdpt_dirty = 0;
         }
         vmwrite(vcpu, VMX_EPTP, eptp);
         // pcpu_ctls |= RDTSC_EXITING;

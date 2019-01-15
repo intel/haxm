@@ -616,6 +616,8 @@ uint32_t pw_perform_page_walk(
     first_table = pw_retrieve_table_from_cr3(cr3, is_pae, is_lme);
 
     if (is_pae) {
+        uint8_t *pdpt_page_hva;
+
         if (is_lme) {
             pml4t_gpa = first_table;
 #ifdef CONFIG_HAX_EPT2
@@ -655,20 +657,23 @@ uint32_t pw_perform_page_walk(
         }
 
 #ifdef CONFIG_HAX_EPT2
-        pdpt_hva = gpa_space_map_page(&vcpu->vm->gpa_space,
-                                      pdpt_gpa >> PG_ORDER_4K,
-                                      &pdpt_kmap, NULL);
+        pdpt_page_hva = gpa_space_map_page(&vcpu->vm->gpa_space,
+                                           pdpt_gpa >> PG_ORDER_4K,
+                                           &pdpt_kmap, NULL);
 #else // !CONFIG_HAX_EPT2
 #ifdef HAX_ARCH_X86_32
-        pdpt_hva = hax_map_gpfn(vcpu->vm, pdpt_gpa >> 12, is_kernel, cr3, 1);
+        pdpt_page_hva = hax_map_gpfn(vcpu->vm, pdpt_gpa >> 12, is_kernel, cr3, 1);
 #else
-        pdpt_hva = hax_map_gpfn(vcpu->vm, pdpt_gpa >> 12);
+        pdpt_page_hva = hax_map_gpfn(vcpu->vm, pdpt_gpa >> 12);
 #endif
 #endif // CONFIG_HAX_EPT2
-        if (pdpt_hva == NULL) {
+        if (pdpt_page_hva == NULL) {
             retval = TF_FAILED;
             goto out;
         }
+
+        // In PAE paging mode, pdpt_gpa is 32-byte aligned, not 4KB-aligned
+        pdpt_hva = pdpt_page_hva + (uint)(pdpt_gpa & (PAGE_SIZE_4K - 1));
 
         pdpte_ptr = pw_retrieve_table_entry(vcpu, pdpt_hva, pdpte_index,
                                             is_pae);
