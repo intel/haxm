@@ -55,7 +55,7 @@ struct cdevsw hax_vm_cdevsw = {
     .d_mmap = nommap,
     .d_kqfilter = nokqfilter,
     .d_discard = nodiscard,
-    .d_flag = D_OTHER
+    .d_flag = D_OTHER | D_MPSAFE
 };
 
 int hax_vm_open(dev_t self, int flag __unused, int mode __unused,

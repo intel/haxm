@@ -60,7 +60,7 @@ struct cdevsw hax_cdevsw = {
     .d_mmap = nommap,
     .d_kqfilter = nokqfilter,
     .d_discard = nodiscard,
-    .d_flag = D_OTHER
+    .d_flag = D_OTHER | D_MPSAFE
 };
 
 int hax_open(dev_t dev __unused, int flags __unused, int mode __unused,
