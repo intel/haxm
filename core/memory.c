@@ -261,7 +261,15 @@ static int handle_set_ram(struct vm_t *vm, uint64_t start_gpa, uint64_t size,
     gpa_space = &vm->gpa_space;
     start_gfn = start_gpa >> PG_ORDER_4K;
     npages = size >> PG_ORDER_4K;
-    gpa_space_adjust_prot_bitmap(gpa_space, start_gfn + npages);
+
+    ret = gpa_space_adjust_prot_bitmap(gpa_space, start_gfn + npages);
+    if (ret) {
+        hax_error("%s: Failed to resize prot bitmap: ret=%d, start_gfn=0x%llx,"
+                  " npages=0x%llx, start_uva=0x%llx, flags=0x%x\n", __func__,
+                  ret, start_gfn, npages, start_uva, flags);
+        return ret;
+    }
+
     ret = memslot_set_mapping(gpa_space, start_gfn, npages, start_uva, flags);
     if (ret) {
         hax_error("%s: memslot_set_mapping() failed: ret=%d, start_gfn=0x%llx,"
