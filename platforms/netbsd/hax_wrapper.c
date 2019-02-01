@@ -251,36 +251,34 @@ hax_atomic_t hax_atomic_dec(volatile hax_atomic_t *atom)
 
 int hax_test_and_set_bit(int bit, uint64_t *memory)
 {
-    volatile uint64_t *val;
-    uint64_t mask, old;
+    const unsigned int units = (sizeof(*memory) * CHAR_BIT);
+    volatile uint64_t *const p = &memory[bit / units];
+    const uint64_t mask = (1ULL << (bit % units));
+    uint64_t v;
 
-    val = (volatile uint64_t *)memory;
-    mask = 1 << bit;
-
+    membar_exit();
     do {
-        old = *val;
-        if ((old & mask) != 0)
-            break;
-    } while (atomic_cas_64(val, old, old | mask) != old);
+        v = *p;
+    } while (atomic_cas_64(p, v, (v | mask)) != v);
+    membar_enter();
 
-    return !!(old & mask);
+    return ((v & mask) != 0);
 }
 
 int hax_test_and_clear_bit(int bit, uint64_t *memory)
 {
-    volatile uint64_t *val;
-    uint64_t mask, old;
+    const unsigned int units = (sizeof(*memory) * CHAR_BIT);
+    volatile uint64_t *const p = &memory[bit / units];
+    const uint64_t mask = (1ULL << (bit % units));
+    uint64_t v;
 
-    val = (volatile uint64_t *)memory;
-    mask = 1 << bit;
-
+    membar_exit();
     do {
-        old = *val;
-        if ((old & mask) != 0)
-            break;
-    } while (atomic_cas_64(val, old, old & ~mask) != old);
+        v = *p;
+    } while (atomic_cas_64(p, v, (v & ~mask)) != v);
+    membar_enter();
 
-    return !!(old & mask);
+    return ((v & mask) == 0);
 }
 
 /* Spinlock */
