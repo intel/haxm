@@ -55,7 +55,7 @@ struct cdevsw hax_vcpu_cdevsw = {
     .d_mmap = nommap,
     .d_kqfilter = nokqfilter,
     .d_discard = nodiscard,
-    .d_flag = D_OTHER
+    .d_flag = D_OTHER | D_MPSAFE
 };
 
 /* VCPU operations */
