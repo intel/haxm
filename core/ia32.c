@@ -81,6 +81,11 @@ uint64_t ia32_rdtsc(void)
 #endif
 }
 
+void hax_clts(void)
+{
+    asm_clts();
+}
+
 void hax_fxinit(void)
 {
     asm_fxinit();

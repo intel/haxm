@@ -2041,6 +2041,13 @@ static void vcpu_enter_fpu_state(struct vcpu_t *vcpu)
     struct fx_layout *hfx = (struct fx_layout *)hax_page_va(hstate->hfxpage);
     struct fx_layout *gfx = (struct fx_layout *)hax_page_va(gstate->gfxpage);
 
+    hstate->cr0_ts = !!(get_cr0() & CR0_TS);
+
+    // Before executing any FPU instruction (e.g. FXSAVE) in host kernel
+    // context, make sure host CR0.TS = 0, so as to prevent a Device Not Found
+    // (#NM) exception, which can result in a host kernel panic on NetBSD.
+    hax_clts();
+
     hax_fxsave((mword *)hfx);
     hax_fxrstor((mword *)gfx);
 }
@@ -2052,8 +2059,14 @@ static void vcpu_exit_fpu_state(struct vcpu_t *vcpu)
     struct fx_layout *hfx = (struct fx_layout *)hax_page_va(hstate->hfxpage);
     struct fx_layout *gfx = (struct fx_layout *)hax_page_va(gstate->gfxpage);
 
+    hax_clts();
+
     hax_fxsave((mword *)gfx);
     hax_fxrstor((mword *)hfx);
+
+    if (hstate->cr0_ts) {
+        set_cr0(get_cr0() | CR0_TS);
+    }
 }
 
 // Instructions are never longer than 15 bytes:
