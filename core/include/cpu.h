@@ -84,6 +84,8 @@ struct hstate {
     uint64_t dr3;
     uint64_t dr6;
     uint64_t dr7;
+    // CR0
+    bool cr0_ts;
 };
 
 struct hstate_compare {

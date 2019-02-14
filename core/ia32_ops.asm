@@ -213,6 +213,10 @@ function asm_enable_irq, 0
     sti
     ret
 
+function asm_clts, 0
+    clts
+    ret
+
 function asm_fxinit, 0
     finit
     ret
