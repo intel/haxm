@@ -768,6 +768,40 @@ TEST_F(EmulatorTest, insn_bts) {
     run("bts [rcx + 0x08], rax", vcpu_original, vcpu_expected);
 }
 
+TEST_F(EmulatorTest, insn_cmps) {
+    test_cpu_t vcpu_original;
+    test_cpu_t vcpu_expected;
+
+    // Test: cmpsw, without-rep, with-df
+    vcpu_original = {};
+    vcpu_original.gpr[REG_RSI] = 0x10;
+    vcpu_original.gpr[REG_RDI] = 0x50;
+    vcpu_original.flags = RFLAGS_DF;
+    (uint16_t&)vcpu_original.mem[0x10] = 0x1234;
+    (uint16_t&)vcpu_original.mem[0x50] = 0x1234;
+    vcpu_expected = vcpu_original;
+    vcpu_expected.gpr[REG_RSI] -= 2;
+    vcpu_expected.gpr[REG_RDI] -= 2;
+    vcpu_expected.flags = RFLAGS_DF | RFLAGS_ZF | RFLAGS_PF;
+    run("cmpsw", vcpu_original, vcpu_expected);
+
+    // Test: cmpsw, with-rep, without-df
+    vcpu_original = {};
+    vcpu_original.gpr[REG_RSI] = 0x20;
+    vcpu_original.gpr[REG_RDI] = 0x80;
+    vcpu_original.gpr[REG_RCX] = 0x3;
+    vcpu_original.mem[0x20] = 0x11;
+    vcpu_original.mem[0x21] = 0x22;
+    vcpu_original.mem[0x80] = 0x11;
+    vcpu_original.mem[0x81] = 0x33;
+    vcpu_expected = vcpu_original;
+    vcpu_expected.gpr[REG_RSI] += 0x2;
+    vcpu_expected.gpr[REG_RDI] += 0x2;
+    vcpu_expected.gpr[REG_RCX] = 0x1;
+    vcpu_expected.flags = RFLAGS_PF;
+    run("repe cmpsb", vcpu_original, vcpu_expected);
+}
+
 TEST_F(EmulatorTest, insn_movs) {
     test_cpu_t vcpu_original;
     test_cpu_t vcpu_expected;
