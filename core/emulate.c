@@ -300,7 +300,7 @@ static bool is_translation_required(struct em_context_t *ctxt)
     if (opcode->flags & INSN_TWOMEM) {
         return true;
     }
-    if (opcode->flags & INSN_STRING && ctxt->rep) {
+    if (ctxt->rep) {
         return true;
     }
     return false;
@@ -1090,6 +1090,20 @@ em_status_t EMCALL em_decode_insn(struct em_context_t *ctxt, const uint8_t *insn
     if ((opcode->flags & INSN_NOTIMPL) || !opcode->handler) {
         return EM_ERROR;
     }
+
+    if (ctxt->rep) {
+        if (!(opcode->flags & INSN_STRING)) {
+            /* Instruction does not support any REP* prefix */
+            // TODO: Should throw #UD
+            return EM_ERROR;
+        }
+        if (ctxt->rep == PREFIX_REPNE && !(opcode->flags & INSN_REPX)) {
+            /* Instruction supports REP (== REPE) but not REPNE */
+            // TODO: Should throw #UD
+            return EM_ERROR;
+        }
+    }
+
     return decode_operands(ctxt);
 }
 
@@ -1101,7 +1115,7 @@ em_status_t EMCALL em_emulate_insn(struct em_context_t *ctxt)
 
 restart:
     // TODO: Permissions, exceptions, etc.
-    if ((opcode->flags & INSN_STRING) && ctxt->rep) {
+    if (ctxt->rep) {
         if (READ_GPR(REG_RCX, ctxt->address_size) == 0) {
             goto done;
         }
@@ -1167,17 +1181,28 @@ restart:
         register_add(ctxt, REG_RSI, ctxt->operand_size *
             ((ctxt->rflags & RFLAGS_DF) ? -1LL : +1LL));
     }
-    if ((opcode->flags & INSN_STRING) && ctxt->rep) {
+    if (ctxt->rep) {
         register_add(ctxt, REG_RCX, -1LL);
-        if (opcode->flags & INSN_REP) {
-            decode_operands(ctxt);
-            goto restart;
+
+        if (opcode->flags & INSN_REPX) {
+            if ((ctxt->rep == PREFIX_REPNE && (ctxt->rflags & RFLAGS_ZF)) ||
+                (ctxt->rep == PREFIX_REPE && !(ctxt->rflags & RFLAGS_ZF))) {
+                goto done;
+            }
         }
-        if ((ctxt->rep == PREFIX_REPNE && (ctxt->rflags & RFLAGS_ZF)) ||
-            (ctxt->rep == PREFIX_REPE && !(ctxt->rflags & RFLAGS_ZF))) {
-            decode_operands(ctxt);
-            goto restart;
-        }
+
+        /* Continue to emulate the next iteration of this REP*-prefixed string
+         * instruction by jumping to the beginning of em_emulate_insn(). This
+         * avoids exiting to user space and decoding the entire instruction
+         * again. Nevertheless, we still need to rerun the operand decoders:
+         *
+         * a) To recompute the effective address for *SI and *DI operands.
+         * b) To reset the flags for each operand (OP_READ_FINISHED, etc.).
+         */
+        rc = decode_operands(ctxt);
+        if (rc != EM_CONTINUE)
+            goto exit;
+        goto restart;
     }
 
 done:
