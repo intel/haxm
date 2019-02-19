@@ -35,6 +35,7 @@
 #include <sys/mutex.h>
 #include <sys/systm.h>
 #include <sys/xcall.h>
+#include <sys/cpu.h>
 #include <machine/cpu.h>
 #include <machine/cpufunc.h>
 
@@ -61,7 +62,7 @@ int hax_log_level(int level, const char *fmt,  ...)
 
 uint32_t hax_cpuid(void)
 {
-    return curcpu()->ci_cpuid;
+    return cpu_index(curcpu());
 }
 
 typedef struct smp_call_parameter {
