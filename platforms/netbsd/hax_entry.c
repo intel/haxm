@@ -33,6 +33,7 @@
 #include <sys/conf.h>
 #include <sys/device.h>
 #include <sys/module.h>
+#include <sys/cpu.h>
 
 #include "../../core/include/config.h"
 #include "../../core/include/hax_core_interface.h"
@@ -230,7 +231,7 @@ haxm_modcmd(modcmd_t cmd, void *arg __unused)
         for (CPU_INFO_FOREACH(cii, ci)) {
             ++max_cpus;
             if (!ISSET(ci->ci_schedstate.spc_flags, SPCF_OFFLINE)) {
-                cpu_online_map |= __BIT(ci->ci_cpuid);
+                cpu_online_map |= __BIT(cpu_index(ci));
             }
         }
 
