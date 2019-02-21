@@ -55,23 +55,20 @@ struct test_cpu_t {
     uint8_t mem[0x100];
 };
 
-uint64_t test_read_gpr(void* obj, uint32_t reg_index, uint32_t size) {
+uint64_t test_read_gpr(void* obj, uint32_t reg_index) {
     test_cpu_t* vcpu = reinterpret_cast<test_cpu_t*>(obj);
     if (reg_index >= 16) {
         throw std::exception("Register index OOB");
     }
-    uint64_t value = 0;
-    memcpy(&value, &vcpu->gpr[reg_index], size);
-    return value;
+    return vcpu->gpr[reg_index];
 }
 
-void test_write_gpr(void* obj, uint32_t reg_index,
-                    uint64_t value, uint32_t size) {
+void test_write_gpr(void* obj, uint32_t reg_index, uint64_t value) {
     test_cpu_t* vcpu = reinterpret_cast<test_cpu_t*>(obj);
     if (reg_index >= 16) {
         throw std::exception("Register index OOB");
     }
-    memcpy(&vcpu->gpr[reg_index], &value, size);
+    vcpu->gpr[reg_index] = value;
 }
 
 uint64_t test_read_rflags(void* obj) {

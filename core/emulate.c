@@ -81,14 +81,14 @@
 
 /* Emulator ops */
 #define READ_GPR(idx, size) \
-    ctxt->ops->read_gpr(ctxt->vcpu, idx, size)
+    gpr_read(ctxt, idx, size)
 #define WRITE_GPR(idx, value, size) \
-    ctxt->ops->write_gpr(ctxt->vcpu, idx, value, size)
+    gpr_write(ctxt, idx, size, value)
 
-#define BX (uint16_t)(ctxt->ops->read_gpr(ctxt->vcpu, REG_RBX, 2))
-#define BP (uint16_t)(ctxt->ops->read_gpr(ctxt->vcpu, REG_RBP, 2))
-#define SI (uint16_t)(ctxt->ops->read_gpr(ctxt->vcpu, REG_RSI, 2))
-#define DI (uint16_t)(ctxt->ops->read_gpr(ctxt->vcpu, REG_RDI, 2))
+#define BX (uint16_t)(gpr_read(ctxt, REG_RBX, 2))
+#define BP (uint16_t)(gpr_read(ctxt, REG_RBP, 2))
+#define SI (uint16_t)(gpr_read(ctxt, REG_RSI, 2))
+#define DI (uint16_t)(gpr_read(ctxt, REG_RDI, 2))
 
 /* Operand decoders */
 #define DECL_DECODER(name) \
@@ -291,6 +291,41 @@ static const struct em_opcode_t opcode_table_0F3A[256] = {
     X16(N), X16(N), X16(N), X16(N),
     X16(N), X16(N), X16(N), X16(N),
 };
+
+static uint64_t gpr_read(struct em_context_t *ctxt,
+                         unsigned index, size_t size)
+{
+    uint64_t value = 0;
+
+    if (!(ctxt->gpr_cache_r & (1 << index))) {
+        ctxt->gpr_cache[index] = ctxt->ops->read_gpr(ctxt->vcpu, index);
+        ctxt->gpr_cache_r |= (1 << index);
+    }
+    memcpy(&value, &ctxt->gpr_cache[index], size);
+    return value;
+}
+
+static void gpr_write(struct em_context_t *ctxt,
+                      unsigned index, size_t size, uint64_t value)
+{
+    if (!(ctxt->gpr_cache_r & (1 << index))) {
+        ctxt->gpr_cache[index] = ctxt->ops->read_gpr(ctxt->vcpu, index);
+    }
+    ctxt->gpr_cache_r |= (1 << index);
+    ctxt->gpr_cache_w |= (1 << index);
+    memcpy(&ctxt->gpr_cache[index], &value, size);
+}
+
+static void gpr_cache_flush(struct em_context_t *ctxt)
+{
+    unsigned i;
+
+    for (i = 0; i < 16; i++) {
+        if (ctxt->gpr_cache_w & (1 << i))
+            ctxt->ops->write_gpr(ctxt->vcpu, i, ctxt->gpr_cache[i]);
+    }
+    ctxt->gpr_cache_w = 0;
+}
 
 /* Emulate accesses to guest memory */
 static bool is_translation_required(struct em_context_t *ctxt)
@@ -956,6 +991,8 @@ em_status_t EMCALL em_decode_insn(struct em_context_t *ctxt, const uint8_t *insn
     default:
         return EM_ERROR;
     }
+    ctxt->gpr_cache_r = 0;
+    ctxt->gpr_cache_w = 0;
     ctxt->override_segment = SEG_NONE;
     ctxt->override_operand_size = 0;
     ctxt->override_address_size = 0;
@@ -1202,6 +1239,7 @@ restart:
         rc = decode_operands(ctxt);
         if (rc != EM_CONTINUE)
             goto exit;
+        gpr_cache_flush(ctxt);
         goto restart;
     }
 
@@ -1209,6 +1247,7 @@ done:
     rc = EM_CONTINUE;
     ctxt->finished = true;
     ctxt->ops->advance_rip(ctxt->vcpu, ctxt->len);
+    gpr_cache_flush(ctxt);
 
 exit:
     return rc;

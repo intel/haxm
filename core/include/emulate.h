@@ -100,10 +100,8 @@ struct em_operand_t;
 #define EM_OPS_NO_TRANSLATION  (1 << 0)
 
 typedef struct em_vcpu_ops_t {
-    uint64_t (*read_gpr)(void *vcpu, uint32_t reg_index,
-                         uint32_t size);
-    void (*write_gpr)(void *vcpu, uint32_t reg_index,
-                      uint64_t value, uint32_t size);
+    uint64_t (*read_gpr)(void *vcpu, uint32_t reg_index);
+    void (*write_gpr)(void *vcpu, uint32_t reg_index, uint64_t value);
     uint64_t (*read_rflags)(void *vcpu);
     void (*write_rflags)(void *vcpu, uint64_t value);
     uint64_t (*get_segment_base)(void *vcpu, uint32_t segment);
@@ -170,6 +168,11 @@ typedef struct em_context_t {
     struct em_operand_t src1;
     struct em_operand_t src2;
     uint64_t rflags;
+
+    /* Cache */
+    uint64_t gpr_cache[16];
+    uint16_t gpr_cache_r;
+    uint16_t gpr_cache_w;
 
     /* Decoder */
     struct {
