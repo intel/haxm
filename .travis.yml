@@ -4,14 +4,13 @@ matrix:
   include:
     - name: "haxm-darwin"
       os: osx
-      osx_image: xcode10
       addons:
         homebrew:
           packages:
             - nasm
       script:
         - cd platforms/darwin
-        - xcodebuild -configuration Debug -sdk macosx10.14
+        - xcodebuild -configuration Debug -sdk macosx
 
     - name: "haxm-linux"
       os: linux
