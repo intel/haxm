@@ -31,24 +31,26 @@
 #include "include/emulate.h"
 
 /* Instruction flags */
-/* Instruction ignores destination original value */
-#define INSN_MOV     ((uint64_t)1 <<  0)
+/* Instruction does not read from destination */
+#define INSN_DST_NR  ((uint64_t)1 <<  0)
+/* Instruction does not write to destination */
+#define INSN_DST_NW  ((uint64_t)1 <<  1)
 /* Instruction expects ModRM byte */
-#define INSN_MODRM   ((uint64_t)1 <<  1)
+#define INSN_MODRM   ((uint64_t)1 <<  2)
 /* Instruction accesses 1-byte registers */
-#define INSN_BYTEOP  ((uint64_t)1 <<  2)
+#define INSN_BYTEOP  ((uint64_t)1 <<  3)
 /* Instruction opcode is extended via ModRM byte */
-#define INSN_GROUP   ((uint64_t)1 <<  3)
+#define INSN_GROUP   ((uint64_t)1 <<  4)
 /* Instruction supports REP prefixes */
-#define INSN_REP     ((uint64_t)1 <<  4)
+#define INSN_REP     ((uint64_t)1 <<  5)
 /* Instruction supports REPE/REPNE prefixes */
-#define INSN_REPX    ((uint64_t)1 <<  5)
+#define INSN_REPX    ((uint64_t)1 <<  6)
 /* Instruction ignores flags */
-#define INSN_NOFLAGS ((uint64_t)1 <<  6)
+#define INSN_NOFLAGS ((uint64_t)1 <<  7)
 /* Instruction has two memory operands */
-#define INSN_TWOMEM  ((uint64_t)1 <<  7)
+#define INSN_TWOMEM  ((uint64_t)1 <<  8)
 /* Instruction takes bit test operands */
-#define INSN_BITOP   ((uint64_t)1 <<  8)
+#define INSN_BITOP   ((uint64_t)1 <<  9)
 /* String instruction */
 #define INSN_STRING  (INSN_REP|INSN_REPX)
 
@@ -161,8 +163,8 @@ static const struct em_opcode_t opcode_group1[8] = {
 };
 
 static const struct em_opcode_t opcode_group3[8] = {
-    F(em_test, op_modrm_rm, op_simm, op_none, 0),
-    F(em_test, op_modrm_rm, op_simm, op_none, 0),
+    F(em_test, op_modrm_rm, op_simm, op_none, INSN_DST_NW),
+    F(em_test, op_modrm_rm, op_simm, op_none, INSN_DST_NW),
     F(em_not, op_modrm_rm, op_none, op_none, 0),
     F(em_neg, op_modrm_rm, op_none, op_none, 0),
 };
@@ -176,7 +178,7 @@ static const struct em_opcode_t opcode_group8[8] = {
 };
 
 static const struct em_opcode_t opcode_group11[8] = {
-    I(em_mov, op_none, op_none, op_none, INSN_MOV),
+    I(em_mov, op_none, op_none, op_none, INSN_DST_NR),
 };
 
 static const struct em_opcode_t opcode_table[256] = {
@@ -195,7 +197,7 @@ static const struct em_opcode_t opcode_table[256] = {
     /* 0x30 - 0x37 */
     F6_ALU(em_xor, 0), X2(N),
     /* 0x38 - 0x3F */
-    F6_ALU(em_cmp, 0), X2(N),
+    F6_ALU(em_cmp, INSN_DST_NW), X2(N),
     /* 0x40 - 0x47 */
     X8(F(em_inc, op_modrm_reg, op_none, op_none, 0)),
     /* 0x48 - 0x4F */
@@ -207,21 +209,21 @@ static const struct em_opcode_t opcode_table[256] = {
     G(opcode_group1, op_modrm_rm, op_simm, op_none, 0),
     G(opcode_group1, op_modrm_rm, op_simm, op_none, INSN_BYTEOP),
     G(opcode_group1, op_modrm_rm, op_simm8, op_none, 0),
-    F2_BV(em_test, op_modrm_rm, op_modrm_reg, op_none, INSN_MODRM),
+    F2_BV(em_test, op_modrm_rm, op_modrm_reg, op_none, INSN_MODRM | INSN_DST_NW),
     X2(N),  /* TODO: 0x86 & 0x87 (XCHG) */
-    I2_BV(em_mov, op_modrm_rm, op_modrm_reg, op_none, INSN_MODRM | INSN_MOV),
-    I2_BV(em_mov, op_modrm_reg, op_modrm_rm, op_none, INSN_MODRM | INSN_MOV),
+    I2_BV(em_mov, op_modrm_rm, op_modrm_reg, op_none, INSN_MODRM | INSN_DST_NR),
+    I2_BV(em_mov, op_modrm_reg, op_modrm_rm, op_none, INSN_MODRM | INSN_DST_NR),
     X4(N),
     /* 0x90 - 0x9F */
     X16(N),
     /* 0xA0 - 0xAF */
-    I2_BV(em_mov, op_acc, op_moffs, op_none, INSN_MOV),
-    I2_BV(em_mov, op_moffs, op_acc, op_none, INSN_MOV),
-    I2_BV(em_mov, op_di, op_si, op_none, INSN_MOV | INSN_REP | INSN_TWOMEM), /* movs{b,w,d,q} */
+    I2_BV(em_mov, op_acc, op_moffs, op_none, INSN_DST_NR),
+    I2_BV(em_mov, op_moffs, op_acc, op_none, INSN_DST_NR),
+    I2_BV(em_mov, op_di, op_si, op_none, INSN_DST_NR | INSN_REP | INSN_TWOMEM), /* movs{b,w,d,q} */
+    F2_BV(em_cmp, op_di, op_si, op_none, INSN_DST_NW | INSN_REPX | INSN_TWOMEM), /* cmps{b,w,d,q} */
     X2(N),
-    X2(N),
-    I2_BV(em_mov, op_di, op_acc, op_none, INSN_MOV | INSN_REP), /* stos{b,w,d,q} */
-    I2_BV(em_mov, op_acc, op_si, op_none, INSN_MOV | INSN_REP), /* lods{b,w,d,q} */
+    I2_BV(em_mov, op_di, op_acc, op_none, INSN_DST_NR | INSN_REP), /* stos{b,w,d,q} */
+    I2_BV(em_mov, op_acc, op_si, op_none, INSN_DST_NR | INSN_REP), /* lods{b,w,d,q} */
     X2(N),
     /* 0xB0 - 0xBF */
     X16(N),
@@ -256,14 +258,14 @@ static const struct em_opcode_t opcode_table_0F[256] = {
     X3(N),
     F(em_btr, op_modrm_rm, op_modrm_reg, op_none, INSN_MODRM | INSN_BITOP),
     X2(N),
-    I(em_movzx, op_modrm_reg, op_modrm_rm8, op_none, INSN_MODRM | INSN_MOV),
-    I(em_movzx, op_modrm_reg, op_modrm_rm16, op_none, INSN_MODRM | INSN_MOV),
+    I(em_movzx, op_modrm_reg, op_modrm_rm8, op_none, INSN_MODRM | INSN_DST_NR),
+    I(em_movzx, op_modrm_reg, op_modrm_rm16, op_none, INSN_MODRM | INSN_DST_NR),
     X2(N),
     G(opcode_group8, op_modrm_rm, op_simm8, op_none, INSN_BITOP),
     F(em_btc, op_modrm_rm, op_modrm_reg, op_none, INSN_MODRM | INSN_BITOP),
     X2(N),
-    I(em_movsx, op_modrm_reg, op_modrm_rm8, op_none, INSN_MODRM | INSN_MOV),
-    I(em_movsx, op_modrm_reg, op_modrm_rm16, op_none, INSN_MODRM | INSN_MOV),
+    I(em_movsx, op_modrm_reg, op_modrm_rm8, op_none, INSN_MODRM | INSN_DST_NR),
+    I(em_movsx, op_modrm_reg, op_modrm_rm16, op_none, INSN_MODRM | INSN_DST_NR),
     /* 0xC0 - 0xFF */
     X16(N), X16(N), X16(N), X16(N),
 };
@@ -298,7 +300,7 @@ static bool is_translation_required(struct em_context_t *ctxt)
     if (opcode->flags & INSN_TWOMEM) {
         return true;
     }
-    if (opcode->flags & INSN_STRING && ctxt->rep) {
+    if (ctxt->rep) {
         return true;
     }
     return false;
@@ -1088,6 +1090,20 @@ em_status_t EMCALL em_decode_insn(struct em_context_t *ctxt, const uint8_t *insn
     if ((opcode->flags & INSN_NOTIMPL) || !opcode->handler) {
         return EM_ERROR;
     }
+
+    if (ctxt->rep) {
+        if (!(opcode->flags & INSN_STRING)) {
+            /* Instruction does not support any REP* prefix */
+            // TODO: Should throw #UD
+            return EM_ERROR;
+        }
+        if (ctxt->rep == PREFIX_REPNE && !(opcode->flags & INSN_REPX)) {
+            /* Instruction supports REP (== REPE) but not REPNE */
+            // TODO: Should throw #UD
+            return EM_ERROR;
+        }
+    }
+
     return decode_operands(ctxt);
 }
 
@@ -1099,7 +1115,7 @@ em_status_t EMCALL em_emulate_insn(struct em_context_t *ctxt)
 
 restart:
     // TODO: Permissions, exceptions, etc.
-    if ((opcode->flags & INSN_STRING) && ctxt->rep) {
+    if (ctxt->rep) {
         if (READ_GPR(REG_RCX, ctxt->address_size) == 0) {
             goto done;
         }
@@ -1115,7 +1131,7 @@ restart:
         if (rc != EM_CONTINUE)
             goto exit;
     } else {
-        if (!(opcode->flags & INSN_MOV)) {
+        if (!(opcode->flags & INSN_DST_NR)) {
             rc = operand_read(ctxt, &ctxt->dst);
             if (rc != EM_CONTINUE)
                 goto exit;
@@ -1151,9 +1167,11 @@ restart:
     if (!(opcode->flags & INSN_NOFLAGS)) {
         ctxt->ops->write_rflags(ctxt->vcpu, ctxt->rflags);
     }
-    rc = operand_write(ctxt, &ctxt->dst);
-    if (rc != EM_CONTINUE)
-        goto exit;
+    if (!(opcode->flags & INSN_DST_NW)) {
+        rc = operand_write(ctxt, &ctxt->dst);
+        if (rc != EM_CONTINUE)
+            goto exit;
+    }
 
     if (opcode->decode_dst == decode_op_di) {
         register_add(ctxt, REG_RDI, ctxt->operand_size *
@@ -1163,17 +1181,28 @@ restart:
         register_add(ctxt, REG_RSI, ctxt->operand_size *
             ((ctxt->rflags & RFLAGS_DF) ? -1LL : +1LL));
     }
-    if ((opcode->flags & INSN_STRING) && ctxt->rep) {
+    if (ctxt->rep) {
         register_add(ctxt, REG_RCX, -1LL);
-        if (opcode->flags & INSN_REP) {
-            decode_operands(ctxt);
-            goto restart;
+
+        if (opcode->flags & INSN_REPX) {
+            if ((ctxt->rep == PREFIX_REPNE && (ctxt->rflags & RFLAGS_ZF)) ||
+                (ctxt->rep == PREFIX_REPE && !(ctxt->rflags & RFLAGS_ZF))) {
+                goto done;
+            }
         }
-        if ((ctxt->rep == PREFIX_REPNE && (ctxt->rflags & RFLAGS_ZF)) ||
-            (ctxt->rep == PREFIX_REPE && !(ctxt->rflags & RFLAGS_ZF))) {
-            decode_operands(ctxt);
-            goto restart;
-        }
+
+        /* Continue to emulate the next iteration of this REP*-prefixed string
+         * instruction by jumping to the beginning of em_emulate_insn(). This
+         * avoids exiting to user space and decoding the entire instruction
+         * again. Nevertheless, we still need to rerun the operand decoders:
+         *
+         * a) To recompute the effective address for *SI and *DI operands.
+         * b) To reset the flags for each operand (OP_READ_FINISHED, etc.).
+         */
+        rc = decode_operands(ctxt);
+        if (rc != EM_CONTINUE)
+            goto exit;
+        goto restart;
     }
 
 done:
