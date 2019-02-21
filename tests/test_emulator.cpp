@@ -144,7 +144,9 @@ em_status_t test_write_memory(void* obj, uint64_t ea, uint64_t* value,
 /* Test class */
 class EmulatorTest : public testing::Test {
 private:
-    ks_engine* ks;
+    ks_engine* ks_x86_16;
+    ks_engine* ks_x86_32;
+    ks_engine* ks_x86_64;
     test_cpu_t vcpu;
     em_context_t em_ctxt;
     em_vcpu_ops_t em_ops;
@@ -152,11 +154,12 @@ private:
 protected:
     virtual void SetUp() {
         // Initialize assembler
-        ks_err err;
-        err = ks_open(KS_ARCH_X86, KS_MODE_64, &ks);
-        ASSERT_EQ(err, KS_ERR_OK);
-        err = ks_option(ks, KS_OPT_SYNTAX, KS_OPT_SYNTAX_INTEL);
-        ASSERT_EQ(err, KS_ERR_OK);
+        ASSERT_EQ(KS_ERR_OK, ks_open(KS_ARCH_X86, KS_MODE_16, &ks_x86_16));
+        ASSERT_EQ(KS_ERR_OK, ks_open(KS_ARCH_X86, KS_MODE_32, &ks_x86_32));
+        ASSERT_EQ(KS_ERR_OK, ks_open(KS_ARCH_X86, KS_MODE_64, &ks_x86_64));
+        ASSERT_EQ(KS_ERR_OK, ks_option(ks_x86_16, KS_OPT_SYNTAX, KS_OPT_SYNTAX_INTEL));
+        ASSERT_EQ(KS_ERR_OK, ks_option(ks_x86_32, KS_OPT_SYNTAX, KS_OPT_SYNTAX_INTEL));
+        ASSERT_EQ(KS_ERR_OK, ks_option(ks_x86_64, KS_OPT_SYNTAX, KS_OPT_SYNTAX_INTEL));
 
         // Initialize emulator
         em_ops.read_gpr = test_read_gpr;
@@ -168,12 +171,12 @@ protected:
         em_ops.read_memory = test_read_memory;
         em_ops.write_memory = test_write_memory;
         em_ctxt.ops = &em_ops;
-        em_ctxt.mode = EM_MODE_PROT64;
         em_ctxt.vcpu = &vcpu;
         em_ctxt.rip = 0;
     }
 
-    void assemble_decode(const char* insn,
+    void assemble_decode(em_mode_t mode,
+                         const char* insn,
                          uint64_t rip,
                          size_t* size,
                          size_t* count,
@@ -181,20 +184,34 @@ protected:
         uint8_t* code;
         int err;
 
-        err = ks_asm(ks, insn, 0, &code, size, count);
+        switch (mode) {
+        case EM_MODE_PROT16:
+            err = ks_asm(ks_x86_16, insn, 0, &code, size, count);
+            break;
+        case EM_MODE_PROT32:
+            err = ks_asm(ks_x86_32, insn, 0, &code, size, count);
+            break;
+        case EM_MODE_PROT64:
+            err = ks_asm(ks_x86_64, insn, 0, &code, size, count);
+            break;
+        default:
+            GTEST_FAIL();
+        }
         ASSERT_TRUE(err == 0);
         EXPECT_TRUE(*size != 0);
         EXPECT_TRUE(*count != 0);
 
         em_ctxt.rip = rip;
+        em_ctxt.mode = mode;
         *decode_status = em_decode_insn(&em_ctxt, code);
         // code == em_ctxt->insn should never be used after em_decode_insn()
         ks_free(code);
     }
 
-    void run(const char* insn,
-             const test_cpu_t& vcpu_original,
-             const test_cpu_t& vcpu_expected) {
+    void run_mode(em_mode_t mode,
+                  const char* insn,
+                  const test_cpu_t& vcpu_original,
+                  const test_cpu_t& vcpu_expected) {
         size_t count;
         size_t size;
         em_status_t ret = EM_ERROR;
@@ -209,6 +226,31 @@ protected:
         EXPECT_TRUE(vcpu.rip == vcpu_original.rip + size);
         vcpu.rip = vcpu_expected.rip;
         verify(insn, vcpu, vcpu_expected);
+    }
+
+    void run_prot16(const char* insn,
+                    const test_cpu_t& vcpu_original,
+                    const test_cpu_t& vcpu_expected) {
+        run_mode(EM_MODE_PROT16, insn, vcpu_original, vcpu_expected);
+    }
+
+    void run_prot32(const char* insn,
+                    const test_cpu_t& vcpu_original,
+                    const test_cpu_t& vcpu_expected) {
+        run_mode(EM_MODE_PROT32, insn, vcpu_original, vcpu_expected);
+    }
+
+    void run_prot64(const char* insn,
+                    const test_cpu_t& vcpu_original,
+                    const test_cpu_t& vcpu_expected) {
+        run_mode(EM_MODE_PROT64, insn, vcpu_original, vcpu_expected);
+    }
+
+    void run(const char* insn,
+             const test_cpu_t& vcpu_original,
+             const test_cpu_t& vcpu_expected) {
+        // Default to x86-64 protected mode
+        run_prot64(insn, vcpu_original, vcpu_expected);
     }
 
     void verify(const char* insn,
@@ -324,7 +366,7 @@ protected:
         size_t count;
         em_status_t ret = EM_CONTINUE;
 
-        assemble_decode(insn, 0, &size, &count, &ret);
+        assemble_decode(EM_MODE_PROT64, insn, 0, &size, &count, &ret);
         // Decoding should fail
         EXPECT_LT(ret, 0);
     }
