@@ -200,13 +200,58 @@ protected:
         em_status_t ret = EM_ERROR;
 
         vcpu = vcpu_original;
-        assemble_decode(insn, vcpu.rip, &size, &count, &ret);
-        ASSERT_TRUE(ret != EM_ERROR);
+        assemble_decode(mode, insn, vcpu.rip, &size, &count, &ret);
+        ASSERT_TRUE(ret != EM_ERROR)
+            << "em_decode_insn failed on: " << insn << "\n";
         ret = em_emulate_insn(&em_ctxt);
-        ASSERT_TRUE(ret != EM_ERROR);
+        ASSERT_TRUE(ret != EM_ERROR)
+            << "em_emulate_insn failed on: " << insn << "\n";
         EXPECT_TRUE(vcpu.rip == vcpu_original.rip + size);
         vcpu.rip = vcpu_expected.rip;
-        EXPECT_EQ(memcmp(&vcpu, &vcpu_expected, sizeof(test_cpu_t)), 0);
+        verify(insn, vcpu, vcpu_expected);
+    }
+
+    void verify(const char* insn,
+                const test_cpu_t& vcpu_obtained,
+                const test_cpu_t& vcpu_expected) {
+        // Helpers
+#define PRINT_U64(value) \
+        std::hex << std::uppercase << std::setfill('0') << std::setw(16) << value
+#define VERIFY_GPR(reg) \
+        if (vcpu_obtained.gpr[reg] != vcpu_expected.gpr[reg]) \
+            std::cerr << "Register mismatch on: " << insn << "\n" \
+                << "vcpu_obtained.gpr[" #reg "]: 0x" << PRINT_U64(vcpu_obtained.gpr[reg]) << "\n" \
+                << "vcpu_expected.gpr[" #reg "]: 0x" << PRINT_U64(vcpu_expected.gpr[reg]) << "\n";
+
+        // Verify GPRs
+        VERIFY_GPR(REG_RAX);
+        VERIFY_GPR(REG_RCX);
+        VERIFY_GPR(REG_RDX);
+        VERIFY_GPR(REG_RBX);
+        VERIFY_GPR(REG_RSP);
+        VERIFY_GPR(REG_RBP);
+        VERIFY_GPR(REG_RSI);
+        VERIFY_GPR(REG_RDI);
+        VERIFY_GPR(REG_R8);
+        VERIFY_GPR(REG_R9);
+        VERIFY_GPR(REG_R10);
+        VERIFY_GPR(REG_R11);
+        VERIFY_GPR(REG_R12);
+        VERIFY_GPR(REG_R13);
+        VERIFY_GPR(REG_R14);
+        VERIFY_GPR(REG_R15);
+
+        // Verify RFLAGS
+        if (vcpu_obtained.flags != vcpu_expected.flags) \
+            std::cerr << "Flags mismatch on: " << insn << "\n" \
+                << "vcpu_obtained.flags: 0x" << PRINT_U64(vcpu_obtained.flags) << "\n" \
+                << "vcpu_expected.flags: 0x" << PRINT_U64(vcpu_expected.flags) << "\n";
+
+#undef DEBUG_U64
+#undef VERIFY_GPR
+
+        // Ensure identical state
+        ASSERT_EQ(memcmp(&vcpu, &vcpu_expected, sizeof(test_cpu_t)), 0);
     }
 
     /* Test cases */
