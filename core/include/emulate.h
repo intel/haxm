@@ -175,6 +175,7 @@ typedef struct em_context_t {
     uint16_t gpr_cache_w;
 
     /* Decoder */
+    uint8_t b;
     struct {
         uint8_t prefix;
         union {

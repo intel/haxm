@@ -51,6 +51,8 @@
 #define INSN_TWOMEM  ((uint64_t)1 <<  8)
 /* Instruction takes bit test operands */
 #define INSN_BITOP   ((uint64_t)1 <<  9)
+/* Instruction accesses the stack */
+#define INSN_STACK   ((uint64_t)1 << 10)
 /* String instruction */
 #define INSN_STRING  (INSN_REP|INSN_REPX)
 
@@ -102,6 +104,7 @@ DECL_DECODER(op_vex_reg);
 DECL_DECODER(op_moffs);
 DECL_DECODER(op_simm);
 DECL_DECODER(op_simm8);
+DECL_DECODER(op_reg);
 DECL_DECODER(op_acc);
 DECL_DECODER(op_di);
 DECL_DECODER(op_si);
@@ -144,12 +147,14 @@ DECL_DECODER(op_si);
     F2_BV(_handler, op_acc, op_simm, op_none, (_flags))
 
 /* Soft-emulation */
-static void em_andn_soft(struct em_context_t *ctxt);
-static void em_bextr_soft(struct em_context_t *ctxt);
-static void em_mov(struct em_context_t *ctxt);
-static void em_movzx(struct em_context_t *ctxt);
-static void em_movsx(struct em_context_t *ctxt);
-static void em_xchg(struct em_context_t *ctxt);
+static em_status_t em_andn_soft(struct em_context_t *ctxt);
+static em_status_t em_bextr_soft(struct em_context_t *ctxt);
+static em_status_t em_mov(struct em_context_t *ctxt);
+static em_status_t em_movzx(struct em_context_t *ctxt);
+static em_status_t em_movsx(struct em_context_t *ctxt);
+static em_status_t em_push(struct em_context_t *ctxt);
+static em_status_t em_pop(struct em_context_t *ctxt);
+static em_status_t em_xchg(struct em_context_t *ctxt);
 
 static const struct em_opcode_t opcode_group1[8] = {
     F(em_add, op_none, op_none, op_none, 0),
@@ -169,6 +174,13 @@ static const struct em_opcode_t opcode_group3[8] = {
     F(em_neg, op_modrm_rm, op_none, op_none, 0),
 };
 
+static const struct em_opcode_t opcode_group5[8] = {
+    X4(N),
+    X2(N),
+    I(em_push, op_none, op_modrm_rm, op_none, INSN_TWOMEM | INSN_STACK),
+    X1(N),
+};
+
 static const struct em_opcode_t opcode_group8[8] = {
     X4(N),
     F(em_bt, op_none, op_none, op_none, 0),
@@ -179,6 +191,10 @@ static const struct em_opcode_t opcode_group8[8] = {
 
 static const struct em_opcode_t opcode_group11[8] = {
     I(em_mov, op_none, op_none, op_none, INSN_DST_NR),
+};
+
+static const struct em_opcode_t opcode_group1A[8] = {
+    I(em_pop, op_modrm_rm, op_none, op_none, INSN_DST_NR | INSN_TWOMEM | INSN_STACK),
 };
 
 static const struct em_opcode_t opcode_table[256] = {
@@ -202,8 +218,11 @@ static const struct em_opcode_t opcode_table[256] = {
     X8(F(em_inc, op_modrm_reg, op_none, op_none, 0)),
     /* 0x48 - 0x4F */
     X8(F(em_dec, op_modrm_reg, op_none, op_none, 0)),
-    /* 0x50 - 0x7F */
-    X16(N), X16(N), X16(N),
+    /* 0x50 - 0x5F */
+    X8(I(em_push, op_none, op_reg, op_none, INSN_STACK)),
+    X8(I(em_pop,  op_reg, op_none, op_none, INSN_STACK)),
+    /* 0x60 - 0x7F */
+    X16(N), X16(N),
     /* 0x80 - 0x8F */
     G(opcode_group1, op_modrm_rm, op_simm, op_none, INSN_BYTEOP),
     G(opcode_group1, op_modrm_rm, op_simm, op_none, 0),
@@ -213,7 +232,8 @@ static const struct em_opcode_t opcode_table[256] = {
     X2(N),  /* TODO: 0x86 & 0x87 (XCHG) */
     I2_BV(em_mov, op_modrm_rm, op_modrm_reg, op_none, INSN_MODRM | INSN_DST_NR),
     I2_BV(em_mov, op_modrm_reg, op_modrm_rm, op_none, INSN_MODRM | INSN_DST_NR),
-    X4(N),
+    N, N, N,
+    G(opcode_group1A, op_none, op_none, op_none, 0),
     /* 0x90 - 0x9F */
     X16(N),
     /* 0xA0 - 0xAF */
@@ -240,7 +260,10 @@ static const struct em_opcode_t opcode_table[256] = {
     X2(N),
     G(opcode_group3, op_none, op_none, op_none, INSN_BYTEOP),
     G(opcode_group3, op_none, op_none, op_none, 0),
-    X8(N),
+    X4(N),
+    X2(N),
+    X1(N),
+    G(opcode_group5, op_none, op_none, op_none, 0),
 };
 
 static const struct em_opcode_t opcode_table_0F[256] = {
@@ -869,6 +892,15 @@ static em_status_t decode_op_simm8(em_context_t *ctxt,
     return EM_CONTINUE;
 }
 
+static em_status_t decode_op_reg(em_context_t *ctxt,
+    em_operand_t *op)
+{
+    op->type = OP_REG;
+    op->size = ctxt->operand_size;
+    op->reg.index = ctxt->b & 0x7;
+    return EM_CONTINUE;
+}
+
 static em_status_t decode_op_acc(em_context_t *ctxt,
                                  em_operand_t *op)
 {
@@ -902,7 +934,7 @@ static em_status_t decode_op_si(em_context_t *ctxt,
 }
 
 /* Soft-emulation */
-static void em_andn_soft(struct em_context_t *ctxt)
+static em_status_t em_andn_soft(struct em_context_t *ctxt)
 {
     uint64_t temp;
     int signbit = 63;
@@ -915,9 +947,10 @@ static void em_andn_soft(struct em_context_t *ctxt)
     ctxt->rflags &= ~RFLAGS_MASK_OSZAPC;
     ctxt->rflags |= (temp == 0) ? RFLAGS_ZF : 0;
     ctxt->rflags |= (temp >> signbit) ? RFLAGS_SF : 0;
+    return EM_CONTINUE;
 }
 
-static void em_bextr_soft(struct em_context_t *ctxt)
+static em_status_t em_bextr_soft(struct em_context_t *ctxt)
 {
     uint8_t start, len;
     uint64_t temp;
@@ -933,20 +966,23 @@ static void em_bextr_soft(struct em_context_t *ctxt)
     ctxt->dst.value = temp;
     ctxt->rflags &= ~RFLAGS_MASK_OSZAPC;
     ctxt->rflags |= (temp == 0) ? RFLAGS_ZF : 0;
+    return EM_CONTINUE;
 }
 
-static void em_mov(struct em_context_t *ctxt)
+static em_status_t em_mov(struct em_context_t *ctxt)
 {
     memcpy(&ctxt->dst.value, &ctxt->src1.value, ctxt->operand_size);
+    return EM_CONTINUE;
 }
 
-static void em_movzx(struct em_context_t *ctxt)
+static em_status_t em_movzx(struct em_context_t *ctxt)
 {
     ctxt->dst.value = 0;
     memcpy(&ctxt->dst.value, &ctxt->src1.value, ctxt->src1.size);
+    return EM_CONTINUE;
 }
 
-static void em_movsx(struct em_context_t *ctxt)
+static em_status_t em_movsx(struct em_context_t *ctxt)
 {
     uint64_t extension = 0;
     if (ctxt->src1.value & (1ULL << ((8 * ctxt->src1.size) - 1))) {
@@ -955,17 +991,63 @@ static void em_movsx(struct em_context_t *ctxt)
     ctxt->dst.value = 0;
     memcpy(&ctxt->dst.value, &extension, ctxt->dst.size);
     memcpy(&ctxt->dst.value, &ctxt->src1.value, ctxt->src1.size);
+    return EM_CONTINUE;
 }
 
-static void em_xchg(struct em_context_t *ctxt)
+static em_status_t em_push(struct em_context_t *ctxt)
 {
+    em_status_t rc;
+    em_operand_t sp;
+
+    // Pre-decrement stack pointer
+    register_add(ctxt, REG_RSP, -(int64_t)ctxt->operand_size);
+
+    memset(&sp, 0, sizeof(sp));
+    sp.type = OP_MEM;
+    sp.size = ctxt->operand_size;
+    sp.mem.ea = READ_GPR(REG_RSP, ctxt->address_size);
+    sp.mem.seg = SEG_SS;
+    sp.value = ctxt->src1.value;
+
+    rc = operand_write(ctxt, &sp);
+    return rc;
+}
+
+static em_status_t em_pop(struct em_context_t *ctxt)
+{
+    em_status_t rc;
+    em_operand_t sp;
+
+    memset(&sp, 0, sizeof(sp));
+    sp.type = OP_MEM;
+    sp.size = ctxt->operand_size;
+    sp.mem.ea = READ_GPR(REG_RSP, ctxt->address_size);
+    sp.mem.seg = SEG_SS;
+    sp.value = ctxt->src1.value;
+
+    // Post-increment stack pointer
+    register_add(ctxt, REG_RSP, +(int64_t)ctxt->operand_size);
+
+    rc = operand_read(ctxt, &sp);
+    if (rc != EM_CONTINUE)
+        return rc;
+    ctxt->dst.value = sp.value;
+    return rc;
+}
+
+static em_status_t em_xchg(struct em_context_t *ctxt)
+{
+    em_status_t rc;
     uint64_t src1, src2;
+
     src1 = ctxt->src1.value;
     src2 = ctxt->src2.value;
     ctxt->src1.value = src2;
     ctxt->src2.value = src1;
-    operand_write(ctxt, &ctxt->src1);
-    operand_write(ctxt, &ctxt->src2);
+    rc = operand_write(ctxt, &ctxt->src1);
+    if (rc != EM_CONTINUE)
+        return rc;
+    return operand_write(ctxt, &ctxt->src2);
 }
 
 em_status_t EMCALL em_decode_insn(struct em_context_t *ctxt, const uint8_t *insn)
@@ -1091,6 +1173,7 @@ em_status_t EMCALL em_decode_insn(struct em_context_t *ctxt, const uint8_t *insn
         }
         break;
     }
+    ctxt->b = b;
 
     /* Intel SDM Vol. 2A: 2.1.3 ModR/M and SIB Bytes */
     flags = opcode->flags;
@@ -1101,6 +1184,10 @@ em_status_t EMCALL em_decode_insn(struct em_context_t *ctxt, const uint8_t *insn
     /* Apply flags */
     if (flags & INSN_BYTEOP) {
         ctxt->operand_size = 1;
+    }
+    if (flags & INSN_STACK) {
+        if (ctxt->operand_size == 4 && ctxt->mode == EM_MODE_PROT64)
+            ctxt->operand_size = 8;
     }
     if (flags & INSN_GROUP) {
         const struct em_opcode_t *group_opcode;
@@ -1195,9 +1282,11 @@ restart:
         ctxt->rflags &= ~RFLAGS_MASK_OSZAPC;
         ctxt->rflags |= eflags & RFLAGS_MASK_OSZAPC;
     } else {
-        void (*soft_handler)(em_context_t*);
+        em_status_t (*soft_handler)(em_context_t*);
         soft_handler = opcode->handler;
-        soft_handler(ctxt);
+        rc = soft_handler(ctxt);
+        if (rc != EM_CONTINUE)
+            goto exit;
     }
 
     // Output operands

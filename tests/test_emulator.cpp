@@ -953,6 +953,55 @@ TEST_F(EmulatorTest, insn_or) {
     });
 }
 
+TEST_F(EmulatorTest, insn_pop) {
+    test_cpu_t vcpu_original;
+    test_cpu_t vcpu_expected;
+
+    // Test: pop, prot32, 16-bit, to-mem
+    vcpu_original = {};
+    vcpu_original.gpr[REG_RAX] = 0x20;
+    vcpu_original.gpr[REG_RSP] = 0x40;
+    (uint16_t&)vcpu_original.mem[0x40] = 0x1234;
+    vcpu_expected = vcpu_original;
+    vcpu_expected.gpr[REG_RSP] += 2;
+    (uint16_t&)vcpu_expected.mem[0x20] = 0x1234;
+    run_prot32("pop word ptr [eax]", vcpu_original, vcpu_expected);
+
+    // Test: pop, prot16, 16-bit, to-reg
+    vcpu_original = {};
+    vcpu_original.gpr[REG_RSP] = 0x80;
+    (uint16_t&)vcpu_original.mem[0x80] = 0x1234;
+    vcpu_expected = vcpu_original;
+    vcpu_expected.gpr[REG_RAX] = 0x1234;
+    vcpu_expected.gpr[REG_RSP] += 2;
+    run_prot16("pop ax", vcpu_original, vcpu_expected);
+}
+
+TEST_F(EmulatorTest, insn_push) {
+    test_cpu_t vcpu_original;
+    test_cpu_t vcpu_expected;
+
+    // Test: push, prot64, 16-bit, from-mem
+    vcpu_original = {};
+    vcpu_original.gpr[REG_RAX] = 0x20;
+    vcpu_original.gpr[REG_RSP] = 0x42;
+    (uint16_t&)vcpu_original.mem[0x20] = 0x1234;
+    (uint16_t&)vcpu_original.mem[0x22] = 0x4578;
+    vcpu_expected = vcpu_original;
+    vcpu_expected.gpr[REG_RSP] -= 2;
+    (uint16_t&)vcpu_expected.mem[0x40] = 0x1234;
+    run_prot64("push word ptr [rax]", vcpu_original, vcpu_expected);
+
+    // Test: push, prot32, 32-bit, from-reg
+    vcpu_original = {};
+    vcpu_original.gpr[REG_RAX] = 0x1122334455667788ULL;
+    vcpu_original.gpr[REG_RSP] = 0x80;
+    vcpu_expected = vcpu_original;
+    vcpu_expected.gpr[REG_RSP] -= 4;
+    (uint32_t&)vcpu_expected.mem[0x7C] = 0x55667788;
+    run_prot32("push eax", vcpu_original, vcpu_expected);
+}
+
 TEST_F(EmulatorTest, insn_stos) {
     test_cpu_t vcpu_original;
     test_cpu_t vcpu_expected;
