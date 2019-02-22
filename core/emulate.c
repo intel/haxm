@@ -1097,11 +1097,13 @@ em_status_t EMCALL em_decode_insn(struct em_context_t *ctxt, const uint8_t *insn
             // TODO: Should throw #UD
             return EM_ERROR;
         }
-        if (ctxt->rep == PREFIX_REPNE && !(opcode->flags & INSN_REPX)) {
-            /* Instruction supports REP (== REPE) but not REPNE */
-            // TODO: Should throw #UD
-            return EM_ERROR;
-        }
+        // NOTE: Specifications at Intel SDM Vol. 2B: 2.1.1 Instruction Prefixes
+        // mention that REP prefixes are encoded via 0xF3 (PREFIX_REPE), however
+        // they remain ambiguous as to whether 0xF2 (PREFIX_REPNE) is also valid.
+        // Hardware tests reveal both values act as REP in REP-only instructions,
+        // consequently we mimic this undocumented hardware behavior by skipping
+        // the following check:
+        // assert((opcode->flags & INSN_REPX) || (ctxt->rep != PREFIX_REPNE));
     }
 
     return decode_operands(ctxt);
