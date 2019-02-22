@@ -181,25 +181,25 @@ protected:
                          size_t* size,
                          size_t* count,
                          em_status_t* decode_status) {
+        ks_engine* ks = nullptr;
         uint8_t* code;
-        int err;
 
         switch (mode) {
         case EM_MODE_PROT16:
-            err = ks_asm(ks_x86_16, insn, 0, &code, size, count);
+            ks = ks_x86_16;
             break;
         case EM_MODE_PROT32:
-            err = ks_asm(ks_x86_32, insn, 0, &code, size, count);
+            ks = ks_x86_32;
             break;
         case EM_MODE_PROT64:
-            err = ks_asm(ks_x86_64, insn, 0, &code, size, count);
+            ks = ks_x86_64;
             break;
         default:
             GTEST_FAIL();
         }
-        ASSERT_TRUE(err == 0);
-        EXPECT_TRUE(*size != 0);
-        EXPECT_TRUE(*count != 0);
+        ASSERT_EQ(KS_ERR_OK, ks_asm(ks, insn, 0, &code, size, count));
+        EXPECT_NE(*size, 0);
+        EXPECT_NE(*count, 0);
 
         em_ctxt.rip = rip;
         em_ctxt.mode = mode;
@@ -218,12 +218,15 @@ protected:
 
         vcpu = vcpu_original;
         assemble_decode(mode, insn, vcpu.rip, &size, &count, &ret);
-        ASSERT_TRUE(ret != EM_ERROR)
+        ASSERT_NE(ret, EM_ERROR)
             << "em_decode_insn failed on: " << insn << "\n";
         ret = em_emulate_insn(&em_ctxt);
-        ASSERT_TRUE(ret != EM_ERROR)
+        ASSERT_NE(ret, EM_ERROR)
             << "em_emulate_insn failed on: " << insn << "\n";
-        EXPECT_TRUE(vcpu.rip == vcpu_original.rip + size);
+
+        // Verify results
+        EXPECT_EQ(vcpu.rip, vcpu_original.rip + size)
+            << "Instruction pointer mismatch on: " << insn << "\n";
         vcpu.rip = vcpu_expected.rip;
         verify(insn, vcpu, vcpu_expected);
     }
@@ -284,12 +287,12 @@ protected:
         VERIFY_GPR(REG_R15);
 
         // Verify RFLAGS
-        if (vcpu_obtained.flags != vcpu_expected.flags) \
+        if (vcpu_obtained.flags != vcpu_expected.flags)
             std::cerr << "Flags mismatch on: " << insn << "\n" \
                 << "vcpu_obtained.flags: 0x" << PRINT_U64(vcpu_obtained.flags) << "\n" \
                 << "vcpu_expected.flags: 0x" << PRINT_U64(vcpu_expected.flags) << "\n";
 
-#undef DEBUG_U64
+#undef PRINT_U64
 #undef VERIFY_GPR
 
         // Ensure identical state

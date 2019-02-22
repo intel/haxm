@@ -82,11 +82,6 @@
 #define X16(...)  X8(__VA_ARGS__), X8(__VA_ARGS__)
 
 /* Emulator ops */
-#define READ_GPR(idx, size) \
-    gpr_read(ctxt, idx, size)
-#define WRITE_GPR(idx, value, size) \
-    gpr_write(ctxt, idx, size, value)
-
 #define BX (uint16_t)(gpr_read(ctxt, REG_RBX, 2))
 #define BP (uint16_t)(gpr_read(ctxt, REG_RBP, 2))
 #define SI (uint16_t)(gpr_read(ctxt, REG_RSI, 2))
@@ -333,8 +328,8 @@ static void gpr_write(struct em_context_t *ctxt,
 {
     if (!(ctxt->gpr_cache_r & (1 << index))) {
         ctxt->gpr_cache[index] = ctxt->ops->read_gpr(ctxt->vcpu, index);
+        ctxt->gpr_cache_r |= (1 << index);
     }
-    ctxt->gpr_cache_r |= (1 << index);
     ctxt->gpr_cache_w |= (1 << index);
     memcpy(&ctxt->gpr_cache[index], &value, size);
 }
@@ -456,7 +451,7 @@ static em_status_t operand_read_bitop(struct em_context_t *ctxt)
         return rc;
     }
 
-    offset = READ_GPR(offs->reg.index, offs->size);
+    offset = gpr_read(ctxt, offs->reg.index, offs->size);
     switch (offs->size) {
     case 2:
         offset = (int16_t)offset;
@@ -493,7 +488,7 @@ static em_status_t operand_read(struct em_context_t *ctxt,
         rc = EM_CONTINUE;
         break;
     case OP_REG:
-        op->value = READ_GPR(op->reg.index, op->size);
+        op->value = gpr_read(ctxt, op->reg.index, op->size);
         rc = EM_CONTINUE;
         break;
     case OP_MEM:
@@ -532,7 +527,7 @@ static em_status_t operand_write(struct em_context_t *ctxt,
         break;
     case OP_REG:
         size = (op->size == 4) ? 8 : op->size;
-        WRITE_GPR(op->reg.index, op->value, size);
+        gpr_write(ctxt, op->reg.index, size, op->value);
         rc = EM_CONTINUE;
         break;
     case OP_MEM:
@@ -556,9 +551,10 @@ static em_status_t operand_write(struct em_context_t *ctxt,
 }
 
 static void register_add(struct em_context_t *ctxt,
-                         int reg_index, uint64_t value)
+                         int reg_index, uint64_t addend)
 {
-    WRITE_GPR(reg_index, READ_GPR(reg_index, 8) + value, 8);
+    uint64_t value = gpr_read(ctxt, reg_index, 8) + addend;
+    gpr_write(ctxt, reg_index, 8, value);
 }
 
 static uint8_t insn_fetch_u8(struct em_context_t *ctxt)
@@ -777,19 +773,19 @@ static em_status_t decode_op_modrm_rm(em_context_t *ctxt,
             if ((reg_base & 7) == 5 && ctxt->modrm.mod == 0) {
                 op->mem.ea += insn_fetch_s32(ctxt);
             } else {
-                op->mem.ea += READ_GPR(reg_base, ctxt->address_size);
+                op->mem.ea += gpr_read(ctxt, reg_base, ctxt->address_size);
             }
             /* Added scaled index register unless register is RSP/ESP/SP.
              * Note that we avoid masking with 0x7, as that would prevent
              * R12/R12D/R12W from being a valid index register. */
             if (reg_index != 4) {
                 uint8_t scale = 1 << ctxt->sib.scale;
-                op->mem.ea += READ_GPR(reg_index, ctxt->address_size) * scale;
+                op->mem.ea += gpr_read(ctxt, reg_index, ctxt->address_size) * scale;
             }
         } else if (ctxt->modrm.mod == 0 && ctxt->modrm.rm == 5) {
             op->mem.ea += insn_fetch_s32(ctxt);
         } else {
-            op->mem.ea += READ_GPR(ctxt->modrm.rm, ctxt->address_size);
+            op->mem.ea += gpr_read(ctxt, ctxt->modrm.rm, ctxt->address_size);
         }
 
         // Displacement
@@ -915,7 +911,7 @@ static em_status_t decode_op_di(em_context_t *ctxt,
 {
     op->type = OP_MEM;
     op->size = ctxt->operand_size;
-    op->mem.ea = READ_GPR(REG_RDI, ctxt->address_size);
+    op->mem.ea = gpr_read(ctxt, REG_RDI, ctxt->address_size);
     op->mem.seg = SEG_ES;
     return EM_CONTINUE;
 }
@@ -925,7 +921,7 @@ static em_status_t decode_op_si(em_context_t *ctxt,
 {
     op->type = OP_MEM;
     op->size = ctxt->operand_size;
-    op->mem.ea = READ_GPR(REG_RSI, ctxt->address_size);
+    op->mem.ea = gpr_read(ctxt, REG_RSI, ctxt->address_size);
     op->mem.seg = SEG_DS;
     if (ctxt->override_segment != SEG_NONE) {
         op->mem.seg = ctxt->override_segment;
@@ -1005,7 +1001,7 @@ static em_status_t em_push(struct em_context_t *ctxt)
     memset(&sp, 0, sizeof(sp));
     sp.type = OP_MEM;
     sp.size = ctxt->operand_size;
-    sp.mem.ea = READ_GPR(REG_RSP, ctxt->address_size);
+    sp.mem.ea = gpr_read(ctxt, REG_RSP, ctxt->address_size);
     sp.mem.seg = SEG_SS;
     sp.value = ctxt->src1.value;
 
@@ -1021,7 +1017,7 @@ static em_status_t em_pop(struct em_context_t *ctxt)
     memset(&sp, 0, sizeof(sp));
     sp.type = OP_MEM;
     sp.size = ctxt->operand_size;
-    sp.mem.ea = READ_GPR(REG_RSP, ctxt->address_size);
+    sp.mem.ea = gpr_read(ctxt, REG_RSP, ctxt->address_size);
     sp.mem.seg = SEG_SS;
     sp.value = ctxt->src1.value;
 
@@ -1241,7 +1237,7 @@ em_status_t EMCALL em_emulate_insn(struct em_context_t *ctxt)
 restart:
     // TODO: Permissions, exceptions, etc.
     if (ctxt->rep) {
-        if (READ_GPR(REG_RCX, ctxt->address_size) == 0) {
+        if (gpr_read(ctxt, REG_RCX, ctxt->address_size) == 0) {
             goto done;
         }
     }
