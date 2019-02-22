@@ -1182,13 +1182,6 @@ em_status_t EMCALL em_decode_insn(struct em_context_t *ctxt, const uint8_t *insn
     }
 
     /* Apply flags */
-    if (flags & INSN_BYTEOP) {
-        ctxt->operand_size = 1;
-    }
-    if (flags & INSN_STACK) {
-        if (ctxt->operand_size == 4 && ctxt->mode == EM_MODE_PROT64)
-            ctxt->operand_size = 8;
-    }
     if (flags & INSN_GROUP) {
         const struct em_opcode_t *group_opcode;
 
@@ -1199,6 +1192,7 @@ em_status_t EMCALL em_decode_insn(struct em_context_t *ctxt, const uint8_t *insn
         group_opcode = &opcode->group[ctxt->modrm.opc];
         opcode->handler = group_opcode->handler;
         opcode->flags |= group_opcode->flags;
+        flags = opcode->flags;
         if (group_opcode->decode_dst != decode_op_none) {
             opcode->decode_dst = group_opcode->decode_dst;
         }
@@ -1208,6 +1202,13 @@ em_status_t EMCALL em_decode_insn(struct em_context_t *ctxt, const uint8_t *insn
         if (group_opcode->decode_src2 != decode_op_none) {
             opcode->decode_src2 = group_opcode->decode_src2;
         }
+    }
+    if (flags & INSN_BYTEOP) {
+        ctxt->operand_size = 1;
+    }
+    if (flags & INSN_STACK) {
+        if (ctxt->operand_size == 4 && ctxt->mode == EM_MODE_PROT64)
+            ctxt->operand_size = 8;
     }
 
     /* Some unimplemented opcodes have an all-zero em_opcode_t */
