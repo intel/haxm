@@ -3284,11 +3284,7 @@ static int handle_msr_read(struct vcpu_t *vcpu, uint32_t msr, uint64_t *val)
             break;
         }
         case IA32_EFER: {
-            if (!(state->_cr4 & CR4_PAE) && (state->_cr0 & CR0_PG)) {
-                r = 1;
-            } else {
-                *val = state->_efer;
-            }
+            *val = state->_efer;
             break;
         }
         case IA32_STAR:
@@ -3548,11 +3544,9 @@ static int handle_msr_write(struct vcpu_t *vcpu, uint32_t msr, uint64_t val)
             hax_info("Guest writing to EFER[%u]: 0x%x -> 0x%llx, _cr0=0x%llx,"
                      " _cr4=0x%llx\n", vcpu->vcpu_id, state->_efer, val,
                      state->_cr0, state->_cr4);
-            if ((state->_cr0 & CR0_PG) && !(state->_cr4 & CR4_PAE)) {
-                state->_efer = 0;
-            } else {
-                state->_efer = val;
-            }
+
+            state->_efer = val;
+
             if (!(ia32_rdmsr(IA32_EFER) & IA32_EFER_LMA) &&
                 (state->_efer & IA32_EFER_LME)) {
                 hax_panic_vcpu(
