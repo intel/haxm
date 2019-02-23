@@ -140,6 +140,7 @@ typedef struct em_operand_t {
         } mem;
         struct operand_reg_t {
             uint32_t index;
+            uint32_t shift;
         } reg;
     };
     uint64_t value;

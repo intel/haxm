@@ -310,28 +310,45 @@ static const struct em_opcode_t opcode_table_0F3A[256] = {
     X16(N), X16(N), X16(N), X16(N),
 };
 
-static uint64_t gpr_read(struct em_context_t *ctxt,
-                         unsigned index, size_t size)
+static uint64_t gpr_read_shifted(struct em_context_t *ctxt,
+                                 unsigned index, size_t size, size_t shift)
 {
     uint64_t value = 0;
+    uint8_t *value_ptr;
 
     if (!(ctxt->gpr_cache_r & (1 << index))) {
         ctxt->gpr_cache[index] = ctxt->ops->read_gpr(ctxt->vcpu, index);
         ctxt->gpr_cache_r |= (1 << index);
     }
-    memcpy(&value, &ctxt->gpr_cache[index], size);
+    value_ptr = (uint8_t*)&ctxt->gpr_cache[index];
+    memcpy(&value, &value_ptr[shift], size);
     return value;
 }
 
-static void gpr_write(struct em_context_t *ctxt,
-                      unsigned index, size_t size, uint64_t value)
+static void gpr_write_shifted(struct em_context_t *ctxt,
+                              unsigned index, size_t size, size_t value, uint64_t shift)
 {
+    uint8_t *value_ptr;
+
     if (!(ctxt->gpr_cache_r & (1 << index))) {
         ctxt->gpr_cache[index] = ctxt->ops->read_gpr(ctxt->vcpu, index);
         ctxt->gpr_cache_r |= (1 << index);
     }
     ctxt->gpr_cache_w |= (1 << index);
-    memcpy(&ctxt->gpr_cache[index], &value, size);
+    value_ptr = (uint8_t*)&ctxt->gpr_cache[index];
+    memcpy(&value_ptr[shift], &value, size);
+}
+
+static uint64_t gpr_read(struct em_context_t *ctxt,
+                         unsigned index, size_t size)
+{
+    return gpr_read_shifted(ctxt, index, size, 0);
+}
+
+static void gpr_write(struct em_context_t *ctxt,
+                      unsigned index, size_t size, size_t value)
+{
+    gpr_write_shifted(ctxt, index, size, value, 0);
 }
 
 static void gpr_cache_flush(struct em_context_t *ctxt)
@@ -488,7 +505,7 @@ static em_status_t operand_read(struct em_context_t *ctxt,
         rc = EM_CONTINUE;
         break;
     case OP_REG:
-        op->value = gpr_read(ctxt, op->reg.index, op->size);
+        op->value = gpr_read_shifted(ctxt, op->reg.index, op->size, op->reg.shift);
         rc = EM_CONTINUE;
         break;
     case OP_MEM:
@@ -527,7 +544,7 @@ static em_status_t operand_write(struct em_context_t *ctxt,
         break;
     case OP_REG:
         size = (op->size == 4) ? 8 : op->size;
-        gpr_write(ctxt, op->reg.index, size, op->value);
+        gpr_write_shifted(ctxt, op->reg.index, size, op->value, op->reg.shift);
         rc = EM_CONTINUE;
         break;
     case OP_MEM:
@@ -695,6 +712,12 @@ static em_status_t decode_op_modrm_reg(em_context_t *ctxt,
     op->type = OP_REG;
     op->size = ctxt->operand_size;
     op->reg.index = ctxt->modrm.reg | (ctxt->rex.r << 3);
+    op->reg.shift = 0;
+
+    if (op->size == 1) {
+        op->reg.shift = op->reg.index >> 2;
+        op->reg.index &= 0x3;
+    }
     return EM_CONTINUE;
 }
 
@@ -706,6 +729,12 @@ static em_status_t decode_op_modrm_rm(em_context_t *ctxt,
         op->type = OP_REG;
         op->size = ctxt->operand_size;
         op->reg.index = ctxt->modrm.rm | (ctxt->rex.b << 3);
+        op->reg.shift = 0;
+
+        if (op->size == 1) {
+            op->reg.shift = op->reg.index >> 2;
+            op->reg.index &= 0x3;
+        }
         return EM_CONTINUE;
     }
 
@@ -826,6 +855,7 @@ static em_status_t decode_op_vex_reg(em_context_t *ctxt,
     op->type = OP_REG;
     op->size = ctxt->operand_size;
     op->reg.index = ~ctxt->vex.v & 0xF;
+    op->reg.shift = 0;
     return EM_CONTINUE;
 }
 
@@ -894,6 +924,7 @@ static em_status_t decode_op_reg(em_context_t *ctxt,
     op->type = OP_REG;
     op->size = ctxt->operand_size;
     op->reg.index = ctxt->b & 0x7;
+    op->reg.shift = 0;
     return EM_CONTINUE;
 }
 
@@ -903,6 +934,7 @@ static em_status_t decode_op_acc(em_context_t *ctxt,
     op->type = OP_REG;
     op->size = ctxt->operand_size;
     op->reg.index = REG_RAX;
+    op->reg.shift = 0;
     return EM_CONTINUE;
 }
 
