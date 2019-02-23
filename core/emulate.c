@@ -89,17 +89,17 @@
 
 /* Operand decoders */
 #define DECL_DECODER(name) \
-    static em_status_t decode_##name(em_context_t*, em_operand_t*)
+    static em_status_t decode_##name(em_context_t *, em_operand_t *)
 DECL_DECODER(op_none);
 DECL_DECODER(op_modrm_reg);
 DECL_DECODER(op_modrm_rm);
 DECL_DECODER(op_modrm_rm8);
 DECL_DECODER(op_modrm_rm16);
 DECL_DECODER(op_vex_reg);
+DECL_DECODER(op_opc_reg);
 DECL_DECODER(op_moffs);
 DECL_DECODER(op_simm);
 DECL_DECODER(op_simm8);
-DECL_DECODER(op_reg);
 DECL_DECODER(op_acc);
 DECL_DECODER(op_di);
 DECL_DECODER(op_si);
@@ -214,8 +214,8 @@ static const struct em_opcode_t opcode_table[256] = {
     /* 0x48 - 0x4F */
     X8(F(em_dec, op_modrm_reg, op_none, op_none, 0)),
     /* 0x50 - 0x5F */
-    X8(I(em_push, op_none, op_reg, op_none, INSN_STACK)),
-    X8(I(em_pop,  op_reg, op_none, op_none, INSN_STACK)),
+    X8(I(em_push, op_none, op_opc_reg, op_none, INSN_STACK)),
+    X8(I(em_pop,  op_opc_reg, op_none, op_none, INSN_STACK)),
     /* 0x60 - 0x7F */
     X16(N), X16(N),
     /* 0x80 - 0x8F */
@@ -310,28 +310,45 @@ static const struct em_opcode_t opcode_table_0F3A[256] = {
     X16(N), X16(N), X16(N), X16(N),
 };
 
-static uint64_t gpr_read(struct em_context_t *ctxt,
-                         unsigned index, size_t size)
+static uint64_t gpr_read_shifted(struct em_context_t *ctxt, unsigned index,
+                                 size_t size, uint32_t shift)
 {
     uint64_t value = 0;
+    uint8_t *value_ptr;
 
     if (!(ctxt->gpr_cache_r & (1 << index))) {
         ctxt->gpr_cache[index] = ctxt->ops->read_gpr(ctxt->vcpu, index);
         ctxt->gpr_cache_r |= (1 << index);
     }
-    memcpy(&value, &ctxt->gpr_cache[index], size);
+    value_ptr = (uint8_t *)&ctxt->gpr_cache[index];
+    memcpy(&value, &value_ptr[shift], size);
     return value;
 }
 
-static void gpr_write(struct em_context_t *ctxt,
-                      unsigned index, size_t size, uint64_t value)
+static void gpr_write_shifted(struct em_context_t *ctxt, unsigned index,
+                              size_t size, uint64_t value, uint32_t shift)
 {
+    uint8_t *value_ptr;
+
     if (!(ctxt->gpr_cache_r & (1 << index))) {
         ctxt->gpr_cache[index] = ctxt->ops->read_gpr(ctxt->vcpu, index);
         ctxt->gpr_cache_r |= (1 << index);
     }
     ctxt->gpr_cache_w |= (1 << index);
-    memcpy(&ctxt->gpr_cache[index], &value, size);
+    value_ptr = (uint8_t *)&ctxt->gpr_cache[index];
+    memcpy(&value_ptr[shift], &value, size);
+}
+
+static uint64_t gpr_read(struct em_context_t *ctxt,
+                         unsigned index, size_t size)
+{
+    return gpr_read_shifted(ctxt, index, size, 0);
+}
+
+static void gpr_write(struct em_context_t *ctxt,
+                      unsigned index, size_t size, uint64_t value)
+{
+    gpr_write_shifted(ctxt, index, size, value, 0);
 }
 
 static void gpr_cache_flush(struct em_context_t *ctxt)
@@ -342,6 +359,12 @@ static void gpr_cache_flush(struct em_context_t *ctxt)
         if (ctxt->gpr_cache_w & (1 << i))
             ctxt->ops->write_gpr(ctxt->vcpu, i, ctxt->gpr_cache[i]);
     }
+    ctxt->gpr_cache_w = 0;
+}
+
+static void gpr_cache_invalidate(struct em_context_t *ctxt)
+{
+    ctxt->gpr_cache_r = 0;
     ctxt->gpr_cache_w = 0;
 }
 
@@ -484,11 +507,13 @@ static em_status_t operand_read(struct em_context_t *ctxt,
 
     switch (op->type) {
     case OP_NONE:
+        // Exit directly to prevent writing flags
+        return EM_CONTINUE;
     case OP_IMM:
         rc = EM_CONTINUE;
         break;
     case OP_REG:
-        op->value = gpr_read(ctxt, op->reg.index, op->size);
+        op->value = gpr_read_shifted(ctxt, op->reg.index, op->size, op->reg.shift);
         rc = EM_CONTINUE;
         break;
     case OP_MEM:
@@ -522,12 +547,14 @@ static em_status_t operand_write(struct em_context_t *ctxt,
 
     switch (op->type) {
     case OP_NONE:
+        // Exit directly to prevent writing flags
+        return EM_CONTINUE;
     case OP_IMM:
         rc = EM_CONTINUE;
         break;
     case OP_REG:
         size = (op->size == 4) ? 8 : op->size;
-        gpr_write(ctxt, op->reg.index, size, op->value);
+        gpr_write_shifted(ctxt, op->reg.index, size, op->value, op->reg.shift);
         rc = EM_CONTINUE;
         break;
     case OP_MEM:
@@ -559,28 +586,28 @@ static void register_add(struct em_context_t *ctxt,
 
 static uint8_t insn_fetch_u8(struct em_context_t *ctxt)
 {
-    uint8_t result = *(uint8_t*)(&ctxt->insn[ctxt->len]);
+    uint8_t result = *(uint8_t *)(&ctxt->insn[ctxt->len]);
     ctxt->len += 1;
     return result;
 }
 
 static uint16_t insn_fetch_u16(struct em_context_t *ctxt)
 {
-    uint16_t result = *(uint16_t*)(&ctxt->insn[ctxt->len]);
+    uint16_t result = *(uint16_t *)(&ctxt->insn[ctxt->len]);
     ctxt->len += 2;
     return result;
 }
 
 static uint32_t insn_fetch_u32(struct em_context_t *ctxt)
 {
-    uint32_t result = *(uint32_t*)(&ctxt->insn[ctxt->len]);
+    uint32_t result = *(uint32_t *)(&ctxt->insn[ctxt->len]);
     ctxt->len += 4;
     return result;
 }
 
 static uint64_t insn_fetch_u64(struct em_context_t *ctxt)
 {
-    uint64_t result = *(uint64_t*)(&ctxt->insn[ctxt->len]);
+    uint64_t result = *(uint64_t *)(&ctxt->insn[ctxt->len]);
     ctxt->len += 8;
     return result;
 }
@@ -695,6 +722,12 @@ static em_status_t decode_op_modrm_reg(em_context_t *ctxt,
     op->type = OP_REG;
     op->size = ctxt->operand_size;
     op->reg.index = ctxt->modrm.reg | (ctxt->rex.r << 3);
+    op->reg.shift = 0;
+
+    if (op->size == 1 && !ctxt->rex.value) {
+        op->reg.shift = op->reg.index >> 2;
+        op->reg.index &= 0x3;
+    }
     return EM_CONTINUE;
 }
 
@@ -706,6 +739,12 @@ static em_status_t decode_op_modrm_rm(em_context_t *ctxt,
         op->type = OP_REG;
         op->size = ctxt->operand_size;
         op->reg.index = ctxt->modrm.rm | (ctxt->rex.b << 3);
+        op->reg.shift = 0;
+
+        if (op->size == 1 && !ctxt->rex.value) {
+            op->reg.shift = op->reg.index >> 2;
+            op->reg.index &= 0x3;
+        }
         return EM_CONTINUE;
     }
 
@@ -826,6 +865,22 @@ static em_status_t decode_op_vex_reg(em_context_t *ctxt,
     op->type = OP_REG;
     op->size = ctxt->operand_size;
     op->reg.index = ~ctxt->vex.v & 0xF;
+    op->reg.shift = 0;
+    return EM_CONTINUE;
+}
+
+static em_status_t decode_op_opc_reg(em_context_t *ctxt,
+                                     em_operand_t *op)
+{
+    op->type = OP_REG;
+    op->size = ctxt->operand_size;
+    op->reg.index = (ctxt->b & 0x7) | (ctxt->rex.b << 3);
+    op->reg.shift = 0;
+
+    if (op->size == 1 && !ctxt->rex.value) {
+        op->reg.shift = op->reg.index >> 2;
+        op->reg.index &= 0x3;
+    }
     return EM_CONTINUE;
 }
 
@@ -888,21 +943,13 @@ static em_status_t decode_op_simm8(em_context_t *ctxt,
     return EM_CONTINUE;
 }
 
-static em_status_t decode_op_reg(em_context_t *ctxt,
-    em_operand_t *op)
-{
-    op->type = OP_REG;
-    op->size = ctxt->operand_size;
-    op->reg.index = ctxt->b & 0x7;
-    return EM_CONTINUE;
-}
-
 static em_status_t decode_op_acc(em_context_t *ctxt,
                                  em_operand_t *op)
 {
     op->type = OP_REG;
     op->size = ctxt->operand_size;
     op->reg.index = REG_RAX;
+    op->reg.shift = 0;
     return EM_CONTINUE;
 }
 
@@ -993,41 +1040,42 @@ static em_status_t em_movsx(struct em_context_t *ctxt)
 static em_status_t em_push(struct em_context_t *ctxt)
 {
     em_status_t rc;
-    em_operand_t sp;
+    em_operand_t *sp = &ctxt->dst;
 
     // Pre-decrement stack pointer
     register_add(ctxt, REG_RSP, -(int64_t)ctxt->operand_size);
 
-    memset(&sp, 0, sizeof(sp));
-    sp.type = OP_MEM;
-    sp.size = ctxt->operand_size;
-    sp.mem.ea = gpr_read(ctxt, REG_RSP, ctxt->address_size);
-    sp.mem.seg = SEG_SS;
-    sp.value = ctxt->src1.value;
+    // TODO: The stack address size can be different from ctxt->address_size.
+    // We need to check the B-bit from GUEST_SS_AR to determine the actual size.
+    sp->type = OP_MEM;
+    sp->size = ctxt->operand_size;
+    sp->mem.ea = gpr_read(ctxt, REG_RSP, ctxt->address_size);
+    sp->mem.seg = SEG_SS;
+    sp->value = ctxt->src1.value;
 
-    rc = operand_write(ctxt, &sp);
+    rc = operand_write(ctxt, sp);
     return rc;
 }
 
 static em_status_t em_pop(struct em_context_t *ctxt)
 {
     em_status_t rc;
-    em_operand_t sp;
+    em_operand_t *sp = &ctxt->src1;
 
-    memset(&sp, 0, sizeof(sp));
-    sp.type = OP_MEM;
-    sp.size = ctxt->operand_size;
-    sp.mem.ea = gpr_read(ctxt, REG_RSP, ctxt->address_size);
-    sp.mem.seg = SEG_SS;
-    sp.value = ctxt->src1.value;
+    // TODO: The stack address size can be different from ctxt->address_size.
+    // We need to check the B-bit from GUEST_SS_AR to determine the actual size.
+    sp->type = OP_MEM;
+    sp->size = ctxt->operand_size;
+    sp->mem.ea = gpr_read(ctxt, REG_RSP, ctxt->address_size);
+    sp->mem.seg = SEG_SS;
 
     // Post-increment stack pointer
     register_add(ctxt, REG_RSP, +(int64_t)ctxt->operand_size);
 
-    rc = operand_read(ctxt, &sp);
+    rc = operand_read(ctxt, sp);
     if (rc != EM_CONTINUE)
         return rc;
-    ctxt->dst.value = sp.value;
+    ctxt->dst.value = sp->value;
     return rc;
 }
 
@@ -1279,7 +1327,7 @@ restart:
         ctxt->rflags &= ~RFLAGS_MASK_OSZAPC;
         ctxt->rflags |= eflags & RFLAGS_MASK_OSZAPC;
     } else {
-        em_status_t (*soft_handler)(em_context_t*);
+        em_status_t (*soft_handler)(em_context_t *);
         soft_handler = opcode->handler;
         rc = soft_handler(ctxt);
         if (rc != EM_CONTINUE)
@@ -1336,5 +1384,6 @@ done:
     gpr_cache_flush(ctxt);
 
 exit:
+    gpr_cache_invalidate(ctxt);
     return rc;
 }

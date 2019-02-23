@@ -288,8 +288,8 @@ protected:
 
         // Verify RFLAGS
         if (vcpu_obtained.flags != vcpu_expected.flags)
-            std::cerr << "Flags mismatch on: " << insn << "\n" \
-                << "vcpu_obtained.flags: 0x" << PRINT_U64(vcpu_obtained.flags) << "\n" \
+            std::cerr << "Flags mismatch on: " << insn << "\n"
+                << "vcpu_obtained.flags: 0x" << PRINT_U64(vcpu_obtained.flags) << "\n"
                 << "vcpu_expected.flags: 0x" << PRINT_U64(vcpu_expected.flags) << "\n";
 
 #undef PRINT_U64
@@ -887,6 +887,19 @@ TEST_F(EmulatorTest, insn_cmps) {
     vcpu_expected.gpr[REG_RCX] = 0x1;
     vcpu_expected.flags = RFLAGS_PF;
     run("repe cmpsb", vcpu_original, vcpu_expected);
+}
+
+TEST_F(EmulatorTest, insn_mov) {
+    test_cpu_t vcpu_original;
+    test_cpu_t vcpu_expected;
+
+    // Test: mov r8, r/m8
+    vcpu_original = {};
+    vcpu_original.gpr[REG_RDX] = 0x88;
+    vcpu_original.mem[0x88] = 0x44;
+    vcpu_expected = vcpu_original;
+    vcpu_expected.gpr[REG_RCX] = 0x4400;
+    run("mov ch, [rdx]", vcpu_original, vcpu_expected);
 }
 
 TEST_F(EmulatorTest, insn_movs) {
