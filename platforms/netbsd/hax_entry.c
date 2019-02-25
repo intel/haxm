@@ -44,9 +44,9 @@
 #define HAX_VM_DEVICE_NAME "hax_vm"
 #define HAX_VCPU_DEVICE_NAME "hax_vcpu"
 
-static int hax_cmajor = 220, hax_bmajor = -1;
-static int hax_vm_cmajor = 222, hax_vm_bmajor = -1;
-static int hax_vcpu_cmajor = 221, hax_vcpu_bmajor = -1;
+static int hax_cmajor = 348, hax_bmajor = -1;
+static int hax_vm_cmajor = 349, hax_vm_bmajor = -1;
+static int hax_vcpu_cmajor = 350, hax_vcpu_bmajor = -1;
 
 extern struct cdevsw hax_cdevsw;
 extern struct cdevsw hax_vm_cdevsw;
