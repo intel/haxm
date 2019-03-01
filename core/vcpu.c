@@ -3284,11 +3284,7 @@ static int handle_msr_read(struct vcpu_t *vcpu, uint32_t msr, uint64_t *val)
             break;
         }
         case IA32_EFER: {
-            if (!(state->_cr4 & CR4_PAE) && (state->_cr0 & CR0_PG)) {
-                r = 1;
-            } else {
-                *val = state->_efer;
-            }
+            *val = state->_efer;
             break;
         }
         case IA32_STAR:
@@ -3548,11 +3544,33 @@ static int handle_msr_write(struct vcpu_t *vcpu, uint32_t msr, uint64_t val)
             hax_info("Guest writing to EFER[%u]: 0x%x -> 0x%llx, _cr0=0x%llx,"
                      " _cr4=0x%llx\n", vcpu->vcpu_id, state->_efer, val,
                      state->_cr0, state->_cr4);
-            if ((state->_cr0 & CR0_PG) && !(state->_cr4 & CR4_PAE)) {
-                state->_efer = 0;
-            } else {
-                state->_efer = val;
+            
+            /* val - "new" EFER, state->_efer - "old" EFER.*/
+            if ((val &
+                 ~((uint64_t)(IA32_EFER_SCE | IA32_EFER_LME |
+                              IA32_EFER_LMA | IA32_EFER_XD)))) {
+                hax_error("Illegal value 0x%llx written to EFER. "
+                          "Reserved bits were set. EFER was 0x%llx\n",
+                          val, (uint64_t) state->_efer);
+                r = 1;
+                break;
             }
+            if (((val & IA32_EFER_LMA) ^
+                 (state->_efer & IA32_EFER_LMA))) {
+                hax_warning("IA32_EFER.LMA changed. EFER: 0x%llx -> 0x%llx\n",
+                            (uint64_t) state->_efer,val);
+            }
+            if ((state->_cr0 & CR0_PG) &&
+                ((val & IA32_EFER_LME) ^
+                 (state->_efer & IA32_EFER_LME))) {
+                hax_error("Attempted to enable or disable Long Mode with "
+                          "paging enabled. EFER: 0x%llx -> 0x%llx\n",
+                          (uint64_t) state->_efer, val);
+                r = 1;
+                break;
+            }
+            state->_efer = val;
+
             if (!(ia32_rdmsr(IA32_EFER) & IA32_EFER_LMA) &&
                 (state->_efer & IA32_EFER_LME)) {
                 hax_panic_vcpu(
