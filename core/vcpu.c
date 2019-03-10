@@ -1937,6 +1937,9 @@ static void vmwrite_cr(struct vcpu_t *vcpu)
                    ~(cr0_fixed_0 ^ cr0_fixed_1);
     }
 
+	// leecher1337
+	exc_bitmap |= 1u << VECTOR_UD;
+
     if (vtlb_active(vcpu)) {
         hax_debug("vTLB mode, cr0 %llx\n", vcpu->state->_cr0);
         vcpu->mmu->mmu_mode = MMU_MODE_VTLB;
@@ -2387,6 +2390,15 @@ static int exit_exc_nmi(struct vcpu_t *vcpu, struct hax_tunnel *htun)
             htun->debug.dr7 = 0;
             return HAX_EXIT;
         }
+		// leecher1337
+		case VECTOR_UD: {
+			uint64_t va;
+
+			htun->_exit_status = HAX_EXIT_OPCODE;
+			va = vcpu->state->_cs.long_mode == 1 ? vcpu->state->_rip : vcpu->state->_cs.base + vcpu->state->_rip;
+			vcpu_read_guest_virtual(vcpu, va, vcpu->io_buf, INSTR_MAX_LEN, INSTR_MAX_LEN, 0);
+			return HAX_EXIT;
+		}
     }
 
     if (exit_intr_info.vector == VECTOR_PF) {
