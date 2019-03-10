@@ -222,6 +222,7 @@ bool vcpu_is_panic(struct vcpu_t *vcpu)
     if (vcpu->panicked) {
         hax_error("vcpu has panicked, id:%d\n", vcpu->vcpu_id);
         hax_panic_log(vcpu);
+		htun->_exit_reason = vmx(vcpu, exit_reason).basic_reason;
         htun->_exit_status = HAX_EXIT_STATECHANGE;
         return 1;
     }
