@@ -1070,6 +1070,11 @@ static void load_dirty_vmcs_fields(struct vcpu_t *vcpu)
         vcpu->rflags_dirty = 1;
         vcpu->debug_control_dirty = 0;
     }
+	if ((vcpu->debug_control & HAX_DEBUG_STEP) &&
+		(vmx(vcpu, interruptibility_state).raw & 3u)) {
+		vmx(vcpu, interruptibility_state).raw &= ~3u;
+		vcpu->interruptibility_dirty = 1;
+	}
     if (vcpu->rflags_dirty) {
         vmwrite(vcpu, GUEST_RFLAGS, state->_rflags);
         vcpu->rflags_dirty = 0;
