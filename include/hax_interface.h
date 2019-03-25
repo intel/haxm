@@ -193,6 +193,7 @@ struct hax_module_version {
 #define HAX_CAP_TUNNEL_PAGE        (1 << 5)
 #define HAX_CAP_RAM_PROTECTION     (1 << 6)
 #define HAX_CAP_DEBUG              (1 << 7)
+#define HAX_CAP_IMPLICIT_RAMBLOCK  (1 << 8)
 
 struct hax_capabilityinfo {
     /*
@@ -240,8 +241,13 @@ struct hax_ramblock_info {
     uint64_t reserved;
 } PACKED;
 
-#define HAX_RAM_INFO_ROM     0x01  // read-only
-#define HAX_RAM_INFO_INVALID 0x80  // unmapped, usually used for MMIO
+// Read-only mapping
+#define HAX_RAM_INFO_ROM (1 << 0)
+// Stand-alone mapping into a new HVA range
+#define HAX_RAM_INFO_STANDALONE (1 << 6)
+
+// Unmapped, usually used for MMIO
+#define HAX_RAM_INFO_INVALID (1 << 7)
 
 struct hax_set_ram_info {
     uint64_t pa_start;

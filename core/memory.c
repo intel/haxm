@@ -235,7 +235,7 @@ static struct hax_vcpu_mem *get_pmem_range(struct vm_t *vm, uint64_t va)
 static int handle_set_ram(struct vm_t *vm, uint64_t start_gpa, uint64_t size,
                           uint64_t start_uva, uint32_t flags)
 {
-    bool unmap = flags & HAX_RAM_INFO_INVALID;
+    bool unmap = flags & HAX_MEMSLOT_INVALID;
     hax_gpa_space *gpa_space;
     uint64_t start_gfn, npages;
     int ret;
@@ -243,7 +243,7 @@ static int handle_set_ram(struct vm_t *vm, uint64_t start_gpa, uint64_t size,
 
     // HAX_RAM_INFO_INVALID indicates that guest physical address range
     // [start_gpa, start_gpa + size) should be unmapped
-    if (unmap && (flags != HAX_RAM_INFO_INVALID || start_uva)) {
+    if (unmap && (flags != HAX_MEMSLOT_INVALID || start_uva)) {
         hax_error("%s: Invalid start_uva=0x%llx or flags=0x%x for unmapping\n",
                   __func__, start_uva, flags);
         return -EINVAL;
