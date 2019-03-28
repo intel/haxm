@@ -179,12 +179,28 @@ int memslot_set_mapping(hax_gpa_space *gpa_space, uint64_t start_gfn,
 
     is_valid = memslot_is_valid(flags);
     if (is_valid) {
-        block = ramblock_find(&gpa_space->ramblock_list, uva, NULL);
+        if (flags & HAX_MEMSLOT_STANDALONE) {
+            // Create a "disposable" RAM block for this stand-alone mapping
+            ret = ramblock_add(&gpa_space->ramblock_list, uva,
+                               npages << PG_ORDER_4K, NULL, &block);
+            if (ret != 0 || block == NULL) {
+                hax_error("%s: Failed to create standalone RAM block:"
+                          "start_gfn=0x%llx, npages=0x%llx, uva=0x%llx\n",
+                          __func__, start_gfn, npages, uva);
+                return ret < 0 ? ret : -EINVAL;
+            }
 
-        if (block == NULL) {
-            hax_error("%s: Failed to find uva=0x%llx in RAM block\n", __func__,
-                      uva);
-            return -EINVAL;
+            block->is_standalone = true;
+            // block->ref_count is 0 after ramblock_add(), but we want it to be
+            // 1, so as to be consistent with the ramblock_find() case below.
+            ramblock_ref(block);
+        } else {
+            block = ramblock_find(&gpa_space->ramblock_list, uva, NULL);
+            if (block == NULL) {
+                hax_error("%s: Failed to find uva=0x%llx in RAM block\n",
+                          __func__, uva);
+                return -EINVAL;
+            }
         }
     }
 
@@ -285,11 +301,10 @@ int memslot_set_mapping(hax_gpa_space *gpa_space, uint64_t start_gfn,
     mapping_broadcast(&gpa_space->listener_list, &mapping, dest, &snapshot);
 
 out:
-    // ramblock_find() was invoked previously in this function and returned a
-    // pointer to an existing |hax_ramblock|, whose refcount was incremented by
-    // ramblock_find(). Now that the pointer (local variable |block|) is about
-    // to go out of scope, ramblock_deref() must be invoked here to keep the
-    // refcount accurate.
+    // Previously in this function, we called either ramblock_add() or
+    // ramblock_find(), and incremented (implicitly in the latter case) the
+    // refcount of the returned |block|. Now that |block| is about to go out of
+    // scope, we must call ramblock_deref() to keep the refcount accurate.
     if (block != NULL) {
         ramblock_deref(block);
     }

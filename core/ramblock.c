@@ -93,6 +93,7 @@ static hax_ramblock * ramblock_alloc(uint64_t base_uva, uint64_t size)
     }
     memset(chunks_bitmap, 0, chunks_bitmap_size);
     block->chunks_bitmap = chunks_bitmap;
+    block->is_standalone = false;
     block->ref_count = 0;
 
     return block;
@@ -189,6 +190,17 @@ int ramblock_init_list(hax_list_head *list)
     return 0;
 }
 
+static void ramblock_remove(hax_ramblock *block)
+{
+    hax_assert(block != NULL);
+    ramblock_info("%s: Removing RAM block: base_uva=0x%llx, size=0x%llx,"
+                  " is_standalone=%d, ref_count=%d\n", __func__,
+                  block->base_uva, block->size, block->is_standalone,
+                  block->ref_count);
+    hax_list_del(&block->entry);
+    ramblock_free(block);
+}
+
 void ramblock_free_list(hax_list_head *list)
 {
     hax_ramblock *ramblock, *tmp;
@@ -200,11 +212,7 @@ void ramblock_free_list(hax_list_head *list)
 
     ramblock_info("ramblock_free_list\n");
     hax_list_entry_for_each_safe(ramblock, tmp, list, hax_ramblock, entry) {
-        hax_list_del(&ramblock->entry);
-        ramblock_info("%s: Freeing RAM block: uva: 0x%llx, size: 0x%llx, "
-                      "ref_count: %d\n", __func__, ramblock->base_uva,
-                      ramblock->size, ramblock->ref_count);
-        ramblock_free(ramblock);
+        ramblock_remove(ramblock);
     }
 }
 
@@ -420,7 +428,14 @@ void ramblock_deref(hax_ramblock *block)
         hax_debug("%s: Reset RAM block (%p): base_uva = 0x%llx, size = 0x%llx, "
                   "ref_count = %d\n", __func__, block, block->base_uva,
                   block->size, block->ref_count);
-        ramblock_free_chunks(block, false);
+        if (block->is_standalone) {
+            // A stand-alone mapping is created along with a "disposable" RAM
+            // block, which must be destroyed when the mapping is unmapped, so
+            // its HVA range can be reused by other stand-alone mappings.
+            ramblock_remove(block);
+        } else {
+            ramblock_free_chunks(block, false);
+        }
         return;
     }
 

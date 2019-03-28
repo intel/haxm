@@ -96,6 +96,7 @@ itself as well as the host environment.
   #define HAX_CAP_64BIT_SETRAM       (1 << 4)
   #define HAX_CAP_TUNNEL_PAGE        (1 << 5)
   #define HAX_CAP_DEBUG              (1 << 7)
+  #define HAX_CAP_IMPLICIT_RAMBLOCK  (1 << 8)
   ```
   * (Output) `wstatus`: The first set of capability flags reported to the
 caller. The following bits may be set, while others are reserved:
@@ -120,7 +121,9 @@ supported by the host CPU, or disabled in BIOS.
 feature. This is always the case with API v2 and later.
     * `HAX_CAP_UG`: If set, the host CPU supports the Unrestricted Guest (UG)
 feature.
-    * `HAX_CAP_64BIT_SETRAM`: If set, HAX\_VM\_IOCTL\_SET\_RAM2 is available.
+    * `HAX_CAP_64BIT_SETRAM`: If set, `HAX_VM_IOCTL_SET_RAM2` is available.
+    * `HAX_CAP_IMPLICIT_RAMBLOCK`: If set, `HAX_VM_IOCTL_SET_RAM2` supports the
+`HAX_RAM_INFO_STANDALONE` flag.
   * (Output) `win_refcount`: (Windows only)
   * (Output) `mem_quota`: If the global memory cap setting is enabled (q.v.
 `HAX_IOCTL_SET_MEMLIMIT`), reports the current quota on memory allocation (the
@@ -319,8 +322,9 @@ Same as `HAX_VM_IOCTL_SET_RAM`, but takes a 64-bit size instead of 32-bit.
       uint64_t reserved2;
   } __attribute__ ((__packed__));
 
-  #define HAX_RAM_INFO_ROM     0x01
-  #define HAX_RAM_INFO_INVALID 0x80
+  #define HAX_RAM_INFO_ROM (1 << 0)
+  #define HAX_RAM_INFO_STANDALONE (1 << 6)
+  #define HAX_RAM_INFO_INVALID (1 << 7)
   ```
   * (Input) `pa_start`: The start address of the GPA range to map. Must be page-
 aligned (i.e. a multiple of 4KB).
@@ -336,6 +340,12 @@ buffer.
 while others are reserved:
     * `HAX_RAM_INFO_ROM`: If set, the GPA range will be mapped as read-only
 memory (ROM).
+    * `HAX_RAM_INFO_STANDALONE`: If set, the HVA range must not overlap with any
+existing RAM block, and a new RAM block will be implicitly created for this
+stand-alone mapping. In other words, when using this flag, the caller should not
+call `HAX_VM_IOCTL_ADD_RAMBLOCK` in advance for the same HVA range. As soon as
+the stand-alone mapping is destroyed (via `HAX_RAM_INFO_INVALID`), the
+implicitly-created RAM block will also go away.
     * `HAX_RAM_INFO_INVALID`: (Since API v4) If set, any existing mappings for
 any guest physical pages in the GPA range will be removed, i.e. the GPA range
 will be reserved for MMIO. This flag must not be combined with any other flags,
