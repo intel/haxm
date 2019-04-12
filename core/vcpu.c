@@ -111,7 +111,8 @@ static void check_flush(struct vcpu_t *vcpu, uint32_t bits);
 static void vmwrite_efer(struct vcpu_t *vcpu);
 
 static int handle_msr_read(struct vcpu_t *vcpu, uint32_t msr, uint64_t *val);
-static int handle_msr_write(struct vcpu_t *vcpu, uint32_t msr, uint64_t val);
+static int handle_msr_write(struct vcpu_t *vcpu, uint32_t msr, uint64_t val,
+                            bool by_host);
 static void handle_cpuid(struct vcpu_t *vcpu, struct hax_tunnel *htun);
 static void vcpu_dump(struct vcpu_t *vcpu, uint32_t mask, const char *caption);
 static void vcpu_state_dump(struct vcpu_t *vcpu);
@@ -3223,7 +3224,7 @@ static int exit_msr_write(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 
     htun->_exit_reason = vmx(vcpu, exit_reason).basic_reason;
 
-    if (handle_msr_write(vcpu, msr, val)) {
+    if (handle_msr_write(vcpu, msr, val, false)) {
         hax_inject_exception(vcpu, VECTOR_GP, 0);
         return HAX_RESUME;
     }
@@ -3512,7 +3513,8 @@ static int misc_msr_write(struct vcpu_t *vcpu, uint32_t msr, uint64_t val)
     return 1;
 }
 
-static int handle_msr_write(struct vcpu_t *vcpu, uint32_t msr, uint64_t val)
+static int handle_msr_write(struct vcpu_t *vcpu, uint32_t msr, uint64_t val,
+                            bool by_host)
 {
     int index, r = 0;
     struct vcpu_state_t *state = vcpu->state;
@@ -3541,10 +3543,11 @@ static int handle_msr_write(struct vcpu_t *vcpu, uint32_t msr, uint64_t val)
             break;
         }
         case IA32_EFER: {
-            hax_info("Guest writing to EFER[%u]: 0x%x -> 0x%llx, _cr0=0x%llx,"
-                     " _cr4=0x%llx\n", vcpu->vcpu_id, state->_efer, val,
+            hax_info("%s writing to EFER[%u]: 0x%x -> 0x%llx, _cr0=0x%llx,"
+                     " _cr4=0x%llx\n", by_host ? "Host" : "Guest",
+                     vcpu->vcpu_id, state->_efer, val,
                      state->_cr0, state->_cr4);
-            
+
             /* val - "new" EFER, state->_efer - "old" EFER.*/
             if ((val &
                  ~((uint64_t)(IA32_EFER_SCE | IA32_EFER_LME |
@@ -3555,19 +3558,40 @@ static int handle_msr_write(struct vcpu_t *vcpu, uint32_t msr, uint64_t val)
                 r = 1;
                 break;
             }
-            if (((val & IA32_EFER_LMA) ^
-                 (state->_efer & IA32_EFER_LMA))) {
-                hax_warning("IA32_EFER.LMA changed. EFER: 0x%llx -> 0x%llx\n",
-                            (uint64_t) state->_efer,val);
-            }
-            if ((state->_cr0 & CR0_PG) &&
-                ((val & IA32_EFER_LME) ^
-                 (state->_efer & IA32_EFER_LME))) {
-                hax_error("Attempted to enable or disable Long Mode with "
-                          "paging enabled. EFER: 0x%llx -> 0x%llx\n",
-                          (uint64_t) state->_efer, val);
-                r = 1;
-                break;
+
+            if (!by_host) {
+                /*
+                 * Two code paths can lead to handle_msr_write():
+                 *  a) The guest invokes the WRMSR instruction;
+                 *  b) The host calls the HAX_VCPU_IOCTL_SET_MSRS ioctl.
+                 * The following checks are only applicable to guest-initiated
+                 * EFER writes, not to host-initiated EFER writes. E.g., when
+                 * booting the guest from a VM snapshot, the host (QEMU) may
+                 * need to initialize the vCPU in 64-bit mode (CR0.PG = CR4.PAE
+                 * = EFER.LME = EFER.LMA = CS.L = 1) via SET_REGS and SET_MSRS
+                 * ioctls.
+                 */
+                if (((val & IA32_EFER_LMA) ^
+                     (state->_efer & IA32_EFER_LMA))) {
+                    hax_warning("Ignoring guest write to IA32_EFER.LMA. "
+                                "EFER: 0x%llx -> 0x%llx\n",
+                                (uint64_t) state->_efer,val);
+                    /*
+                     * No need to explicitly fix the LMA bit here:
+                     *  val ^= IA32_EFER_LMA;
+                     * because in the end vmwrite_efer() will ignore the LMA
+                     * bit in |val|.
+                     */
+                }
+                if ((state->_cr0 & CR0_PG) &&
+                    ((val & IA32_EFER_LME) ^
+                     (state->_efer & IA32_EFER_LME))) {
+                    hax_error("Attempted to enable or disable Long Mode with "
+                              "paging enabled. EFER: 0x%llx -> 0x%llx\n",
+                              (uint64_t) state->_efer, val);
+                    r = 1;
+                    break;
+                }
             }
             state->_efer = val;
 
@@ -4065,7 +4089,7 @@ int vcpu_get_msr(struct vcpu_t *vcpu, uint64_t entry, uint64_t *val)
 
 int vcpu_set_msr(struct vcpu_t *vcpu, uint64_t entry, uint64_t val)
 {
-    return handle_msr_write(vcpu, entry, val);
+    return handle_msr_write(vcpu, entry, val, true);
 }
 
 void vcpu_debug(struct vcpu_t *vcpu, struct hax_debug_t *debug)
