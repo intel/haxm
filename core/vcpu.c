@@ -2183,27 +2183,24 @@ static int vcpu_emulate_insn(struct vcpu_t *vcpu)
     return HAX_EXIT;
 }
 
-static uint64_t vcpu_read_gpr(void *obj, uint32_t reg_index, uint32_t size)
+static uint64_t vcpu_read_gpr(void *obj, uint32_t reg_index)
 {
     struct vcpu_t *vcpu = obj;
     if (reg_index >= 16) {
         hax_panic_vcpu(vcpu, "vcpu_read_gpr: Invalid register index\n");
         return 0;
     }
-    uint64_t value = 0;
-    memcpy(&value, &vcpu->state->_regs[reg_index], size);
-    return value;
+    return vcpu->state->_regs[reg_index];
 }
 
-static void vcpu_write_gpr(void *obj, uint32_t reg_index, uint64_t value,
-                           uint32_t size)
+static void vcpu_write_gpr(void *obj, uint32_t reg_index, uint64_t value)
 {
     struct vcpu_t *vcpu = obj;
     if (reg_index >= 16) {
         hax_panic_vcpu(vcpu, "vcpu_write_gpr: Invalid register index\n");
         return;
     }
-    memcpy(&vcpu->state->_regs[reg_index], &value, size);
+    vcpu->state->_regs[reg_index] = value;
 }
 
 uint64_t vcpu_read_rflags(void *obj)
