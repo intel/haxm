@@ -430,6 +430,10 @@ NTSTATUS HaxVcpuControl(PDEVICE_OBJECT DeviceObject,
             vcpu_debug(cvcpu, (struct hax_debug_t*)inBuf);
             break;
         }
+		case HAX_VCPU_IOCTL_SET_EXCBMP: {
+			vcpu_setexcbmp(cvcpu, *(uint32_t*)inBuf);
+			break;
+		}
         default:
             hax_error("Unknow vcpu ioctl %lx\n",
                       irpSp->Parameters.DeviceIoControl.IoControlCode);

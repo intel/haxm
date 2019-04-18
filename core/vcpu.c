@@ -1309,6 +1309,7 @@ static void vcpu_update_exception_bitmap(struct vcpu_t *vcpu)
     if (vcpu->debug_control & HAX_DEBUG_USE_SW_BP) {
         exc_bitmap |= (1u << VECTOR_BP);
     }
+	exc_bitmap |= vcpu->user_excbmp;
     vmwrite(vcpu, VMX_EXCEPTION_BITMAP, exc_bitmap);
 }
 
@@ -1942,9 +1943,6 @@ static void vmwrite_cr(struct vcpu_t *vcpu)
                    ~(cr0_fixed_0 ^ cr0_fixed_1);
     }
 
-	// leecher1337
-	exc_bitmap |= 1u << VECTOR_UD;
-
     if (vtlb_active(vcpu)) {
         hax_debug("vTLB mode, cr0 %llx\n", vcpu->state->_cr0);
         vcpu->mmu->mmu_mode = MMU_MODE_VTLB;
@@ -2395,11 +2393,13 @@ static int exit_exc_nmi(struct vcpu_t *vcpu, struct hax_tunnel *htun)
             htun->debug.dr7 = 0;
             return HAX_EXIT;
         }
-		// leecher1337
-		case VECTOR_UD: {
+		default:
+		if (vcpu->user_excbmp & (1 << exit_intr_info.vector))
+		{
 			uint64_t va;
 
-			htun->_exit_status = HAX_EXIT_OPCODE;
+			htun->_exit_status = HAX_EXIT_NMI;
+			htun->nmi.exit_intr_info = exit_intr_info.raw;
 			va = vcpu->state->_cs.long_mode == 1 ? vcpu->state->_rip : vcpu->state->_cs.base + vcpu->state->_rip;
 			vcpu_read_guest_virtual(vcpu, va, vcpu->io_buf, INSTR_MAX_LEN, INSTR_MAX_LEN, 0);
 			return HAX_EXIT;
@@ -4119,6 +4119,13 @@ void vcpu_debug(struct vcpu_t *vcpu, struct hax_debug_t *debug)
     vcpu->dr_dirty = 1;
     vcpu_update_exception_bitmap(vcpu);
 };
+
+void vcpu_setexcbmp(struct vcpu_t *vcpu, uint32_t excbmp)
+{
+	vcpu->user_excbmp = excbmp;
+	hax_error("set user_excbmp = %08X", vcpu->user_excbmp);
+	vcpu_update_exception_bitmap(vcpu);
+}
 
 static void vcpu_dump(struct vcpu_t *vcpu, uint32_t mask, const char *caption)
 {
