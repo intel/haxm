@@ -239,7 +239,7 @@ struct vcpu_t {
     struct mmio_fetch_cache mmio_fetch;
 #endif  // CONFIG_HAX_EPT2
 
-	uint32_t user_excbmp;
+    uint32_t user_excbmp;
 };
 
 #define vmx(v, field) v->vmx.field
