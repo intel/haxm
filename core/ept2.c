@@ -84,16 +84,6 @@ int ept_handle_access_violation(hax_gpa_space *gpa_space, hax_ept_tree *tree,
     uint64_t start_gpa, size;
     int ret;
 
-    // Extract bits 5..3 from Exit Qualification
-    combined_perm = (uint) ((qual.raw >> 3) & 7);
-    // See IA SDM Vol. 3C 27.2.1 Table 27-7, especially note 2
-    if (combined_perm != HAX_EPT_PERM_NONE) {
-        hax_error("%s: Cannot handle the case where the PTE corresponding to"
-                  " the faulting GPA is present: qual=0x%llx, gpa=0x%llx\n",
-                  __func__, qual.raw, gpa);
-        return -EACCES;
-    }
-
     gfn = gpa >> PG_ORDER_4K;
     hax_assert(gpa_space != NULL);
     slot = memslot_find(gpa_space, gfn);
@@ -101,6 +91,23 @@ int ept_handle_access_violation(hax_gpa_space *gpa_space, hax_ept_tree *tree,
         // The faulting GPA is reserved for MMIO
         hax_debug("%s: gpa=0x%llx is reserved for MMIO\n", __func__, gpa);
         return 0;
+    }
+
+    // Extract bits 5..3 from Exit Qualification
+    combined_perm = (uint) ((qual.raw >> 3) & 7);
+    if (combined_perm != HAX_EPT_PERM_NONE) {
+        if ((qual.raw & HAX_EPT_ACC_W) && !(combined_perm & HAX_EPT_PERM_W) &&
+            (slot->flags == HAX_MEMSLOT_READONLY)) {
+            // Handle a write to ROM/ROM device as MMIO
+            hax_debug("%s: write to a read-only gpa=0x%llx\n",
+                      __func__, gpa);
+            return 0;
+        }
+        // See IA SDM Vol. 3C 27.2.1 Table 27-7, especially note 2
+        hax_error("%s: Cannot handle the case where the PTE corresponding to"
+                  " the faulting GPA is present: qual=0x%llx, gpa=0x%llx\n",
+                  __func__, qual.raw, gpa);
+        return -EACCES;
     }
 
     // Ideally we should call gpa_space_is_page_protected() and ask user space

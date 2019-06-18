@@ -45,9 +45,14 @@
 #define HAX_EPT_TABLE_SHIFT 9
 #define HAX_EPT_TABLE_SIZE  (1 << HAX_EPT_TABLE_SHIFT)
 
+#define HAX_EPT_ACC_R 0x1
+#define HAX_EPT_ACC_W 0x2
+#define HAX_EPT_ACC_X 0x4
+
 #define HAX_EPT_PERM_NONE 0x0
 #define HAX_EPT_PERM_RWX  0x7
 #define HAX_EPT_PERM_RX   0x5
+#define HAX_EPT_PERM_W    0x2
 
 #define HAX_EPT_MEMTYPE_UC 0x0
 #define HAX_EPT_MEMTYPE_WB 0x6
