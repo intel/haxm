@@ -254,7 +254,8 @@ uint vcpu_vtlb_alloc(struct vcpu_t *vcpu)
     mmu = hax_vmalloc(sizeof(hax_mmu_t), 0);
 
     if (!mmu) {
-        hax_error("No memory to create mmu for vcpu:%d\n", vcpu->vcpu_id);
+        hax_log(HAX_LOGE, "No memory to create mmu for vcpu:%d\n",
+                vcpu->vcpu_id);
         return 0;
     }
     memset(mmu, 0, sizeof(hax_mmu_t));
@@ -264,7 +265,7 @@ uint vcpu_vtlb_alloc(struct vcpu_t *vcpu)
     // Must ensure the first page should be lower than 4G
     page = hax_alloc_page(HAX_MEM_LOW_4G, 1);
     if (!page) {
-        hax_debug("No enough memory for creating vTLB root page!\n");
+        hax_log(HAX_LOGD, "No enough memory for creating vTLB root page!\n");
         goto alloc_fail0;
     }
     mmu->hpd_page = page;
@@ -380,7 +381,7 @@ void vtlb_invalidate_addr(hax_mmu_t *mmu, hax_vaddr_t va)
 
     hax_assert(mmu->host_mode == PM_PAE);
 
-    hax_debug("Flush address 0x%llx\n", va);
+    hax_log(HAX_LOGD, "Flush address 0x%llx\n", va);
 
     pde = vtlb_get_pde(mmu, va, 0);
 
@@ -407,7 +408,7 @@ void vtlb_invalidate(hax_mmu_t *mmu)
         return;
 
     hax_assert(mmu->host_mode == PM_PAE);
-    hax_debug("Flush whole vTLB\n");
+    hax_log(HAX_LOGD, "Flush whole vTLB\n");
     mmu_recycle_vtlb_pages(mmu);
 
     mmu->clean = 1;
@@ -422,8 +423,8 @@ static uint vtlb_handle_page_fault(struct vcpu_t *vcpu, pagemode_t guest_mode,
     uint need_invalidation = 0;
     hax_mmu_t *mmu = vcpu->mmu;
 
-    hax_debug("vTLB::handle_pagefault %08llx, %08llx %x [Mode %u]\n", pdir, va,
-              access, guest_mode);
+    hax_log(HAX_LOGD, "vTLB::handle_pagefault %08llx, %08llx %x [Mode %u]\n",
+            pdir, va, access, guest_mode);
 
     hax_assert(guest_mode != PM_INVALID);
     if (guest_mode != mmu->guest_mode) {
@@ -437,8 +438,9 @@ static uint vtlb_handle_page_fault(struct vcpu_t *vcpu, pagemode_t guest_mode,
             case PM_PAE:
             case PM_PML4:
             default: {
-                hax_panic_vcpu(vcpu, "Invalid guest page table mode %d\n",
-                               mmu->guest_mode);
+                vcpu_set_panic(vcpu);
+                hax_log(HAX_LOGPANIC, "Invalid guest page table mode %d\n",
+                        mmu->guest_mode);
             }
         }
 
@@ -451,7 +453,7 @@ static uint vtlb_handle_page_fault(struct vcpu_t *vcpu, pagemode_t guest_mode,
         mmu->guest_mode = guest_mode;
         mmu->host_mode = new_host_mode;
         mmu->pdir = pdir;
-        hax_debug("New vTLB mode %u, pdir %08llx\n", guest_mode, pdir);
+        hax_log(HAX_LOGD, "New vTLB mode %u, pdir %08llx\n", guest_mode, pdir);
     }
 
     if (need_invalidation ||
@@ -479,7 +481,8 @@ static uint vtlb_handle_page_fault(struct vcpu_t *vcpu, pagemode_t guest_mode,
             break;
         }
         default: {
-            hax_error("Invalid guest's paging mode %d\n", mmu->guest_mode);
+            hax_log(HAX_LOGE, "Invalid guest's paging mode %d\n",
+                    mmu->guest_mode);
             return TF_FAILED;
         }
     }
@@ -520,8 +523,8 @@ uint64_t vtlb_get_cr3(struct vcpu_t *vcpu)
 
     cr3 = hax_page_pfn(mmu->hpd_page) << 12;
 
-    hax_debug("vTLB: guest mode %u, host mode %d, GUEST_CR3: %08llx\n",
-              mmu->guest_mode, mmu->host_mode, cr3);
+    hax_log(HAX_LOGD, "vTLB: guest mode %u, host mode %d, GUEST_CR3: %08llx\n",
+            mmu->guest_mode, mmu->host_mode, cr3);
 
     return cr3;
 }
@@ -643,7 +646,8 @@ retry:
             // complete. This matches Atom behavior.
             if (update && !pte32_is_accessed(&old_pte)) {
                 if (!pte32_atomic_set_accessed(pte, &old_pte)) {
-                    hax_debug("translate walk: atomic PTE update failed\n");
+                    hax_log(HAX_LOGD,
+                            "translate walk: atomic PTE update failed\n");
 #ifdef CONFIG_HAX_EPT2
                     gpa_space_unmap_page(&vcpu->vm->gpa_space, &pte_kmap);
 #else // !CONFIG_HAX_EPT2
@@ -700,7 +704,8 @@ retry:
                 ((access & TF_WRITE) && !pte32_is_dirty(&old_pte)))) {
                 if (!pte32_atomic_set_ad(pte, lvl, access & TF_WRITE,
                     &old_pte)) {
-                    hax_debug("translate walk: atomic PTE update failed\n");
+                    hax_log(HAX_LOGD,
+                            "translate walk: atomic PTE update failed\n");
 #ifdef CONFIG_HAX_EPT2
                     gpa_space_unmap_page(&vcpu->vm->gpa_space, &pte_kmap);
 #else // !CONFIG_HAX_EPT2
@@ -728,7 +733,7 @@ retry:
                 uint base_idx = 0;
                 pte32_t pre_pte;
                 uint i;
-                //hax_error("guest: va %lx\n", va);
+                //hax_log(HAX_LOGE, "guest: va %lx\n", va);
 
                 base_idx = idx - idx % 16;
                 for (i = 0; i < 16; i++) {
@@ -788,14 +793,14 @@ bool handle_vtlb(struct vcpu_t *vcpu)
 
     uint32_t ret = vtlb_handle_page_fault(vcpu, mode, pdir, cr2, access);
 
-    hax_debug("handle vtlb fault @%llx\n", cr2);
+    hax_log(HAX_LOGD, "handle vtlb fault @%llx\n", cr2);
     if (ret == 0) {
         vcpu->vmcs_pending_guest_cr3 = 1;
         return 1;
     }
 
     if (ret & TF_GP2HP) {
-        hax_debug("G2H translation failed (%08llx, %x)\n", cr2, access);
+        hax_log(HAX_LOGD, "G2H translation failed (%08llx, %x)\n", cr2, access);
         return 0;
     }
 
@@ -803,7 +808,7 @@ bool handle_vtlb(struct vcpu_t *vcpu)
     access = ret & (vcpu->state->_efer & IA32_EFER_XD ? 0x1f : 0x0f);
     vcpu->state->_cr2 = cr2;
     hax_inject_page_fault(vcpu, access);
-    hax_debug("Page fault (%08llx, %x)\n", cr2, access);
+    hax_log(HAX_LOGD, "Page fault (%08llx, %x)\n", cr2, access);
 
     return 1;
 }
@@ -823,11 +828,11 @@ static inline void * mmio_map_guest_virtual_page_fast(struct vcpu_t *vcpu,
         vcpu->mmio_fetch.kva = NULL;
         gpa_space_unmap_page(&vcpu->vm->gpa_space, &vcpu->mmio_fetch.kmap);
         if (vcpu->mmio_fetch.hit_count < 2) {
-            hax_debug("%s: Cache miss: cached_gva=0x%llx, cached_cr3=0x%llx,"
-                      " gva=0x%llx, cr3=0x%llx, hits=0x%d, vcpu_id=0x%u\n",
-                      __func__, vcpu->mmio_fetch.last_gva,
-                      vcpu->mmio_fetch.last_guest_cr3, gva, vcpu->state->_cr3,
-                      vcpu->mmio_fetch.hit_count, vcpu->vcpu_id);
+            hax_log(HAX_LOGD, "%s: Cache miss: cached_gva=0x%llx, "
+                    "cached_cr3=0x%llx, gva=0x%llx, cr3=0x%llx, hits=0x%d, "
+                    "vcpu_id=0x%u\n", __func__, vcpu->mmio_fetch.last_gva,
+                    vcpu->mmio_fetch.last_guest_cr3, gva, vcpu->state->_cr3,
+                    vcpu->mmio_fetch.hit_count, vcpu->vcpu_id);
         }
         return NULL;
     }
@@ -856,19 +861,19 @@ static void * mmio_map_guest_virtual_page_slow(struct vcpu_t *vcpu, uint64_t gva
 
     ret = vcpu_translate(vcpu, gva_aligned, 0, &gpa, NULL, true);
     if (ret) {
-        hax_error("%s: vcpu_translate() returned 0x%x: vcpu_id=%u,"
-                  " gva=0x%llx\n", __func__, ret, vcpu->vcpu_id, gva);
+        hax_log(HAX_LOGE, "%s: vcpu_translate() returned 0x%x: vcpu_id=%u,"
+                " gva=0x%llx\n", __func__, ret, vcpu->vcpu_id, gva);
         // TODO: Inject a guest page fault?
         return NULL;
     }
-    hax_debug("%s: gva=0x%llx => gpa=0x%llx, vcpu_id=0x%u\n", __func__,
-              gva_aligned, gpa, vcpu->vcpu_id);
+    hax_log(HAX_LOGD, "%s: gva=0x%llx => gpa=0x%llx, vcpu_id=0x%u\n", __func__,
+            gva_aligned, gpa, vcpu->vcpu_id);
 
     kva = gpa_space_map_page(&vcpu->vm->gpa_space, gpa >> PG_ORDER_4K, kmap,
                              NULL);
     if (!kva) {
-        hax_error("%s: gpa_space_map_page() failed: vcpu_id=%u, gva=0x%llx,"
-                  " gpa=0x%llx\n", __func__, vcpu->vcpu_id, gva, gpa);
+        hax_log(HAX_LOGE, "%s: gpa_space_map_page() failed: vcpu_id=%u, "
+                "gva=0x%llx, gpa=0x%llx\n", __func__, vcpu->vcpu_id, gva, gpa);
         return NULL;
     }
     return kva;
@@ -888,13 +893,13 @@ int mmio_fetch_instruction(struct vcpu_t *vcpu, uint64_t gva, uint8_t *buf, int 
     if ((gva >> PG_ORDER_4K) != (end_gva >> PG_ORDER_4K)) {
         uint32_t ret;
 
-        hax_info("%s: GVA range spans two pages: gva=0x%llx, len=%d\n",
-                 __func__, gva, len);
+        hax_log(HAX_LOGI, "%s: GVA range spans two pages: gva=0x%llx, len=%d\n",
+                __func__, gva, len);
         ret = vcpu_read_guest_virtual(vcpu, gva, buf, (uint)len, (uint)len, 0);
         if (!ret) {
-            hax_error("%s: vcpu_read_guest_virtual() failed: vcpu_id=%u,"
-                      " gva=0x%llx, len=%d\n", __func__, vcpu->vcpu_id, gva,
-                      len);
+            hax_log(HAX_LOGE, "%s: vcpu_read_guest_virtual() failed: "
+                    "vcpu_id=%u, gva=0x%llx, len=%d\n", __func__,
+                    vcpu->vcpu_id, gva, len);
             return -ENOMEM;
         }
         return 0;
@@ -963,24 +968,26 @@ uint32_t vcpu_read_guest_virtual(struct vcpu_t *vcpu, hax_vaddr_t addr, void *ds
             if (flag != 0)
                 return offset;  // Number of bytes successfully read
             if (r & TF_GP2HP) {
-                hax_error("read_guest_virtual(%llx, %x) failed\n", addr, size);
+                hax_log(HAX_LOGE, "read_guest_virtual(%llx, %x) failed\n",
+                        addr, size);
             }
-            hax_debug("read_guest_virtual(%llx, %x) injecting #PF\n", addr,
-                      size);
+            hax_log(HAX_LOGD, "read_guest_virtual(%llx, %x) injecting #PF\n",
+                    addr, size);
             vcpu->state->_cr2 = addr + offset;
             hax_inject_page_fault(vcpu, r & 0x1f);
             return false;
         }
 //      if (addr + offset != gpa) {
-//          hax_info("%s: gva=0x%llx, gpa=0x%llx, len=0x%llx\n", __func__,
-//                   addr + offset, gpa, len);
+//          hax_log(HAX_LOGI, "%s: gva=0x%llx, gpa=0x%llx, len=0x%llx\n",
+//                  __func__, addr + offset, gpa, len);
 //      }
 #ifdef CONFIG_HAX_EPT2
         len2 = gpa_space_read_data(&vcpu->vm->gpa_space, gpa, (int)len,
                                    (uint8_t *)(dstp + offset));
         if (len2 <= 0) {
-            hax_panic_vcpu(
-                    vcpu, "read guest virtual error, gpa:0x%llx, len:0x%llx\n",
+            vcpu_set_panic(vcpu);
+            hax_log(HAX_LOGPANIC,
+                    "read guest virtual error, gpa:0x%llx, len:0x%llx\n",
                     gpa, len);
             return false;
         } else {
@@ -996,7 +1003,8 @@ uint32_t vcpu_read_guest_virtual(struct vcpu_t *vcpu, hax_vaddr_t addr, void *ds
             hva = (uint8_t *)hva_base + (gpa & 0xfff);
             memcpy_s((void *)(dstp + offset), dst_buflen - offset , hva, len);
         } else {
-            hax_panic_vcpu(vcpu, "BUG_ON during the call:%s\n", __FUNCTION__);
+            vcpu_set_panic(vcpu);
+            hax_log(HAX_LOGPANIC, "BUG_ON during the call:%s\n", __FUNCTION__);
         }
 #ifdef HAX_ARCH_X86_32
         hax_unmap_gpfn(vcpu->vm, hva_base, gpa >> 12);
@@ -1058,11 +1066,12 @@ uint32_t vcpu_write_guest_virtual(struct vcpu_t *vcpu, hax_vaddr_t addr,
             if (flag != 0)
                 return offset;  // Number of bytes successfully written
             if (r & TF_GP2HP) {
-                hax_panic_vcpu(vcpu, "write_guest_virtual(%llx, %x) failed\n",
-                               addr, size);
+                vcpu_set_panic(vcpu);
+                hax_log(HAX_LOGPANIC, "write_guest_virtual(%llx, %x) failed\n",
+                        addr, size);
             }
-            hax_debug("write_guest_virtual(%llx, %x) injecting #PF\n", addr,
-                      size);
+            hax_log(HAX_LOGD, "write_guest_virtual(%llx, %x) injecting #PF\n",
+                    addr, size);
             vcpu->state->_cr2 = addr + offset;
             hax_inject_page_fault(vcpu, r & 0x1f);
             return false;
@@ -1071,8 +1080,9 @@ uint32_t vcpu_write_guest_virtual(struct vcpu_t *vcpu, hax_vaddr_t addr,
         len2 = (uint64_t)gpa_space_write_data(&vcpu->vm->gpa_space, gpa, len,
                                             (uint8_t *)(srcp + offset));
         if (len2 <= 0) {
-            hax_panic_vcpu(
-                    vcpu, "write guest virtual error, gpa:0x%llx, len:0x%llx\n",
+            vcpu_set_panic(vcpu);
+            hax_log(HAX_LOGPANIC,
+                    "write guest virtual error, gpa:0x%llx, len:0x%llx\n",
                     gpa, len);
             return false;
         } else {
@@ -1088,7 +1098,8 @@ uint32_t vcpu_write_guest_virtual(struct vcpu_t *vcpu, hax_vaddr_t addr,
             hva = (uint8_t *)hva_base + (gpa & 0xfff);
             memcpy_s(hva, dst_buflen - offset , (void *)(srcp + offset), len);
         } else {
-            hax_panic_vcpu(vcpu, "BUG_ON during the call:%s\n", __FUNCTION__);
+            vcpu_set_panic(vcpu);
+            hax_log(HAX_LOGPANIC, "BUG_ON during the call:%s\n", __FUNCTION__);
         }
 #ifdef HAX_ARCH_X86_32
         hax_unmap_gpfn(vcpu->vm, hva_base, gpa >> 12);
@@ -1119,9 +1130,8 @@ uint vcpu_translate(struct vcpu_t *vcpu, hax_vaddr_t va, uint access, hax_paddr_
     uint order = 0;
     uint r = -1;
 
-    hax_debug("vcpu_translate: %llx (%s,%s) mode %u\n", va,
-              access & TF_WRITE ? "W" : "R", access & TF_USER ? "U" : "S",
-              mode);
+    hax_log(HAX_LOGD, "vcpu_translate: %llx (%s,%s) mode %u\n", va,
+            access & TF_WRITE ? "W" : "R", access & TF_USER ? "U" : "S", mode);
 
     switch (mode) {
         case PM_FLAT: {

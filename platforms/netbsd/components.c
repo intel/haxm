@@ -85,7 +85,8 @@ int hax_vcpu_create_host(struct vcpu_t *cvcpu, void *vm_host, int vm_id,
     minor = vmvcpu2unit(vm_id, vcpu_id);
     sc = device_lookup_private(&hax_vcpu_cd, minor);
     if (!sc) {
-        hax_error("device lookup for hax_vcpu failed (minor %u)\n", minor);
+        hax_log(HAX_LOGE, "device lookup for hax_vcpu failed (minor %u)\n",
+                minor);
         return -1;
     }
 
@@ -97,7 +98,8 @@ int hax_vcpu_create_host(struct vcpu_t *cvcpu, void *vm_host, int vm_id,
     vcpu->id = vcpu_id;
     sc->vcpu = vcpu;
 
-    hax_info("Created HAXM-VCPU device 'hax_vm%02d/vcpu%02d'\n", vm_id, vcpu_id);
+    hax_log(HAX_LOGI, "Created HAXM-VCPU device 'hax_vm%02d/vcpu%02d'\n",
+            vm_id, vcpu_id);
     return 0;
 }
 
@@ -112,7 +114,8 @@ int hax_vcpu_destroy_host(struct vcpu_t *cvcpu, void *vcpu_host)
     minor = vmvcpu2unit(vcpu->vm->id, vcpu->id);
     sc = device_lookup_private(&hax_vcpu_cd, minor);
     if (!sc) {
-        hax_error("device lookup for hax_vcpu failed (minor %u)\n", minor);
+        hax_log(HAX_LOGE, "device lookup for hax_vcpu failed (minor %u)\n",
+                minor);
         return -1;
     }
 
@@ -146,7 +149,8 @@ static void hax_vm_destroy_netbsd(hax_vm_netbsd_t *vm)
     minor = vm->id;
     sc = device_lookup_private(&hax_vm_cd, minor);
     if (!sc) {
-        hax_error("device lookup for hax_vm failed (minor %u)\n", minor);
+        hax_log(HAX_LOGE, "device lookup for hax_vm failed (minor %u)\n",
+                minor);
         return;
     }
 
@@ -172,7 +176,8 @@ int hax_vm_create_host(struct vm_t *cvm, int vm_id)
     minor = vm_id;
     sc = device_lookup_private(&hax_vm_cd, minor);
     if (!sc) {
-        hax_error("device lookup for hax_vm failed (minor %u)\n", minor);
+        hax_log(HAX_LOGE, "device lookup for hax_vm failed (minor %u)\n",
+                minor);
         return -1;
     }
 
@@ -182,7 +187,7 @@ int hax_vm_create_host(struct vm_t *cvm, int vm_id)
 
     sc->vm = vm;
 
-    hax_info("Created HAXM-VM device 'hax_vm/vm%02d'\n", vm_id);
+    hax_log(HAX_LOGI, "Created HAXM-VM device 'hax_vm/vm%02d'\n", vm_id);
     return 0;
 }
 

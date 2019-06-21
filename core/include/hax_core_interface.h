@@ -94,7 +94,6 @@ int hax_vm_set_qemuversion(struct vm_t *vm, struct hax_qemu_version *ver);
 struct vm_t * hax_create_vm(int *vm_id);
 int hax_teardown_vm(struct vm_t *vm);
 int vcpu_event_pending(struct vcpu_t *vcpu);
-void vcpu_set_panic(struct vcpu_t *vcpu);
 
 #ifdef __cplusplus
 }

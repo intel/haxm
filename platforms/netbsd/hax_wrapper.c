@@ -44,20 +44,36 @@
 #include "../../core/include/hax_core_interface.h"
 #include "../../core/include/ia32.h"
 
-int default_hax_log_level = HAX_LOG_DEFAULT;
 int max_cpus;
 hax_cpumap_t cpu_online_map;
 
-int hax_log_level(int level, const char *fmt,  ...)
+static const char* kLogPrefix[] = {
+    "haxm: ",
+    "haxm_debug: ",
+    "haxm_info: ",
+    "haxm_warning: ",
+    "haxm_error: ",
+    "haxm_panic: "
+};
+
+void hax_log(int level, const char *fmt,  ...)
 {
     va_list args;
     va_start(args, fmt);
-    if (level >= default_hax_log_level) {
-        printf("haxm: ");
+    if (level >= HAX_LOG_DEFAULT) {
+        printf("%s", kLogPrefix[level]);
         vprintf(fmt, args);
     }
     va_end(args);
-    return 0;
+}
+
+void hax_panic(const char *fmt,  ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    hax_log(HAX_LOGPANIC, fmt, args);
+    panic(fmt, args);
+    va_end(args);
 }
 
 uint32_t hax_cpuid(void)
@@ -121,70 +137,6 @@ void hax_enable_irq(void)
 void hax_disable_irq(void)
 {
     x86_disable_intr();
-}
-
-void hax_error(char *fmt, ...)
-{
-    va_list args;
-
-    if (HAX_LOGE < default_hax_log_level)
-        return;
-
-    va_start(args, fmt);
-    printf("haxm_error: ");
-    vprintf(fmt, args);
-    va_end(args);
-}
-
-void hax_warning(char *fmt, ...)
-{
-    va_list args;
-
-    if (HAX_LOGW < default_hax_log_level)
-        return;
-
-    va_start(args, fmt);
-    printf("haxm_warning: ");
-    vprintf(fmt, args);
-    va_end(args);
-}
-
-void hax_info(char *fmt, ...)
-{
-    va_list args;
-
-    if (HAX_LOGI < default_hax_log_level)
-        return;
-
-    va_start(args, fmt);
-    printf("haxm_info: ");
-    vprintf(fmt, args);
-    va_end(args);
-}
-
-void hax_debug(char *fmt, ...)
-{
-    va_list args;
-
-    if (HAX_LOGD < default_hax_log_level)
-        return;
-
-    va_start(args, fmt);
-    printf("haxm_debug: ");
-    vprintf(fmt, args);
-    va_end(args);
-}
-
-void hax_panic_vcpu(struct vcpu_t *v, char *fmt, ...)
-{
-    va_list args;
-
-    va_start(args, fmt);
-    printf("haxm_panic: ");
-    vprintf(fmt, args);
-    va_end(args);
-
-    vcpu_set_panic(v);
 }
 
 /* Misc */
@@ -293,7 +245,7 @@ hax_spinlock *hax_spinlock_alloc_init(void)
 
     lock = kmem_alloc(sizeof(struct hax_spinlock), KM_SLEEP);
     if (!lock) {
-        hax_error("Could not allocate spinlock\n");
+        hax_log(HAX_LOGE, "Could not allocate spinlock\n");
         return NULL;
     }
     mutex_init(&lock->lock, MUTEX_DEFAULT, IPL_VM);
@@ -327,7 +279,7 @@ hax_mutex hax_mutex_alloc_init(void)
 
     lock = kmem_alloc(sizeof(kmutex_t), KM_SLEEP);
     if (!lock) {
-        hax_error("Could not allocate mutex\n");
+        hax_log(HAX_LOGE, "Could not allocate mutex\n");
         return NULL;
     }
     mutex_init(lock, MUTEX_DEFAULT, IPL_NONE);

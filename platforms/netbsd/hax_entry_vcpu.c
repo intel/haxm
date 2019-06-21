@@ -71,7 +71,7 @@ int hax_vcpu_open(dev_t self, int flag __unused, int mode __unused,
 
     sc = device_lookup_private(&hax_vcpu_cd, minor(self));
     if (sc == NULL) {
-        hax_error("device_lookup_private() for hax_vcpu failed\n");
+        hax_log(HAX_LOGE, "device_lookup_private() for hax_vcpu failed\n");
         return -ENODEV;
     }
 
@@ -82,7 +82,8 @@ int hax_vcpu_open(dev_t self, int flag __unused, int mode __unused,
     vcpu_id = unit2vcpuid(unit);
 
     if (!vcpu) {
-        hax_error("HAX VCPU 'hax_vm%02d/vcpu%02d' is not ready\n", vm_id, vcpu_id);
+        hax_log(HAX_LOGE, "HAX VCPU 'hax_vm%02d/vcpu%02d' is not ready\n",
+                vm_id, vcpu_id);
         return -ENODEV;
     }
 
@@ -91,13 +92,14 @@ int hax_vcpu_open(dev_t self, int flag __unused, int mode __unused,
 
     cvcpu = hax_get_vcpu(vcpu->vm->id, vcpu->id, 1);
 
-    hax_log_level(HAX_LOGD, "HAX VM%02d vcpu%02d open called\n", vcpu->vm->id, vcpu->id);
+    hax_log(HAX_LOGD, "HAX VM%02d vcpu%02d open called\n", vcpu->vm->id,
+            vcpu->id);
     if (!cvcpu)
         return -ENODEV;
 
     ret = hax_vcpu_core_open(cvcpu);
     if (ret)
-        hax_error("Failed to open core vcpu\n");
+        hax_log(HAX_LOGE, "Failed to open core vcpu\n");
     hax_put_vcpu(cvcpu);
     return ret;
 }
@@ -111,15 +113,16 @@ int hax_vcpu_close(dev_t self, int flag __unused, int mode __unused,
 
     sc = device_lookup_private(&hax_vcpu_cd, minor(self));
     if (sc == NULL) {
-        hax_error("device_lookup_private() for hax_vcpu failed\n");
+        hax_log(HAX_LOGE, "device_lookup_private() for hax_vcpu failed\n");
         return -ENODEV;
     }
     vcpu = sc->vcpu;
     cvcpu = hax_get_vcpu(vcpu->vm->id, vcpu->id, 1);
 
-    hax_log_level(HAX_LOGD, "HAX VM%02d vcpu%02d close called\n", vcpu->vm->id, vcpu->id);
+    hax_log(HAX_LOGD, "HAX VM%02d vcpu%02d close called\n", vcpu->vm->id,
+            vcpu->id);
     if (!cvcpu) {
-        hax_error("Failed to find the vcpu, is it closed already?\n");
+        hax_log(HAX_LOGE, "Failed to find the vcpu, is it closed already?\n");
         return 0;
     }
 
@@ -141,7 +144,7 @@ int hax_vcpu_ioctl(dev_t self, u_long cmd, void *data, int flag,
 
     sc = device_lookup_private(&hax_vcpu_cd, minor(self));
     if (sc == NULL) {
-        hax_error("device_lookup_private() for hax_vcpu failed\n");
+        hax_log(HAX_LOGE, "device_lookup_private() for hax_vcpu failed\n");
         return -ENODEV;
     }
     vcpu = sc->vcpu;
@@ -169,7 +172,7 @@ int hax_vcpu_ioctl(dev_t self, u_long cmd, void *data, int flag,
         msr = msrs->entries;
         /* nr_msr needs to be verified */
         if (msrs->nr_msr >= 0x20) {
-            hax_error("MSRS invalid!\n");
+            hax_log(HAX_LOGE, "MSRS invalid!\n");
             ret = -EFAULT;
             break;
         }
@@ -190,7 +193,7 @@ int hax_vcpu_ioctl(dev_t self, u_long cmd, void *data, int flag,
 
         msr = msrs->entries;
         if(msrs->nr_msr >= 0x20) {
-            hax_error("MSRS invalid!\n");
+            hax_log(HAX_LOGE, "MSRS invalid!\n");
             ret = -EFAULT;
             break;
         }
@@ -241,8 +244,8 @@ int hax_vcpu_ioctl(dev_t self, u_long cmd, void *data, int flag,
     }
     default:
         // TODO: Print information about the process that sent the ioctl.
-        hax_error("Unknown VCPU IOCTL %#lx, pid=%d ('%s')\n", cmd,
-                  l->l_proc->p_pid, l->l_proc->p_comm);
+        hax_log(HAX_LOGE, "Unknown VCPU IOCTL %#lx, pid=%d ('%s')\n", cmd,
+                l->l_proc->p_pid, l->l_proc->p_comm);
         ret = -ENOSYS;
         break;
     }

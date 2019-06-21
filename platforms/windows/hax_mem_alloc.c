@@ -84,7 +84,7 @@ void * hax_vmap(hax_pa_t pa, uint32_t size)
     phys_addr.QuadPart = pa;
 
     if ((pa & (PAGE_SIZE - 1)) + size > PAGE_SIZE) {
-        hax_warning("hax_vmap can't handle cross-page case!\n");
+        hax_log(HAX_LOGW, "hax_vmap can't handle cross-page case!\n");
         return NULL;
     }
     return MmMapIoSpace(phys_addr, size, MmCached);

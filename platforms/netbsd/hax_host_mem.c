@@ -42,11 +42,12 @@
 int hax_pin_user_pages(uint64_t start_uva, uint64_t size, hax_memdesc_user *memdesc)
 {
     if (start_uva & PAGE_MASK) {
-        hax_error("Failed 'start_uva & ~PAGE_MASK', start_uva=%llx\n", start_uva);
+        hax_log(HAX_LOGE, "Failed 'start_uva & ~PAGE_MASK', start_uva=%llx\n",
+                start_uva);
         return -EINVAL;
     }
     if (!size) {
-        hax_error("Failed '!size'\n");
+        hax_log(HAX_LOGE, "Failed '!size'\n");
         return -EINVAL;
     }
 
@@ -177,7 +178,7 @@ int hax_alloc_page_frame(uint8_t flags, hax_memdesc_phys *memdesc)
 
     // TODO: Support HAX_PAGE_ALLOC_BELOW_4G
     if (flags & HAX_PAGE_ALLOC_BELOW_4G) {
-        hax_warning("%s: HAX_PAGE_ALLOC_BELOW_4G is ignored\n", __func__);
+        hax_log(HAX_LOGW, "%s: HAX_PAGE_ALLOC_BELOW_4G is ignored\n", __func__);
     }
 
     memdesc->page = uvm_pagealloc(NULL, 0, NULL, ISSET(flags, HAX_PAGE_ALLOC_ZEROED) ? UVM_PGA_ZERO : 0);
