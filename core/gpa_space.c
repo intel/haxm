@@ -244,7 +244,7 @@ int gpa_space_write_data(hax_gpa_space *gpa_space, uint64_t start_gpa, int len,
 {
     uint8_t *buf;
     hax_kmap_user kmap;
-    bool writable;
+    bool writable = false;
     int ret, nbytes;
 
     if (!data) {
