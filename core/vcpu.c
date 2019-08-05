@@ -1417,9 +1417,9 @@ static void fill_common_vmcs(struct vcpu_t *vcpu)
     vmwrite(vcpu, HOST_GDTR_BASE, get_kernel_gdtr_base());
     vmwrite(vcpu, HOST_IDTR_BASE, get_kernel_idtr_base());
 
-#define WRITE_CONTROLS(vcpu, f, v) {                                    \
-    uint32_t g = v & cpu_data->vmx_info.v##_1 | cpu_data->vmx_info.v##_0; \
-    vmwrite(vcpu, f, v = g);                                            \
+#define WRITE_CONTROLS(vcpu, f, v) {                                        \
+    uint32_t g = (v & cpu_data->vmx_info.v##_1) | cpu_data->vmx_info.v##_0; \
+    vmwrite(vcpu, f, v = g);                                                \
 }
 
     WRITE_CONTROLS(vcpu, VMX_PIN_CONTROLS, pin_ctls);
@@ -2527,6 +2527,7 @@ static void handle_cpuid_virtual(struct vcpu_t *vcpu, uint32_t a, uint32_t c)
     struct vcpu_state_t *state = vcpu->state;
     uint32_t hw_family;
     uint32_t hw_model;
+    uint8_t physical_address_size;
 
     static uint32_t cpu_features_1 =
             // pat is disabled!
@@ -2574,8 +2575,6 @@ static void handle_cpuid_virtual(struct vcpu_t *vcpu, uint32_t a, uint32_t c)
     if (cpu_has_feature(X86_FEATURE_RDTSCP)) {
         cpu_features_ext |= FEATURE(RDTSCP);
     }
-
-    uint8_t physical_address_size;
 
     switch (a) {
         case 0: {                       // Maximum Basic Information
@@ -3845,7 +3844,6 @@ static int exit_ept_violation(struct vcpu_t *vcpu, struct hax_tunnel *htun)
         return HAX_RESUME;
     }
     // ret == 0: The EPT violation is due to MMIO
-mmio_handler:
 #endif
     return vcpu_emulate_insn(vcpu);
 }
