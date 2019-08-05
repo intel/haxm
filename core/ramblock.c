@@ -31,8 +31,6 @@
 #include "../include/hax.h"
 #include "include/memory.h"
 
-#define ramblock_info  hax_info
-
 static inline uint64_t ramblock_count_chunks(hax_ramblock *block)
 {
     // Assuming block != NULL && block->size != 0
@@ -63,8 +61,8 @@ static hax_ramblock * ramblock_alloc(uint64_t base_uva, uint64_t size)
 
     block = (hax_ramblock *) hax_vmalloc(sizeof(*block), 0);
     if (!block) {
-        hax_error("%s: Failed to allocate ramblock for UVA range:"
-                  " base_uva=0x%llx, size=0x%llx\n", __func__, base_uva, size);
+        hax_log(HAX_LOGE, "%s: Failed to allocate ramblock for UVA range:"
+                " base_uva=0x%llx, size=0x%llx\n", __func__, base_uva, size);
         return NULL;
     }
 
@@ -73,8 +71,8 @@ static hax_ramblock * ramblock_alloc(uint64_t base_uva, uint64_t size)
     nchunks = ramblock_count_chunks(block);
     chunks = (hax_chunk **) hax_vmalloc(nchunks * sizeof(*chunks), 0);
     if (!chunks) {
-        hax_error("%s: Failed to allocate chunks array: nchunks=0x%llx,"
-                  " size=0x%llx\n", __func__, nchunks, size);
+        hax_log(HAX_LOGE, "%s: Failed to allocate chunks array: nchunks=0x%llx,"
+                " size=0x%llx\n", __func__, nchunks, size);
         hax_vfree(block, sizeof(*block));
         return NULL;
     }
@@ -84,9 +82,9 @@ static hax_ramblock * ramblock_alloc(uint64_t base_uva, uint64_t size)
     chunks_bitmap_size = ramblock_count_bitmap_size(nchunks);
     chunks_bitmap = (uint8_t *) hax_vmalloc(chunks_bitmap_size, 0);
     if (!chunks_bitmap) {
-        hax_error("%s: Failed to allocate chunks bitmap: nchunks=0x%llx,"
-                  " chunks_bitmap_size=0x%llx, size=0x%llx\n", __func__,
-                  nchunks, chunks_bitmap_size, size);
+        hax_log(HAX_LOGE, "%s: Failed to allocate chunks bitmap: "
+                "nchunks=0x%llx, chunks_bitmap_size=0x%llx, size=0x%llx\n",
+                __func__, nchunks, chunks_bitmap_size, size);
         hax_vfree(chunks, nchunks * sizeof(*chunks));
         hax_vfree(block, sizeof(*block));
         return NULL;
@@ -110,9 +108,11 @@ static void ramblock_free_chunks(hax_ramblock *block, bool destroy)
     chunks = block->chunks;
     nchunks = ramblock_count_chunks(block);
     chunks_bitmap_size = ramblock_count_bitmap_size(nchunks);
-    hax_info("%s: Freeing <= %llu chunks, bitmap:\n", __func__, nchunks);
+    hax_log(HAX_LOGI, "%s: Freeing <= %llu chunks, bitmap:\n",
+            __func__, nchunks);
     for (i = 0; i < chunks_bitmap_size; i++) {
-        hax_info("%s:   [%llu]=0x%02x\n", __func__, i, block->chunks_bitmap[i]);
+        hax_log(HAX_LOGI, "%s:   [%llu]=0x%02x\n", __func__, i,
+                block->chunks_bitmap[i]);
     }
     for (i = 0; i < nchunks; i++) {
         hax_chunk *chunk = chunks[i];
@@ -133,29 +133,30 @@ static void ramblock_free_chunks(hax_ramblock *block, bool destroy)
         // reverse the order to avoid that.
         if (hax_test_and_clear_bit((int) i, (uint64_t *) block->chunks_bitmap)) {
             // Bit i of chunks_bitmap was already clear
-            hax_warning("%s: chunks[%llu] existed but its bit in chunks_bitmap"
-                        " was not set: size=0x%llx, block.size=0x%llx\n",
-                        __func__, i, chunk->size, block->size);
+            hax_log(HAX_LOGW, "%s: chunks[%llu] existed but its bit in "
+                    "chunks_bitmap was not set: size=0x%llx, "
+                    "block.size=0x%llx\n", __func__, i, chunk->size,
+                    block->size);
         }
         chunks[i] = NULL;
         ret = chunk_free(chunk);
         if (ret) {
-            hax_warning("%s: Failed to free chunk: i=%llu, base_uva=0x%llx,"
-                        " size=0x%llx, ret=%d\n", __func__, i, chunk->base_uva,
-                        chunk->size, ret);
+            hax_log(HAX_LOGW, "%s: Failed to free chunk: i=%llu, "
+                    "base_uva=0x%llx, size=0x%llx, ret=%d\n", __func__, i,
+                    chunk->base_uva, chunk->size, ret);
         }
     }
     // Double check that there is no bit set in chunks_bitmap
     for (i = 0; i < chunks_bitmap_size; i++) {
         if (block->chunks_bitmap[i]) {
-            hax_warning("%s: chunks_bitmap[%llu]=0x%02x\n", __func__, i,
-                        block->chunks_bitmap[i]);
+            hax_log(HAX_LOGW, "%s: chunks_bitmap[%llu]=0x%02x\n", __func__, i,
+                    block->chunks_bitmap[i]);
             block->chunks_bitmap[i] = 0;
         }
     }
 
-    hax_info("%s: All chunks freed: %lluKB total, %lluKB used\n", __func__,
-             block->size / 1024, nbytes_used / 1024);
+    hax_log(HAX_LOGI, "%s: All chunks freed: %lluKB total, %lluKB used\n",
+            __func__, block->size / 1024, nbytes_used / 1024);
 
     if (!destroy)
         return;
@@ -169,7 +170,7 @@ static void ramblock_free_chunks(hax_ramblock *block, bool destroy)
 static void ramblock_free(hax_ramblock *block)
 {
     if (!block) {
-        hax_warning("%s: block == NULL\n", __func__);
+        hax_log(HAX_LOGW, "%s: block == NULL\n", __func__);
         return;
     }
 
@@ -181,10 +182,10 @@ static void ramblock_free(hax_ramblock *block)
 int ramblock_init_list(hax_list_head *list)
 {
     if (!list) {
-        hax_error("ramblock_init_list: list is null \n");
+        hax_log(HAX_LOGE, "ramblock_init_list: list is null \n");
         return -EINVAL;
     }
-    ramblock_info("ramblock_init_list\n");
+    hax_log(HAX_LOGI, "ramblock_init_list\n");
     hax_init_list_head(list);
 
     return 0;
@@ -193,10 +194,9 @@ int ramblock_init_list(hax_list_head *list)
 static void ramblock_remove(hax_ramblock *block)
 {
     hax_assert(block != NULL);
-    ramblock_info("%s: Removing RAM block: base_uva=0x%llx, size=0x%llx,"
-                  " is_standalone=%d, ref_count=%d\n", __func__,
-                  block->base_uva, block->size, block->is_standalone,
-                  block->ref_count);
+    hax_log(HAX_LOGI, "%s: Removing RAM block: base_uva=0x%llx, size=0x%llx,"
+            " is_standalone=%d, ref_count=%d\n", __func__, block->base_uva,
+            block->size, block->is_standalone, block->ref_count);
     hax_list_del(&block->entry);
     ramblock_free(block);
 }
@@ -206,11 +206,11 @@ void ramblock_free_list(hax_list_head *list)
     hax_ramblock *ramblock, *tmp;
 
     if (!list) {
-        hax_error("ramblock_free_list: list is null \n");
+        hax_log(HAX_LOGE, "ramblock_free_list: list is null \n");
         return;
     }
 
-    ramblock_info("ramblock_free_list\n");
+    hax_log(HAX_LOGI, "ramblock_free_list\n");
     hax_list_entry_for_each_safe(ramblock, tmp, list, hax_ramblock, entry) {
         ramblock_remove(ramblock);
     }
@@ -221,13 +221,13 @@ void ramblock_dump_list(hax_list_head *list)
     hax_ramblock *ramblock;
     int i = 0;
 
-    ramblock_info("ramblock dump begin:\n");
+    hax_log(HAX_LOGI, "ramblock dump begin:\n");
     hax_list_entry_for_each(ramblock, list, hax_ramblock, entry) {
-        ramblock_info("block %d (%p): base_uva 0x%llx, size 0x%llx, ref_count "
-                      "%d\n", i++, ramblock, ramblock->base_uva,
-                      ramblock->size, ramblock->ref_count);
+        hax_log(HAX_LOGI, "block %d (%p): base_uva 0x%llx, size 0x%llx, "
+                "ref_count %d\n", i++, ramblock, ramblock->base_uva,
+                ramblock->size, ramblock->ref_count);
     }
-    ramblock_info("ramblock dump end!\n");
+    hax_log(HAX_LOGI, "ramblock dump end!\n");
 }
 
 // TODO: parameter 'start' is ignored for now
@@ -241,16 +241,16 @@ hax_ramblock * ramblock_find(hax_list_head *list, uint64_t uva,
             break;
 
         if (uva < ramblock->base_uva + ramblock->size) {
-            hax_debug("%s: (%p): base_uva 0x%llx, size 0x%llx, ref_count "
-                      "%d\n", __func__, ramblock, ramblock->base_uva,
-                      ramblock->size, ramblock->ref_count);
+            hax_log(HAX_LOGD, "%s: (%p): base_uva 0x%llx, size 0x%llx, "
+                    "ref_count %d\n", __func__, ramblock, ramblock->base_uva,
+                    ramblock->size, ramblock->ref_count);
 
             ramblock_ref(ramblock);
             return ramblock;
         }
     }
 
-    hax_warning("can not find 0x%llx in ramblock list.\n", uva);
+    hax_log(HAX_LOGW, "can not find 0x%llx in ramblock list.\n", uva);
     return NULL;
 }
 
@@ -261,7 +261,7 @@ int ramblock_add(hax_list_head *list, uint64_t base_uva, uint64_t size,
     hax_ramblock *ramblock, *ramblock2;
 
     if (!list) {
-        hax_error("invalid list: list head is null.\n");
+        hax_log(HAX_LOGE, "invalid list: list head is null.\n");
         return -EINVAL;
     }
 
@@ -270,8 +270,8 @@ int ramblock_add(hax_list_head *list, uint64_t base_uva, uint64_t size,
         return -ENOMEM;
     }
 
-    ramblock_info("Adding block: base_uva 0x%llx, size 0x%llx\n",
-                   ramblock->base_uva, ramblock->size);
+    hax_log(HAX_LOGI, "Adding block: base_uva 0x%llx, size 0x%llx\n",
+            ramblock->base_uva, ramblock->size);
 
     if (hax_list_empty(list)) {
         // TODO: change hax_list_add to hax_list_insert_after
@@ -297,9 +297,10 @@ int ramblock_add(hax_list_head *list, uint64_t base_uva, uint64_t size,
             // If the program comes here, it denotes that there is overlap
             // between ramblock and ramblock2
             ramblock_free(ramblock);
-            hax_error("New ramblock base_uva 0x%llx, size 0x%llx overlaps with"
-                      " existing ramblock: base_uva 0x%llx, size 0x%llx\n",
-                      base_uva, size, ramblock2->base_uva, ramblock2->size);
+            hax_log(HAX_LOGE, "New ramblock base_uva 0x%llx, size 0x%llx "
+                    "overlaps with existing ramblock: base_uva 0x%llx, "
+                    "size 0x%llx\n", base_uva, size, ramblock2->base_uva,
+                    ramblock2->size);
             return -EINVAL;
         }
     }
@@ -320,12 +321,12 @@ hax_chunk * ramblock_get_chunk(hax_ramblock *block, uint64_t uva_offset,
     uint64_t chunk_index;
 
     if (!block) {
-        hax_error("%s: block == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: block == NULL\n", __func__);
         return NULL;
     }
     if (uva_offset >= block->size) {
-        hax_warning("%s: uva_offset=0x%llx >= block->size=0x%llx\n", __func__,
-                    uva_offset, block->size);
+        hax_log(HAX_LOGW, "%s: uva_offset=0x%llx >= block->size=0x%llx\n",
+                __func__, uva_offset, block->size);
         return NULL;
     }
 
@@ -359,9 +360,10 @@ hax_chunk * ramblock_get_chunk(hax_ramblock *block, uint64_t uva_offset,
             // no such API as hax_clear_bit()
             was_clear = hax_test_and_clear_bit((int) chunk_index,
                                                (uint64_t *) block->chunks_bitmap);
-            hax_error("%s: Failed to allocate chunk: ret=%d, index=%llu,"
-                      " base_uva=0x%llx, size=0x%llx, was_clear=%d\n", __func__,
-                      ret, chunk_index, chunk_base_uva, chunk_size, was_clear);
+            hax_log(HAX_LOGE, "%s: Failed to allocate chunk: ret=%d, "
+                    "index=%llu, base_uva=0x%llx, size=0x%llx, was_clear=%d\n",
+                    __func__, ret, chunk_index, chunk_base_uva, chunk_size,
+                    was_clear);
             return NULL;
         }
         hax_assert(chunk != NULL);
@@ -378,19 +380,20 @@ hax_chunk * ramblock_get_chunk(hax_ramblock *block, uint64_t uva_offset,
                               (uint64_t *) block->chunks_bitmap)) {
                 // The other thread has reset the bit, indicating the chunk
                 // could not be allocated/pinned
-                hax_error("%s: Another thread tried to allocate this chunk"
-                          " first, but failed: index=%llu, block.size=0x%llx,"
-                          " block.base_uva=0x%llx\n", __func__, chunk_index,
-                          block->size, block->base_uva);
+                hax_log(HAX_LOGE, "%s: Another thread tried to allocate this "
+                        "chunk first, but failed: index=%llu, "
+                        "block.size=0x%llx, block.base_uva=0x%llx\n",
+                        __func__, chunk_index, block->size, block->base_uva);
                 return NULL;
             }
             if (!(++i % 100000)) {  // 10^5
-                hax_info("%s: In iteration %d of while loop\n", __func__, i);
+                hax_log(HAX_LOGI, "%s: In iteration %d of while loop\n",
+                        __func__, i);
                 if (i == 1000000000) {  // 10^9 (< INT_MAX)
-                    hax_error("%s: Breaking out of infinite loop: index=%llu,"
-                              " block.size=0x%llx, block.base_uva=0x%llx\n",
-                              __func__, chunk_index, block->size,
-                              block->base_uva);
+                    hax_log(HAX_LOGE, "%s: Breaking out of infinite loop: "
+                            "index=%llu, block.size=0x%llx, "
+                            "block.base_uva=0x%llx\n", __func__, chunk_index,
+                            block->size, block->base_uva);
                     return NULL;
                 }
             }
@@ -403,31 +406,31 @@ done:
 void ramblock_ref(hax_ramblock *block)
 {
     if (block == NULL) {
-        hax_error("%s: Invalid RAM block\n", __func__);
+        hax_log(HAX_LOGE, "%s: Invalid RAM block\n", __func__);
         return;
     }
 
     ++block->ref_count;
-    hax_debug("%s: block (%p): base_uva = 0x%llx, size = 0x%llx, ref_count = "
-              "%d\n", __func__, block, block->base_uva, block->size,
-              block->ref_count);
+    hax_log(HAX_LOGD, "%s: block (%p): base_uva = 0x%llx, size = 0x%llx, "
+            "ref_count = %d\n", __func__, block, block->base_uva, block->size,
+            block->ref_count);
 }
 
 void ramblock_deref(hax_ramblock *block)
 {
     if (block == NULL) {
-        hax_error("%s: Invalid RAM block\n", __func__);
+        hax_log(HAX_LOGE, "%s: Invalid RAM block\n", __func__);
         return;
     }
     if (block->ref_count <= 0) {
-        hax_error("%s: Unreferenced block (ref_count = %d)\n", __func__,
-                  block->ref_count);
+        hax_log(HAX_LOGE, "%s: Unreferenced block (ref_count = %d)\n",
+                __func__, block->ref_count);
         return;
     }
     if (--block->ref_count == 0) {
-        hax_debug("%s: Reset RAM block (%p): base_uva = 0x%llx, size = 0x%llx, "
-                  "ref_count = %d\n", __func__, block, block->base_uva,
-                  block->size, block->ref_count);
+        hax_log(HAX_LOGD, "%s: Reset RAM block (%p): base_uva = 0x%llx, "
+                "size = 0x%llx, ref_count = %d\n", __func__, block,
+                block->base_uva, block->size, block->ref_count);
         if (block->is_standalone) {
             // A stand-alone mapping is created along with a "disposable" RAM
             // block, which must be destroyed when the mapping is unmapped, so
@@ -439,7 +442,7 @@ void ramblock_deref(hax_ramblock *block)
         return;
     }
 
-    hax_debug("%s: block (%p): base_uva = 0x%llx, size = 0x%llx, ref_count = "
-              "%d\n", __func__, block, block->base_uva, block->size,
-              block->ref_count);
+    hax_log(HAX_LOGD, "%s: block (%p): base_uva = 0x%llx, size = 0x%llx, "
+            "ref_count = %d\n", __func__, block, block->base_uva, block->size,
+            block->ref_count);
 }

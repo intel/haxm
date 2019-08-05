@@ -71,14 +71,14 @@ int hax_vcpu_create_host(struct vcpu_t *cvcpu, void *vm_host, int vm_id,
             TRUE, vm->ssdl, (LPGUID)&HAX_VCPU_GUID, &pDevObj);
 
     if (!NT_SUCCESS(ntStatus)) {
-        hax_error("Failed to create VCPU device\n");
+        hax_log(HAX_LOGE, "Failed to create VCPU device\n");
         return -1;
     }
 
     DevExt = (struct hax_dev_ext *)pDevObj->DeviceExtension;
     ntStatus = IoCreateSymbolicLink(&ntWin32NameString, &ntUnicodeString);
     if (!NT_SUCCESS(ntStatus)) {
-        hax_error("Failed to creaet symbolic link \n");
+        hax_log(HAX_LOGE, "Failed to creaet symbolic link \n");
         IoDeleteDevice(pDevObj);
         return -1;
     }
@@ -133,11 +133,11 @@ static PUNICODE_STRING hax_win_construct_ssdl(void)
 
     ssdl = hax_vmalloc(sizeof(UNICODE_STRING), 0);
     if (!ssdl) {
-        hax_error("Failed to alloc ssdl\n");
+        hax_log(HAX_LOGE, "Failed to alloc ssdl\n");
         goto error;
     }
     if (hax_init_unicodestring(ssdl, length)) {
-        hax_error("Failed to get the ssid unicode string\n");
+        hax_log(HAX_LOGE, "Failed to get the ssid unicode string\n");
         goto error;
     }
     ssdlValid = 1;
@@ -145,7 +145,7 @@ static PUNICODE_STRING hax_win_construct_ssdl(void)
             ssdl, L"%ws", L"D:P(A;;GA;;;SY)(A;;GA;;;BA)(A;;GA;;;WD)");
 
     if (!NT_SUCCESS(ntStatus)) {
-        hax_error("Failed to get the SSDL string\n");
+        hax_log(HAX_LOGE, "Failed to get the SSDL string\n");
         goto error;
     }
 
@@ -174,7 +174,7 @@ int hax_vm_create_host(struct vm_t *cvm, int vm_id)
 
     ssdl = hax_win_construct_ssdl();
     if (!ssdl) {
-        hax_error("Failed to construct ssdl for current thread\n");
+        hax_log(HAX_LOGE, "Failed to construct ssdl for current thread\n");
         return -1;
     }
 
@@ -187,7 +187,7 @@ int hax_vm_create_host(struct vm_t *cvm, int vm_id)
             (LPGUID)&HAX_VM_GUID, &pDevObj);
 
     if (!NT_SUCCESS(ntStatus)) {
-        hax_error("Failed to create VM device\n");
+        hax_log(HAX_LOGE, "Failed to create VM device\n");
         hax_win_destruct_ssdl(ssdl);
         return -1;
     }
@@ -196,7 +196,7 @@ int hax_vm_create_host(struct vm_t *cvm, int vm_id)
 
     ntStatus = IoCreateSymbolicLink(&ntWin32NameString, &ntUnicodeString);
     if (!NT_SUCCESS(ntStatus)) {
-        hax_error("Failed to creaet symbolic link \n");
+        hax_log(HAX_LOGE, "Failed to creaet symbolic link \n");
         hax_win_destruct_ssdl(ssdl);
         IoDeleteDevice(pDevObj);
         return -1;

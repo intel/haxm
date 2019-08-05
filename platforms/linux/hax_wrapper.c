@@ -40,24 +40,48 @@
 
 #include <asm/cmpxchg.h>
 
-int default_hax_log_level = 3;
 int max_cpus;
 hax_cpumap_t cpu_online_map;
 
-int hax_log_level(int level, const char *fmt,  ...)
+static const char* kLogLevel[] = {
+    KERN_ERR,
+    KERN_DEBUG,     // HAX_LOGD
+    KERN_INFO,      // HAX_LOGI
+    KERN_WARNING,   // HAX_LOGW
+    KERN_ERR,       // HAX_LOGE
+    KERN_ERR        // HAX_LOGPANIC
+};
+
+static const char* kLogPrefix[] = {
+    "haxm: ",
+    "haxm_debug: ",
+    "haxm_info: ",
+    "haxm_warning: ",
+    "haxm_error: ",
+    "haxm_panic: "
+};
+
+void hax_log(int level, const char *fmt,  ...)
 {
     struct va_format vaf;
     va_list args;
 
-    if (level < default_hax_log_level)
-        return 0;
+    if (level < HAX_LOG_DEFAULT)
+        return;
 
     vaf.fmt = fmt;
     vaf.va = &args;
     va_start(args, fmt);
-    printk("%shaxm: %pV", KERN_ERR, &vaf);
+    printk("%s%s%pV", kLogLevel[level], kLogPrefix[level], &vaf);
     va_end(args);
-    return 0;
+}
+
+void hax_panic(const char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    hax_log(HAX_LOGPANIC, fmt, args);
+    va_end(args);
 }
 
 uint32_t hax_cpuid(void)
@@ -119,79 +143,6 @@ void hax_enable_irq(void)
 void hax_disable_irq(void)
 {
     asm_disable_irq();
-}
-
-void hax_error(char *fmt, ...)
-{
-    struct va_format vaf;
-    va_list args;
-
-    if (HAX_LOGE < default_hax_log_level)
-        return;
-
-    vaf.fmt = fmt;
-    vaf.va = &args;
-    va_start(args, fmt);
-    printk("%shaxm_error: %pV", KERN_ERR, &vaf);
-    va_end(args);
-}
-
-void hax_warning(char *fmt, ...)
-{
-    struct va_format vaf;
-    va_list args;
-
-    if (HAX_LOGW < default_hax_log_level)
-        return;
-
-    vaf.fmt = fmt;
-    vaf.va = &args;
-    va_start(args, fmt);
-    printk("%shaxm_warning: %pV", KERN_WARNING, &vaf);
-    va_end(args);
-}
-
-void hax_info(char *fmt, ...)
-{
-    struct va_format vaf;
-    va_list args;
-
-    if (HAX_LOGI < default_hax_log_level)
-        return;
-
-    vaf.fmt = fmt;
-    vaf.va = &args;
-    va_start(args, fmt);
-    printk("%shaxm_info: %pV", KERN_INFO, &vaf);
-    va_end(args);
-}
-
-void hax_debug(char *fmt, ...)
-{
-    struct va_format vaf;
-    va_list args;
-
-    if (HAX_LOGD < default_hax_log_level)
-        return;
-
-    vaf.fmt = fmt;
-    vaf.va = &args;
-    va_start(args, fmt);
-    printk("%shaxm_debug: %pV", KERN_DEBUG, &vaf);
-    va_end(args);
-}
-
-void hax_panic_vcpu(struct vcpu_t *v, char *fmt, ...)
-{
-    struct va_format vaf;
-    va_list args;
-
-    vaf.fmt = fmt;
-    vaf.va = &args;
-    va_start(args, fmt);
-    printk("%shaxm_panic: %pV", KERN_ERR, &vaf);
-    va_end(args);
-    vcpu_set_panic(v);
 }
 
 void hax_assert(bool condition)
@@ -272,7 +223,7 @@ hax_spinlock *hax_spinlock_alloc_init(void)
 
     lock = kmalloc(sizeof(struct hax_spinlock), GFP_KERNEL);
     if (!lock) {
-        hax_error("Could not allocate spinlock\n");
+        hax_log(HAX_LOGE, "Could not allocate spinlock\n");
         return NULL;
     }
     spin_lock_init(&lock->lock);
@@ -304,7 +255,7 @@ hax_mutex hax_mutex_alloc_init(void)
 
     lock = kmalloc(sizeof(struct mutex), GFP_KERNEL);
     if (!lock) {
-        hax_error("Could not allocate mutex\n");
+        hax_log(HAX_LOGE, "Could not allocate mutex\n");
         return NULL;
     }
     mutex_init(lock);

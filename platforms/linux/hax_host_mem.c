@@ -138,7 +138,7 @@ int hax_alloc_page_frame(uint8_t flags, hax_memdesc_phys *memdesc)
 
     // TODO: Support HAX_PAGE_ALLOC_BELOW_4G
     if (flags & HAX_PAGE_ALLOC_BELOW_4G) {
-        hax_warning("%s: HAX_PAGE_ALLOC_BELOW_4G is ignored\n", __func__);
+        hax_log(HAX_LOGW, "%s: HAX_PAGE_ALLOC_BELOW_4G is ignored\n", __func__);
     }
 
     memdesc->ppage = alloc_page(gfp_flags);

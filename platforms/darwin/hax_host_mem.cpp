@@ -44,7 +44,7 @@ extern "C" int hax_pin_user_pages(uint64_t start_uva, uint64_t size,
     IOReturn ret;
 
     if (!memdesc) {
-        hax_error("%s: memdesc == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: memdesc == NULL\n", __func__);
         return -EINVAL;
     }
 
@@ -54,16 +54,16 @@ extern "C" int hax_pin_user_pages(uint64_t start_uva, uint64_t size,
     md = IOMemoryDescriptor::withAddressRange(start_uva, size, options,
                                               current_task());
     if (!md) {
-        hax_error("%s: Failed to create memory descriptor for UVA range:"
-                  " start_uva=0x%llx, size=0x%llx\n", __func__, start_uva,
-                  size);
+        hax_log(HAX_LOGE, "%s: Failed to create memory descriptor for UVA "
+                "range: start_uva=0x%llx, size=0x%llx\n", __func__, start_uva,
+                size);
         return -EFAULT;
     }
 
     ret = md->prepare();
     if (ret != kIOReturnSuccess) {
-        hax_error("%s: prepare() failed: ret=%d, start_uva=0x%llx, size=0x%llx"
-                  "\n", __func__, ret, start_uva, size);
+        hax_log(HAX_LOGE, "%s: prepare() failed: ret=%d, start_uva=0x%llx, "
+                "size=0x%llx\n", __func__, ret, start_uva, size);
         md->release();
         return -ENOMEM;
     }
@@ -76,17 +76,17 @@ extern "C" int hax_unpin_user_pages(hax_memdesc_user *memdesc)
     IOReturn ret;
 
     if (!memdesc) {
-        hax_error("%s: memdesc == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: memdesc == NULL\n", __func__);
         return -EINVAL;
     }
     if (!memdesc->md) {
-        hax_error("%s: memdesc->md == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: memdesc->md == NULL\n", __func__);
         return -EINVAL;
     }
 
     ret = memdesc->md->complete();
     if (ret != kIOReturnSuccess) {
-        hax_warning("%s: complete() failed: ret=%d\n", __func__, ret);
+        hax_log(HAX_LOGW, "%s: complete() failed: ret=%d\n", __func__, ret);
         // Still need to release the memory descriptor
     }
     memdesc->md->release();
@@ -99,18 +99,18 @@ extern "C" uint64_t hax_get_pfn_user(hax_memdesc_user *memdesc, uint64_t uva_off
     addr64_t hpa;
 
     if (!memdesc) {
-        hax_error("%s: memdesc == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: memdesc == NULL\n", __func__);
         return INVALID_PFN;
     }
     if (!memdesc->md) {
-        hax_error("%s: memdesc->md == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: memdesc->md == NULL\n", __func__);
         return INVALID_PFN;
     }
 
     hpa = memdesc->md->getPhysicalSegment(uva_offset, NULL);
     if (!hpa) {
-        hax_error("%s: getPhysicalSegment() failed: uva_offset=0x%llx\n",
-                  __func__, uva_offset);
+        hax_log(HAX_LOGE, "%s: getPhysicalSegment() failed: "
+                "uva_offset=0x%llx\n", __func__, uva_offset);
         return INVALID_PFN;
     }
     return hpa >> PG_ORDER_4K;
@@ -125,15 +125,15 @@ extern "C" void * hax_map_user_pages(hax_memdesc_user *memdesc,
     IOMemoryMap *mm;
 
     if (!memdesc) {
-        hax_error("%s: memdesc == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: memdesc == NULL\n", __func__);
         return NULL;
     }
     if (!memdesc->md) {
-        hax_error("%s: memdesc->md == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: memdesc->md == NULL\n", __func__);
         return NULL;
     }
     if (!kmap) {
-        hax_error("%s: kmap == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: kmap == NULL\n", __func__);
         return NULL;
     }
 
@@ -144,8 +144,9 @@ extern "C" void * hax_map_user_pages(hax_memdesc_user *memdesc,
     uva_offset_high = (uva_offset + size + PAGE_SIZE_4K - 1) &
                       pgmask(PG_ORDER_4K);
     if (uva_offset_high > base_size) {
-        hax_error("%s: Invalid UVA subrange: uva_offset=0x%llx, size=0x%llx,"
-                  " base_size=0x%llx\n", __func__, uva_offset, size, base_size);
+        hax_log(HAX_LOGE, "%s: Invalid UVA subrange: uva_offset=0x%llx, "
+                "size=0x%llx, base_size=0x%llx\n", __func__, uva_offset, size,
+                base_size);
         return NULL;
     }
 
@@ -154,9 +155,9 @@ extern "C" void * hax_map_user_pages(hax_memdesc_user *memdesc,
     mm = memdesc->md->createMappingInTask(kernel_task, 0, kIOMapAnywhere,
                                           uva_offset_low, size);
     if (!mm) {
-        hax_error("%s: Failed to create KVA mapping for UVA range:"
-                  " uva_offset_low=0x%llx, size=0x%llx\n", __func__,
-                  uva_offset_low, size);
+        hax_log(HAX_LOGE, "%s: Failed to create KVA mapping for UVA range:"
+                " uva_offset_low=0x%llx, size=0x%llx\n", __func__,
+                uva_offset_low, size);
         return NULL;
     }
     kmap->mm = mm;
@@ -166,11 +167,11 @@ extern "C" void * hax_map_user_pages(hax_memdesc_user *memdesc,
 extern "C" int hax_unmap_user_pages(hax_kmap_user *kmap)
 {
     if (!kmap) {
-        hax_error("%s: kmap == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: kmap == NULL\n", __func__);
         return -EINVAL;
     }
     if (!kmap->mm) {
-        hax_error("%s: kmap->mm == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: kmap->mm == NULL\n", __func__);
         return -EINVAL;
     }
 
@@ -186,10 +187,10 @@ extern "C" int hax_alloc_page_frame(uint8_t flags, hax_memdesc_phys *memdesc)
 
     // TODO: Support HAX_PAGE_ALLOC_BELOW_4G
     if (flags & HAX_PAGE_ALLOC_BELOW_4G) {
-        hax_warning("%s: HAX_PAGE_ALLOC_BELOW_4G is ignored\n", __func__);
+        hax_log(HAX_LOGW, "%s: HAX_PAGE_ALLOC_BELOW_4G is ignored\n", __func__);
     }
     if (!memdesc) {
-        hax_error("%s: memdesc == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: memdesc == NULL\n", __func__);
         return -EINVAL;
     }
 
@@ -212,7 +213,8 @@ extern "C" int hax_alloc_page_frame(uint8_t flags, hax_memdesc_phys *memdesc)
                                                       PAGE_SIZE_4K,
                                                       PAGE_SIZE_4K);
     if (!bmd) {
-        hax_error("%s: Failed to allocate 4KB of wired memory\n", __func__);
+        hax_log(HAX_LOGE, "%s: Failed to allocate 4KB of wired memory\n",
+                __func__);
         return -ENOMEM;
     }
     memdesc->bmd = bmd;
@@ -222,11 +224,11 @@ extern "C" int hax_alloc_page_frame(uint8_t flags, hax_memdesc_phys *memdesc)
 extern "C" int hax_free_page_frame(hax_memdesc_phys *memdesc)
 {
     if (!memdesc) {
-        hax_error("%s: memdesc == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: memdesc == NULL\n", __func__);
         return -EINVAL;
     }
     if (!memdesc->bmd) {
-        hax_error("%s: memdesc->bmd == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: memdesc->bmd == NULL\n", __func__);
         return -EINVAL;
     }
 
@@ -240,17 +242,17 @@ extern "C" uint64_t hax_get_pfn_phys(hax_memdesc_phys *memdesc)
     addr64_t hpa;
 
     if (!memdesc) {
-        hax_error("%s: memdesc == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: memdesc == NULL\n", __func__);
         return INVALID_PFN;
     }
     if (!memdesc->bmd) {
-        hax_error("%s: memdesc->bmd == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: memdesc->bmd == NULL\n", __func__);
         return INVALID_PFN;
     }
 
     hpa = memdesc->bmd->getPhysicalSegment(0, NULL);
     if (!hpa) {
-        hax_error("%s: getPhysicalSegment() failed\n", __func__);
+        hax_log(HAX_LOGE, "%s: getPhysicalSegment() failed\n", __func__);
         return INVALID_PFN;
     }
     return hpa >> PG_ORDER_4K;
@@ -259,11 +261,11 @@ extern "C" uint64_t hax_get_pfn_phys(hax_memdesc_phys *memdesc)
 extern "C" void * hax_get_kva_phys(hax_memdesc_phys *memdesc)
 {
     if (!memdesc) {
-        hax_error("%s: memdesc == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: memdesc == NULL\n", __func__);
         return NULL;
     }
     if (!memdesc->bmd) {
-        hax_error("%s: memdesc->bmd == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: memdesc->bmd == NULL\n", __func__);
         return NULL;
     }
 
@@ -276,7 +278,7 @@ extern "C" void * hax_map_page_frame(uint64_t pfn, hax_kmap_phys *kmap)
     IOMemoryMap *mm;
 
     if (!kmap) {
-        hax_error("%s: kmap == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: kmap == NULL\n", __func__);
         return NULL;
     }
 
@@ -284,14 +286,14 @@ extern "C" void * hax_map_page_frame(uint64_t pfn, hax_kmap_phys *kmap)
                                                  PAGE_SIZE_4K,
                                                  kIODirectionOutIn);
     if (!md) {
-        hax_error("%s: Failed to create memory descriptor for pfn=0x%llx\n",
-                  __func__, pfn);
+        hax_log(HAX_LOGE, "%s: Failed to create memory descriptor for "
+                "pfn=0x%llx\n", __func__, pfn);
         return NULL;
     }
     mm = md->createMappingInTask(kernel_task, 0, kIOMapAnywhere);
     if (!mm) {
-        hax_error("%s: Failed to create KVA mapping for pfn=0x%llx\n", __func__,
-                  pfn);
+        hax_log(HAX_LOGE, "%s: Failed to create KVA mapping for pfn=0x%llx\n",
+                __func__, pfn);
         md->release();
         return NULL;
     }
@@ -304,7 +306,7 @@ extern "C" int hax_unmap_page_frame(hax_kmap_phys *kmap)
     IOMemoryDescriptor *md;
 
     if (!kmap) {
-        hax_error("%s: kmap == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: kmap == NULL\n", __func__);
         return -EINVAL;
     }
     if (!kmap->mm) {
@@ -316,7 +318,7 @@ extern "C" int hax_unmap_page_frame(hax_kmap_phys *kmap)
     kmap->mm->release();
     kmap->mm = NULL;
     if (!md) {
-        hax_warning("%s: getMemoryDescriptor() failed\n", __func__);
+        hax_log(HAX_LOGW, "%s: getMemoryDescriptor() failed\n", __func__);
         return -EINVAL;
     }
     md->release();

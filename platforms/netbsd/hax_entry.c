@@ -80,7 +80,7 @@ hax_vm_attach(device_t parent, device_t self, void *aux)
 
     sc = device_private(self);
     if (sc == NULL) {
-        hax_error("device_private() for hax_vm failed\n");
+        hax_log(HAX_LOGE, "device_private() for hax_vm failed\n");
         return;
     }
 
@@ -102,7 +102,7 @@ hax_vm_detach(device_t self, int flags)
 
     sc = device_private(self);
     if (sc == NULL) {
-        hax_error("device_private() for hax_vm failed\n");
+        hax_log(HAX_LOGE, "device_private() for hax_vm failed\n");
         return -ENODEV;
     }
     pmf_device_deregister(self);
@@ -124,7 +124,7 @@ hax_vcpu_attach(device_t parent, device_t self, void *aux)
 
     sc = device_private(self);
     if (sc == NULL) {
-        hax_error("device_private() for hax_vcpu failed\n");
+        hax_log(HAX_LOGE, "device_private() for hax_vcpu failed\n");
         return;
     }
 
@@ -149,7 +149,7 @@ hax_vcpu_detach(device_t self, int flags)
 
     sc = device_private(self);
     if (sc == NULL) {
-        hax_error("device_private() for hax_vcpu failed\n");
+        hax_log(HAX_LOGE, "device_private() for hax_vcpu failed\n");
         return -ENODEV;
     }
     pmf_device_deregister(self);
@@ -238,38 +238,38 @@ haxm_modcmd(modcmd_t cmd, void *arg __unused)
         // Register hax_vm
         err = config_cfdriver_attach(&hax_vm_cd);
         if (err) {
-            hax_error("Unable to register cfdriver hax_vm\n");
+            hax_log(HAX_LOGE, "Unable to register cfdriver hax_vm\n");
             goto init_err1;
         }
 
         err = config_cfattach_attach(hax_vm_cd.cd_name, &hax_vm_ca);
         if (err) {
-            hax_error("Unable to register cfattch hax_vm\n");
+            hax_log(HAX_LOGE, "Unable to register cfattch hax_vm\n");
             goto init_err2;
         }
 
         err = config_cfdata_attach(hax_vm_cfdata, 1);
         if (err) {
-            hax_error("Unable to register cfdata hax_vm\n");
+            hax_log(HAX_LOGE, "Unable to register cfdata hax_vm\n");
             goto init_err3;
         }
 
         // Register hax_vcpu
         err = config_cfdriver_attach(&hax_vcpu_cd);
         if (err) {
-            hax_error("Unable to register cfdriver hax_vcpu\n");
+            hax_log(HAX_LOGE, "Unable to register cfdriver hax_vcpu\n");
             goto init_err4;
         }
 
         err = config_cfattach_attach(hax_vcpu_cd.cd_name, &hax_vcpu_ca);
         if (err) {
-            hax_error("Unable to register cfattch hax_vcpu\n");
+            hax_log(HAX_LOGE, "Unable to register cfattch hax_vcpu\n");
             goto init_err5;
         }
 
         err = config_cfdata_attach(hax_vcpu_cfdata, 1);
         if (err) {
-            hax_error("Unable to register cfdata hax_vcpu\n");
+            hax_log(HAX_LOGE, "Unable to register cfdata hax_vcpu\n");
             goto init_err6;
         }
 
@@ -277,19 +277,19 @@ haxm_modcmd(modcmd_t cmd, void *arg __unused)
         err = devsw_attach(HAX_DEVICE_NAME, NULL, &hax_bmajor, &hax_cdevsw,
                        &hax_cmajor);
         if (err) {
-            hax_error("Failed to register HAXM device\n");
+            hax_log(HAX_LOGE, "Failed to register HAXM device\n");
             goto init_err7;
         }
         err = devsw_attach(HAX_VM_DEVICE_NAME, NULL, &hax_vm_bmajor, &hax_vm_cdevsw,
                        &hax_vm_cmajor);
         if (err) {
-            hax_error("Failed to register HAXM VM device\n");
+            hax_log(HAX_LOGE, "Failed to register HAXM VM device\n");
             goto init_err8;
         }
         err = devsw_attach(HAX_VCPU_DEVICE_NAME, NULL, &hax_vcpu_bmajor, &hax_vcpu_cdevsw,
                        &hax_vcpu_cmajor);
         if (err) {
-            hax_error("Failed to register HAXM VCPU device\n");
+            hax_log(HAX_LOGE, "Failed to register HAXM VCPU device\n");
             goto init_err9;
         }
 
@@ -301,11 +301,11 @@ haxm_modcmd(modcmd_t cmd, void *arg __unused)
 
         // Initialize HAXM
         if (hax_module_init() < 0) {
-            hax_error("Failed to initialize HAXM module\n");
+            hax_log(HAX_LOGE, "Failed to initialize HAXM module\n");
             goto init_err10;
         }
 
-        hax_info("Created HAXM device\n");
+        hax_log(HAX_LOGI, "Created HAXM device\n");
         return 0;
 
 init_err10:
@@ -331,7 +331,7 @@ init_err1:
     }
     case MODULE_CMD_FINI: {
         if (hax_module_exit() < 0) {
-            hax_error("Failed to finalize HAXM module\n");
+            hax_log(HAX_LOGE, "Failed to finalize HAXM module\n");
             return EBUSY;
         }
 
@@ -347,7 +347,7 @@ init_err1:
         config_cfattach_detach(hax_vm_cd.cd_name, &hax_vm_ca);
         config_cfdriver_detach(&hax_vm_cd);
 
-        hax_info("Removed HAXM device\n");
+        hax_log(HAX_LOGI, "Removed HAXM device\n");
         return 0;
     }
     default:
