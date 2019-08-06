@@ -1900,7 +1900,7 @@ static void vmwrite_cr(struct vcpu_t *vcpu)
     struct vcpu_state_t *state = vcpu->state;
     struct per_cpu_data *cpu = current_cpu_data();
 
-    uint32_t entry_ctls = vmx(vcpu, entry_ctls_base);
+    uint32_t entry_ctls = vmx(vcpu, entry_ctls);
     uint32_t pcpu_ctls = vmx(vcpu, pcpu_ctls_base);
     uint32_t scpu_ctls = vmx(vcpu, scpu_ctls_base);
     uint32_t exc_bitmap = vmx(vcpu, exc_bitmap_base);
@@ -2017,16 +2017,10 @@ static void vmwrite_cr(struct vcpu_t *vcpu)
     if ((state->_cr4 & CR4_PAE) && (state->_cr0 & CR0_PG) &&
         (state->_cr0 & CR0_PE)) {
         entry_ctls |= ENTRY_CONTROL_LOAD_EFER;
-        vmx(vcpu, entry_ctls) |= ENTRY_CONTROL_LOAD_EFER;
     } else {
         entry_ctls &= ~ENTRY_CONTROL_LOAD_EFER;
-        vmx(vcpu, entry_ctls) &= ~ENTRY_CONTROL_LOAD_EFER;
     }
 
-    vmwrite_efer(vcpu);
-    if (state->_efer & IA32_EFER_LMA) {
-        entry_ctls |= ENTRY_CONTROL_LONG_MODE_GUEST;
-    }
     if (pcpu_ctls != vmx(vcpu, pcpu_ctls)) {
         vmx(vcpu, pcpu_ctls) = pcpu_ctls;
         vcpu->pcpu_ctls_dirty = 1;
@@ -2041,6 +2035,8 @@ static void vmwrite_cr(struct vcpu_t *vcpu)
     if (entry_ctls != vmx(vcpu, entry_ctls)) {
         vmwrite(vcpu, VMX_ENTRY_CONTROLS, vmx(vcpu, entry_ctls) = entry_ctls);
     }
+
+    vmwrite_efer(vcpu);
 }
 
 static void vcpu_enter_fpu_state(struct vcpu_t *vcpu)
@@ -3489,14 +3485,14 @@ static int handle_msr_read(struct vcpu_t *vcpu, uint32_t msr, uint64_t *val)
 static void vmwrite_efer(struct vcpu_t *vcpu)
 {
     struct vcpu_state_t *state = vcpu->state;
+    uint32_t entry_ctls = vmx(vcpu, entry_ctls);
 
     if ((state->_cr0 & CR0_PG) && (state->_efer & IA32_EFER_LME)) {
         state->_efer |= IA32_EFER_LMA;
-
-        vmwrite(vcpu, VMX_ENTRY_CONTROLS, vmread(vcpu, VMX_ENTRY_CONTROLS) |
-                ENTRY_CONTROL_LONG_MODE_GUEST);
+        entry_ctls |= ENTRY_CONTROL_LONG_MODE_GUEST;
     } else {
         state->_efer &= ~IA32_EFER_LMA;
+        entry_ctls &= ~ENTRY_CONTROL_LONG_MODE_GUEST;
     }
 
     if (vmx(vcpu, entry_ctls) & ENTRY_CONTROL_LOAD_EFER) {
@@ -3507,6 +3503,10 @@ static void vmwrite_efer(struct vcpu_t *vcpu)
         }
 
         vmwrite(vcpu, GUEST_EFER, guest_efer);
+    }
+
+    if (entry_ctls != vmx(vcpu, entry_ctls)) {
+        vmwrite(vcpu, VMX_ENTRY_CONTROLS, vmx(vcpu, entry_ctls) = entry_ctls);
     }
 }
 
