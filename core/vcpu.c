@@ -2572,6 +2572,9 @@ static void handle_cpuid_virtual(struct vcpu_t *vcpu, uint32_t a, uint32_t c)
     if (cpu_has_feature(X86_FEATURE_AESNI)) {
         cpu_features_2 |= FEATURE(AESNI);
     }
+    if (cpu_has_feature(X86_FEATURE_PCLMULQDQ)) {
+        cpu_features_2 |= FEATURE(PCLMULQDQ);
+    }
     if (cpu_has_feature(X86_FEATURE_RDTSCP)) {
         cpu_features_ext |= FEATURE(RDTSCP);
     }
