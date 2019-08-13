@@ -37,7 +37,7 @@ int hax_pin_user_pages(uint64_t start_uva, uint64_t size, hax_memdesc_user *memd
     PMDL pmdl = NULL;
 
     if (!memdesc) {
-        hax_error("%s: memdesc == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: memdesc == NULL\n", __func__);
         return -EINVAL;
     }
 
@@ -45,16 +45,16 @@ int hax_pin_user_pages(uint64_t start_uva, uint64_t size, hax_memdesc_user *memd
 
     pmdl = IoAllocateMdl((PVOID)start_uva, size, FALSE, FALSE, NULL);
     if (!pmdl) {
-        hax_error("Failed to allocate MDL for va: 0x%llx, size: 0x%llx.\n",
-                  start_uva, size);
+        hax_log(HAX_LOGE, "Failed to allocate MDL for va: 0x%llx, "
+                "size: 0x%llx.\n", start_uva, size);
         return -EFAULT;
     }
 
     try {
         MmProbeAndLockPages(pmdl, UserMode, IoWriteAccess);
     } except (EXCEPTION_EXECUTE_HANDLER) {
-        hax_error("Failed to probe pages for guest's memory! va: 0x%llx\n",
-                  start_uva);
+        hax_log(HAX_LOGE, "Failed to probe pages for guest's memory! "
+                "va: 0x%llx\n", start_uva);
         IoFreeMdl(pmdl);
         return -ENOMEM;
     }
@@ -66,12 +66,12 @@ int hax_pin_user_pages(uint64_t start_uva, uint64_t size, hax_memdesc_user *memd
 int hax_unpin_user_pages(hax_memdesc_user *memdesc)
 {
     if (!memdesc) {
-        hax_error("%s: memdesc == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: memdesc == NULL\n", __func__);
         return -EINVAL;
     }
 
     if (!memdesc->pmdl) {
-        hax_error("%s: memdesc->pmdl == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: memdesc->pmdl == NULL\n", __func__);
         return -EINVAL;
     }
 
@@ -89,12 +89,12 @@ uint64_t hax_get_pfn_user(hax_memdesc_user *memdesc, uint64_t uva_offset)
     uint64_t len;
 
     if (!memdesc) {
-        hax_error("%s: memdesc == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: memdesc == NULL\n", __func__);
         return INVALID_PFN;
     }
 
     if (!memdesc->pmdl) {
-        hax_error("%s: memdesc->pmdl == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: memdesc->pmdl == NULL\n", __func__);
         return INVALID_PFN;
     }
 
@@ -102,15 +102,15 @@ uint64_t hax_get_pfn_user(hax_memdesc_user *memdesc, uint64_t uva_offset)
 
     len = MmGetMdlByteCount(pmdl);
     if (uva_offset >= len) {
-        hax_error("The uva_offset 0x%llx exceeds the buffer length 0x%llx.\n",
-                  uva_offset, len);
+        hax_log(HAX_LOGE, "The uva_offset 0x%llx exceeds the buffer "
+                "length 0x%llx.\n", uva_offset, len);
         return INVALID_PFN;
     }
 
     ppfn = MmGetMdlPfnArray(pmdl);
     if (NULL == ppfn) {
-        hax_error("Get MDL pfn array failed. uva_offset: 0x%llx.\n",
-                  uva_offset);
+        hax_log(HAX_LOGE, "Get MDL pfn array failed. uva_offset: 0x%llx.\n",
+                uva_offset);
         return INVALID_PFN;
     }
 
@@ -127,15 +127,15 @@ void * hax_map_user_pages(hax_memdesc_user *memdesc, uint64_t uva_offset,
     PVOID kva;
 
     if (!memdesc) {
-        hax_error("%s: memdesc == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: memdesc == NULL\n", __func__);
         return NULL;
     }
     if (!memdesc->pmdl) {
-        hax_error("%s: memdesc->pmdl == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: memdesc->pmdl == NULL\n", __func__);
         return NULL;
     }
     if (!kmap) {
-        hax_error("%s: kmap == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: kmap == NULL\n", __func__);
         return NULL;
     }
 
@@ -147,8 +147,9 @@ void * hax_map_user_pages(hax_memdesc_user *memdesc, uint64_t uva_offset,
     uva_offset_high = (uva_offset + size + PAGE_SIZE_4K - 1) &
                       pgmask(PG_ORDER_4K);
     if (uva_offset_high > base_size) {
-        hax_error("%s: Invalid UVA subrange: uva_offset=0x%llx, size=0x%llx,"
-                  " base_size=0x%llx\n", __func__, uva_offset, size, base_size);
+        hax_log(HAX_LOGE, "%s: Invalid UVA subrange: uva_offset=0x%llx, "
+                "size=0x%llx, base_size=0x%llx\n", __func__, uva_offset,
+                size, base_size);
         return NULL;
     }
 
@@ -161,17 +162,16 @@ void * hax_map_user_pages(hax_memdesc_user *memdesc, uint64_t uva_offset,
     // Create a new MDL for the UVA subrange
     pmdl = IoAllocateMdl((PVOID)start_uva, size, FALSE, FALSE, NULL);
     if (!pmdl) {
-        hax_error("%s: Failed to create MDL for UVA subrange: start_uva=0x%llx,"
-                  " size=0x%llx\n", __func__, start_uva, size);
+        hax_log(HAX_LOGE, "%s: Failed to create MDL for UVA subrange: "
+                "start_uva=0x%llx, size=0x%llx\n", __func__, start_uva, size);
         return NULL;
     }
     // Associate the new MDL with the existing MDL
     IoBuildPartialMdl(memdesc->pmdl, pmdl, (PVOID)start_uva, size);
     kva = MmGetSystemAddressForMdlSafe(pmdl, NormalPagePriority);
     if (!kva) {
-        hax_error("%s: Failed to create KVA mapping for UVA subrange:"
-                  " start_uva=0x%llx, size=0x%llx\n", __func__, start_uva,
-                  size);
+        hax_log(HAX_LOGE, "%s: Failed to create KVA mapping for UVA subrange:"
+                " start_uva=0x%llx, size=0x%llx\n", __func__, start_uva, size);
         IoFreeMdl(pmdl);
         return NULL;
     }
@@ -182,11 +182,11 @@ void * hax_map_user_pages(hax_memdesc_user *memdesc, uint64_t uva_offset,
 int hax_unmap_user_pages(hax_kmap_user *kmap)
 {
     if (!kmap) {
-        hax_error("%s: kmap == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: kmap == NULL\n", __func__);
         return -EINVAL;
     }
     if (!kmap->pmdl) {
-        hax_error("%s: kmap->pmdl == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: kmap->pmdl == NULL\n", __func__);
         return -EINVAL;
     }
 
@@ -204,10 +204,10 @@ int hax_alloc_page_frame(uint8_t flags, hax_memdesc_phys *memdesc)
 
     // TODO: Support HAX_PAGE_ALLOC_BELOW_4G
     if (flags & HAX_PAGE_ALLOC_BELOW_4G) {
-        hax_warning("%s: HAX_PAGE_ALLOC_BELOW_4G is ignored\n", __func__);
+        hax_log(HAX_LOGW, "%s: HAX_PAGE_ALLOC_BELOW_4G is ignored\n", __func__);
     }
     if (!memdesc) {
-        hax_error("%s: memdesc == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: memdesc == NULL\n", __func__);
         return -EINVAL;
     }
 
@@ -223,7 +223,7 @@ int hax_alloc_page_frame(uint8_t flags, hax_memdesc_phys *memdesc)
     pmdl = MmAllocatePagesForMdlEx(low_addr, high_addr, skip_bytes,
                                    PAGE_SIZE_4K, MmCached, options);
     if (!pmdl) {
-        hax_error("%s: Failed to allocate 4KB of nonpaged memory\n", __func__);
+        hax_log(HAX_LOGE, "%s: Failed to allocate 4KB of nonpaged memory\n", __func__);
         return -ENOMEM;
     }
     memdesc->pmdl = pmdl;
@@ -233,11 +233,11 @@ int hax_alloc_page_frame(uint8_t flags, hax_memdesc_phys *memdesc)
 int hax_free_page_frame(hax_memdesc_phys *memdesc)
 {
     if (!memdesc) {
-        hax_error("%s: memdesc == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: memdesc == NULL\n", __func__);
         return -EINVAL;
     }
     if (!memdesc->pmdl) {
-        hax_error("%s: memdesc->pmdl == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: memdesc->pmdl == NULL\n", __func__);
         return -EINVAL;
     }
 
@@ -252,17 +252,17 @@ uint64_t hax_get_pfn_phys(hax_memdesc_phys *memdesc)
     PPFN_NUMBER pfns;
 
     if (!memdesc) {
-        hax_error("%s: memdesc == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: memdesc == NULL\n", __func__);
         return INVALID_PFN;
     }
     if (!memdesc->pmdl) {
-        hax_error("%s: memdesc->pmdl == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: memdesc->pmdl == NULL\n", __func__);
         return INVALID_PFN;
     }
 
     pfns = MmGetMdlPfnArray(memdesc->pmdl);
     if (!pfns) {
-        hax_error("%s: MmGetMdlPfnArray() failed\n", __func__);
+        hax_log(HAX_LOGE, "%s: MmGetMdlPfnArray() failed\n", __func__);
         return INVALID_PFN;
     }
     return pfns[0];
@@ -273,17 +273,18 @@ void * hax_get_kva_phys(hax_memdesc_phys *memdesc)
     PVOID kva;
 
     if (!memdesc) {
-        hax_error("%s: memdesc == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: memdesc == NULL\n", __func__);
         return NULL;
     }
     if (!memdesc->pmdl) {
-        hax_error("%s: memdesc->pmdl == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: memdesc->pmdl == NULL\n", __func__);
         return NULL;
     }
 
     kva = MmGetSystemAddressForMdlSafe(memdesc->pmdl, NormalPagePriority);
     if (!kva) {
-        hax_error("%s: MmGetSystemAddressForMdlSafe() failed\n", __func__);
+        hax_log(HAX_LOGE, "%s: MmGetSystemAddressForMdlSafe() failed\n",
+                __func__);
         return NULL;
     }
     return kva;
@@ -295,7 +296,7 @@ void * hax_map_page_frame(uint64_t pfn, hax_kmap_phys *kmap)
     PVOID kva;
 
     if (!kmap) {
-        hax_error("%s: kmap == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: kmap == NULL\n", __func__);
         return NULL;
     }
 
@@ -308,7 +309,7 @@ void * hax_map_page_frame(uint64_t pfn, hax_kmap_phys *kmap)
 int hax_unmap_page_frame(hax_kmap_phys *kmap)
 {
     if (!kmap) {
-        hax_error("%s: kmap == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: kmap == NULL\n", __func__);
         return -EINVAL;
     }
     if (!kmap->kva) {

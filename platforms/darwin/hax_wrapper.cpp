@@ -41,8 +41,6 @@
 
 extern "C" int vcpu_event_pending(struct vcpu_t *vcpu);
 
-int default_hax_log_level = HAX_LOG_DEFAULT;
-
 /*
  * From the following list, we have to do tricky things to achieve this simple
  * action.
@@ -51,16 +49,33 @@ int default_hax_log_level = HAX_LOG_DEFAULT;
  * currently
  */
 
-extern "C" int hax_log_level(int level, const char *fmt, ...)
+static const char* kLogPrefix[] = {
+    "haxm: ",
+    "haxm_debug: ",
+    "haxm_info: ",
+    "haxm_warning: ",
+    "haxm_error: ",
+    "haxm_panic: "
+};
+
+extern "C" void hax_log(int level, const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
-    if (level >= default_hax_log_level) {
-        printf("haxm: ");
+    if (level >= HAX_LOG_DEFAULT) {
+        printf("%s", kLogPrefix[level]);
         printf(fmt, args);
     }
     va_end(args);
-    return 0;
+}
+
+extern "C" void hax_panic(const char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    hax_log(HAX_LOGPANIC, fmt, args);
+    panic(fmt, args);
+    va_end(args);
 }
 
 struct smp_call_parameter {

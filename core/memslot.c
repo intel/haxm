@@ -146,18 +146,18 @@ void memslot_dump_list(hax_gpa_space *gpa_space)
     hax_memslot *memslot = NULL;
     int i = 0;
 
-    hax_info("memslot dump begins:\n");
+    hax_log(HAX_LOGI, "memslot dump begins:\n");
     hax_list_entry_for_each(memslot, &gpa_space->memslot_list, hax_memslot,
                             entry) {
-        hax_info("memslot [%d]: base_gfn = 0x%016llx, npages = 0x%llx, "
-                 "uva = 0x%016llx, flags = 0x%02x "
-                 "(block_base_uva = 0x%016llx, offset_within_block = 0x%llx)\n",
-                 i++, memslot->base_gfn, memslot->npages,
-                 memslot->block->base_uva + memslot->offset_within_block,
-                 memslot->flags, memslot->block->base_uva,
-                 memslot->offset_within_block);
+        hax_log(HAX_LOGI, "memslot [%d]: base_gfn = 0x%016llx, "
+                "npages = 0x%llx, uva = 0x%016llx, flags = 0x%02x "
+                "(block_base_uva = 0x%016llx, offset_within_block = 0x%llx)\n",
+                i++, memslot->base_gfn, memslot->npages,
+                memslot->block->base_uva + memslot->offset_within_block,
+                memslot->flags, memslot->block->base_uva,
+                memslot->offset_within_block);
     }
-    hax_info("memslot dump ends!\n");
+    hax_log(HAX_LOGI, "memslot dump ends!\n");
 }
 
 int memslot_set_mapping(hax_gpa_space *gpa_space, uint64_t start_gfn,
@@ -171,8 +171,8 @@ int memslot_set_mapping(hax_gpa_space *gpa_space, uint64_t start_gfn,
     bool is_valid = false, is_found = false;
     uint8_t route = 0, state = 0;
 
-    hax_info("%s: start_gfn=0x%llx, npages=0x%llx, uva=0x%llx, flags=0x%x\n",
-             __func__, start_gfn, npages, uva, flags);
+    hax_log(HAX_LOGI, "%s: start_gfn=0x%llx, npages=0x%llx, uva=0x%llx, "
+            "flags=0x%x\n", __func__, start_gfn, npages, uva, flags);
 
     if ((gpa_space == NULL) || (npages == 0))
         return -EINVAL;
@@ -184,9 +184,9 @@ int memslot_set_mapping(hax_gpa_space *gpa_space, uint64_t start_gfn,
             ret = ramblock_add(&gpa_space->ramblock_list, uva,
                                npages << PG_ORDER_4K, NULL, &block);
             if (ret != 0 || block == NULL) {
-                hax_error("%s: Failed to create standalone RAM block:"
-                          "start_gfn=0x%llx, npages=0x%llx, uva=0x%llx\n",
-                          __func__, start_gfn, npages, uva);
+                hax_log(HAX_LOGE, "%s: Failed to create standalone RAM block:"
+                        "start_gfn=0x%llx, npages=0x%llx, uva=0x%llx\n",
+                        __func__, start_gfn, npages, uva);
                 return ret < 0 ? ret : -EINVAL;
             }
 
@@ -197,8 +197,8 @@ int memslot_set_mapping(hax_gpa_space *gpa_space, uint64_t start_gfn,
         } else {
             block = ramblock_find(&gpa_space->ramblock_list, uva, NULL);
             if (block == NULL) {
-                hax_error("%s: Failed to find uva=0x%llx in RAM block\n",
-                          __func__, uva);
+                hax_log(HAX_LOGE, "%s: Failed to find uva=0x%llx in "
+                        "RAM block\n", __func__, uva);
                 return -EINVAL;
             }
         }
@@ -345,7 +345,7 @@ static inline hax_memslot * memslot_dup(hax_memslot *slot)
     new_slot = (hax_memslot *)hax_vmalloc(sizeof(hax_memslot), HAX_MEM_NONPAGE);
 
     if (new_slot == NULL) {
-        hax_error("%s: Failed to allocate memslot\n", __func__);
+        hax_log(HAX_LOGE, "%s: Failed to allocate memslot\n", __func__);
         return NULL;
     }
 
@@ -414,7 +414,7 @@ static inline hax_memslot * memslot_append_rest(hax_memslot *dest,
     rest = (hax_memslot *)hax_vmalloc(sizeof(hax_memslot), HAX_MEM_NONPAGE);
 
     if (rest == NULL) {
-        hax_error("%s: Failed to allocate memslot\n", __func__);
+        hax_log(HAX_LOGE, "%s: Failed to allocate memslot\n", __func__);
         return NULL;
     }
 

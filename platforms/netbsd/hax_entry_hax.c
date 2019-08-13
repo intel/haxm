@@ -66,14 +66,14 @@ struct cdevsw hax_cdevsw = {
 int hax_open(dev_t dev __unused, int flags __unused, int mode __unused,
              struct lwp *l __unused)
 {
-    hax_log_level(HAX_LOGI, "HAX module opened\n");
+    hax_log(HAX_LOGI, "HAX module opened\n");
     return 0;
 }
 
 int hax_close(dev_t self __unused, int flag __unused, int mode __unused,
               struct lwp *l __unused)
 {
-    hax_log_level(HAX_LOGI, "hax_close\n");
+    hax_log(HAX_LOGI, "hax_close\n");
     return 0;
 }
 
@@ -108,7 +108,7 @@ int hax_ioctl(dev_t self __unused, u_long cmd, void *data, int flag,
 
         cvm = hax_create_vm(&vm_id);
         if (!cvm) {
-            hax_log_level(HAX_LOGE, "Failed to create the HAX VM\n");
+            hax_log(HAX_LOGE, "Failed to create the HAX VM\n");
             ret = -ENOMEM;
             break;
         }
@@ -117,8 +117,8 @@ int hax_ioctl(dev_t self __unused, u_long cmd, void *data, int flag,
         break;
     }
     default:
-        hax_error("Unknown ioctl %#lx, pid=%d ('%s')\n", cmd,
-                  l->l_proc->p_pid, l->l_proc->p_comm);
+        hax_log(HAX_LOGE, "Unknown ioctl %#lx, pid=%d ('%s')\n", cmd,
+                l->l_proc->p_pid, l->l_proc->p_comm);
         ret = -ENOSYS;
         break;
     }

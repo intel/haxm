@@ -59,7 +59,7 @@ static int get_free_vm_mid(void)
 static void hax_put_vm_mid(int id)
 {
     if (hax_test_and_clear_bit(id, (uint64_t *)&vm_mid_bits))
-        hax_warning("Clear a non-set vmid %x\n", id);
+        hax_log(HAX_LOGW, "Clear a non-set vmid %x\n", id);
 }
 
 static int valid_vm_mid(int vm_id)
@@ -100,21 +100,21 @@ struct vm_t * hax_create_vm(int *vm_id)
 #endif  // CONFIG_HAX_EPT2
 
     if ((!hax->vmx_enable_flag) || (!hax->nx_enable_flag)) {
-        hax_error("VT or NX is not enabled, can not setup VM!\n");
+        hax_log(HAX_LOGE, "VT or NX is not enabled, can not setup VM!\n");
         return NULL;
     }
 
     id = get_free_vm_mid();
 
     if (!valid_vm_mid(id)) {
-        hax_error("Failed to allocate vm id\n");
+        hax_log(HAX_LOGE, "Failed to allocate vm id\n");
         return NULL;
     }
     *vm_id = id;
     hvm = hax_vmalloc(sizeof(struct vm_t), HAX_MEM_NONPAGE);
     if (!hvm) {
         hax_put_vm_mid(id);
-        hax_error("Failed to allocate vm\n");
+        hax_log(HAX_LOGE, "Failed to allocate vm\n");
         return NULL;
     }
     memset(hvm, 0, sizeof(struct vm_t));
@@ -143,12 +143,12 @@ struct vm_t * hax_create_vm(int *vm_id)
 #ifdef CONFIG_HAX_EPT2
     ret = gpa_space_init(&hvm->gpa_space);
     if (ret) {
-        hax_error("%s: gpa_space_init() returned %d\n", __func__, ret);
+        hax_log(HAX_LOGE, "%s: gpa_space_init() returned %d\n", __func__, ret);
         goto fail0;
     }
     ret = ept_tree_init(&hvm->ept_tree);
     if (ret) {
-        hax_error("%s: ept_tree_init() returned %d\n", __func__, ret);
+        hax_log(HAX_LOGE, "%s: ept_tree_init() returned %d\n", __func__, ret);
         goto fail0;
     }
 
@@ -158,7 +158,7 @@ struct vm_t * hax_create_vm(int *vm_id)
     hvm->gpa_space_listener.opaque = (void *)&hvm->ept_tree;
     gpa_space_add_listener(&hvm->gpa_space, &hvm->gpa_space_listener);
 
-    hax_info("%s: Invoking INVEPT for VM %d\n", __func__, hvm->vm_id);
+    hax_log(HAX_LOGI, "%s: Invoking INVEPT for VM %d\n", __func__, hvm->vm_id);
     invept(hvm, EPT_INVEPT_SINGLE_CONTEXT);
 #else  // !CONFIG_HAX_EPT2
     if (!ept_init(hvm))
@@ -226,7 +226,7 @@ int hax_vm_core_open(struct vm_t *vm)
 int hax_teardown_vm(struct vm_t *vm)
 {
     if (!hax_list_empty(&(vm->vcpu_list))) {
-        hax_info("Try to teardown non-empty vm\n");
+        hax_log(HAX_LOGI, "Try to teardown non-empty vm\n");
         return -1;
     }
 #ifdef HAX_ARCH_X86_32
@@ -250,7 +250,7 @@ int hax_teardown_vm(struct vm_t *vm)
     gpa_space_free(&vm->gpa_space);
 #endif  // CONFIG_HAX_EPT2
     hax_vfree(vm, sizeof(struct vm_t));
-    hax_error("\n...........hax_teardown_vm\n");
+    hax_log(HAX_LOGE, "...........hax_teardown_vm\n");
     return 0;
 }
 
@@ -619,7 +619,7 @@ void hax_unmap_gpfn(struct vm_t *vm, void *va, uint64_t gpfn)
 
     entry = hax_get_p2m_entry(vm, gpfn);
     if (!entry) {
-        hax_error("We cannot find the p2m entry!\n");
+        hax_log(HAX_LOGE, "We cannot find the p2m entry!\n");
         return;
     }
 
@@ -638,8 +638,8 @@ int hax_core_set_p2m(struct vm_t *vm, uint64_t gpfn, uint64_t hpfn, uint64_t hva
 
     ret = set_p2m_mapping(vm, gpfn, hva & ~HAX_PAGE_MASK, hpfn << 12);
     if (ret < 0) {
-        hax_error("Failed to set p2m mapping, gpfn:%llx, hva:%llx, hpa:%llx,"
-                  "ret:%d\n", gpfn, hva, hpfn << 12, ret);
+        hax_log(HAX_LOGE, "Failed to set p2m mapping, gpfn:%llx, hva:%llx, "
+                "hpa:%llx, ret:%d\n", gpfn, hva, hpfn << 12, ret);
         return 0;
     }
 

@@ -33,7 +33,9 @@
 #define HAX_LINUX_HAX_TYPES_LINUX_H_
 
 #include <linux/types.h>
+#define _ASM_X86_CPUFEATURES_H
 #include <linux/string.h>
+#undef _ASM_X86_CPUFEATURES_H
 #include <linux/errno.h>
 
 // Signed Types

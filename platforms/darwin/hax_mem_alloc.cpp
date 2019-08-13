@@ -39,11 +39,11 @@
         flags |= HAX_MEM_NONPAGE;                                       \
     if ((flags & (HAX_MEM_NONPAGE | HAX_MEM_PAGABLE)) ==                \
         (HAX_MEM_NONPAGE | HAX_MEM_PAGABLE)) {                          \
-        hax_log_level(HAX_LOGW, "Confilic flags for pageable\n");       \
+        hax_log(HAX_LOGW, "Confilic flags for pageable\n");       \
         return HAX_ALLOC_CHECK_FAIL;                                    \
     }                                                                   \
     if (flags & HAX_MEM_NONBLOCK) {                                     \
-        hax_log_level(HAX_LOGE, "No nonblock allocation in mac now\n"); \
+        hax_log(HAX_LOGE, "No nonblock allocation in mac now\n"); \
         return HAX_ALLOC_CHECK_FAIL;                                    \
     }
 
@@ -313,7 +313,7 @@ extern "C" int hax_malloc_init(void)
     hax_init_list_head(&_vmap_list);
     vmap_lock = hax_spinlock_alloc_init();
     if (!vmap_lock) {
-        hax_error("%s: Failed to allocate VMAP lock\n", __func__);
+        hax_log(HAX_LOGE, "%s: Failed to allocate VMAP lock\n", __func__);
         return -ENOMEM;
     }
 

@@ -197,12 +197,13 @@ global fastop_dispatch
     ;   src1     - stack2  (saved to non-volatile esi)
     ;   src2     - stack3  (saved to non-volatile edi)
     ;   flags    - stack4  (saved to non-volatile ebp)
-%define stack_arg(index) [esp + 4*04h + 04h + (index*04h)]
+%define stack_arg(index) [esp + 5*04h + 04h + (index*04h)]
 fastop_dispatch:
     push ebx
     push esi
     push edi
     push ebp
+    pushf
     mov ebx, stack_arg(1)
     mov esi, stack_arg(2)
     mov edi, stack_arg(3)
@@ -216,6 +217,7 @@ fastop_dispatch:
     pushf
     pop dword [ebp]
     mov [ebx], reg_dst
+    popf
     pop ebp
     pop edi
     pop esi
@@ -230,8 +232,9 @@ fastop_dispatch:
     ;   src1     - rdx    (saved to volatile r10)
     ;   src2     - rcx    (saved to volatile r11)
     ;   flags    - r8     (accessed directly)
-%define stack_arg(index) [rsp + 0*08h + 08h + (index*08h)]
+%define stack_arg(index) [rsp + 1*08h + 08h + (index*08h)]
 fastop_dispatch:
+    pushf
     mov r10, rdx
     mov r11, rcx
     mov reg_dst, [rsi]
@@ -243,6 +246,7 @@ fastop_dispatch:
     pushf
     pop qword [r8]
     mov [rsi], reg_dst
+    popf
     ret
 %undef stack_arg
 
@@ -253,9 +257,10 @@ fastop_dispatch:
     ;   src1     - r8      (accessed directly)
     ;   src2     - r9      (accessed directly)
     ;   flags    - stack4  (saved to non-volatile r12)
-%define stack_arg(index) [rsp + 1*08h + 08h + (index*08h)]
+%define stack_arg(index) [rsp + 2*08h + 08h + (index*08h)]
 fastop_dispatch:
     push r12
+    pushf
     mov r10, rcx
     mov r11, rdx
     mov r12, stack_arg(4)
@@ -268,6 +273,7 @@ fastop_dispatch:
     pushf
     pop qword [r12]
     mov [r11], reg_dst
+    popf
     pop r12
     ret
 %undef stack_arg

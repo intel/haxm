@@ -215,7 +215,8 @@ void *hax_map_page(struct hax_page *page);
 
 void hax_unmap_page(struct hax_page *page);
 
-int hax_log_level(int level, const char *fmt, ...);
+void hax_log(int level, const char *fmt, ...);
+void hax_panic(const char *fmt, ...);
 
 #ifdef __cplusplus
 }
@@ -257,6 +258,7 @@ int hax_em64t_enabled(void);
 
 /* Utilities */
 #define HAX_NOLOG       0xff
+#define HAX_LOGPANIC    5
 #define HAX_LOGE        4
 #define HAX_LOGW        3
 #define HAX_LOGI        2

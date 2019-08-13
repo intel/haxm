@@ -144,7 +144,7 @@ struct hax_page * hax_alloc_pages(int order, uint32_t flags, bool vmap)
 
     // TODO: Support HAX_MEM_LOW_4G
     if (flags & HAX_MEM_LOW_4G) {
-        hax_warning("%s: HAX_MEM_LOW_4G is ignored\n", __func__);
+        hax_log(HAX_LOGW, "%s: HAX_MEM_LOW_4G is ignored\n", __func__);
     }
 
     ppage->pglist = kmem_zalloc(sizeof(struct pglist), KM_SLEEP);
