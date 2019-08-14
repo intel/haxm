@@ -502,6 +502,12 @@ enum {
     GAS_CSTATE      = 4
 };
 
+// Intel SDM Vol. 3C: Table 24-3. Format of Interruptibility State
+#define GUEST_INTRSTAT_STI_BLOCKING            0x00000001
+#define GUEST_INTRSTAT_SS_BLOCKING             0x00000002
+#define GUEST_INTRSTAT_SMI_BLOCKING            0x00000004
+#define GUEST_INTRSTAT_NMI_BLOCKING            0x00000008
+
 #ifdef HAX_COMPILER_MSVC
 #pragma pack(push, 1)
 #endif

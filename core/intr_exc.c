@@ -121,12 +121,15 @@ uint hax_intr_is_blocked(struct vcpu_t *vcpu)
 {
     struct vcpu_state_t *state = vcpu->state;
     uint32_t intr_status;
+    uint32_t intr_blocking = 0;
 
     if (!(state->_eflags & EFLAGS_IF))
         return 1;
 
+    intr_blocking |= GUEST_INTRSTAT_STI_BLOCKING;
+    intr_blocking |= GUEST_INTRSTAT_SS_BLOCKING;
     intr_status = vmx(vcpu, interruptibility_state).raw;
-    if (intr_status & 3)
+    if (intr_status & intr_blocking)
         return 1;
     return 0;
 }
