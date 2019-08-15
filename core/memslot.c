@@ -364,12 +364,10 @@ static inline void memslot_delete(hax_memslot *dest)
 
 static inline void memslot_move(hax_memslot *dest, hax_memslot *src)
 {
-    hax_list_node entry;
-
-    ramblock_deref(dest->block);
-    entry = dest->entry;
-    memslot_init(dest, src);
-    dest->entry = entry;
+	ramblock_deref(dest->block);
+	src->entry = dest->entry;
+	*dest = *src;
+	ramblock_ref(dest->block);
 }
 
 static inline void memslot_union(hax_memslot *dest, hax_memslot *src)
