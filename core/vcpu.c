@@ -1078,7 +1078,27 @@ static void load_dirty_vmcs_fields(struct vcpu_t *vcpu)
         vcpu->rflags_dirty = 0;
     }
 
-    // interruptibility
+    /*
+     * interruptibility
+     * 26.3.1.5 Checks on Guest Non-Register State
+     * Bit 0 (blocking by STI) must be 0 if the IF flag (bit 9) is 0 in the
+     *   RFLAGS field.
+     * This is a WA to fix the VM-entry failure due to invalid guest state,
+     *   sometimes when a snapshot is loaded but IF and interruptibility_state
+     *   don't pass the checks as mentioned in SDM 26.3.1.5.
+     * In in-order execution, interruptibility_state is updated when advancing
+     *   the IP. However when a snapshot is loaded, EFLAGS are restored but
+     *   guest non-register state not restored.
+     *   TODO: Find better approach instead of letting the check pass.
+     */
+    if (!(state->_rflags & EFLAGS_IF)) {
+        if (vmx(vcpu, interruptibility_state).raw &
+            GUEST_INTRSTAT_STI_BLOCKING) {
+            vmx(vcpu, interruptibility_state).raw &=
+                    ~GUEST_INTRSTAT_STI_BLOCKING;
+            vcpu->interruptibility_dirty = 1;
+        }
+    }
     if (vcpu->interruptibility_dirty) {
         vmwrite(vcpu, GUEST_INTERRUPTIBILITY,
                 vmx(vcpu, interruptibility_state).raw);
@@ -1747,9 +1767,12 @@ static void advance_rip(struct vcpu_t *vcpu)
 {
     struct vcpu_state_t *state = vcpu->state;
     uint32_t interruptibility = vmx(vcpu, interruptibility_state).raw;
+    uint32_t intr_blocking = 0;
 
-    if (interruptibility & 3u) {
-        interruptibility &= ~3u;
+    intr_blocking |= GUEST_INTRSTAT_STI_BLOCKING;
+    intr_blocking |= GUEST_INTRSTAT_SS_BLOCKING;
+    if (interruptibility & intr_blocking) {
+        interruptibility &= ~intr_blocking;
         vmx(vcpu, interruptibility_state).raw = interruptibility;
         vcpu->interruptibility_dirty = 1;
     }
