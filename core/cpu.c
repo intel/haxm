@@ -624,8 +624,7 @@ void load_vmcs_common(struct vcpu_t *vcpu)
 
     vmx(vcpu, exc_bitmap) = vmx(vcpu, exc_bitmap_base) = vmread(
             vcpu, VMX_EXCEPTION_BITMAP);
-    vmx(vcpu, entry_ctls) = vmx(vcpu, entry_ctls_base) = vmread(
-            vcpu, VMX_ENTRY_CONTROLS);
+    vmx(vcpu, entry_ctls) = vmread(vcpu, VMX_ENTRY_CONTROLS);
     vmx(vcpu, exit_ctls) = vmx(vcpu, exit_ctls_base) = vmread(
             vcpu, VMX_EXIT_CONTROLS);
 
