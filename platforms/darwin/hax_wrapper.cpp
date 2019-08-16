@@ -64,7 +64,7 @@ extern "C" void hax_log(int level, const char *fmt, ...)
     va_start(args, fmt);
     if (level >= HAX_LOG_DEFAULT) {
         printf("%s", kLogPrefix[level]);
-        printf(fmt, args);
+        vprintf(fmt, args);
     }
     va_end(args);
 }
@@ -74,7 +74,7 @@ extern "C" void hax_panic(const char *fmt, ...)
     va_list args;
     va_start(args, fmt);
     hax_log(HAX_LOGPANIC, fmt, args);
-    panic(fmt, args);
+    (panic)(fmt, args);
     va_end(args);
 }
 
