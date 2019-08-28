@@ -72,7 +72,6 @@ struct vcpu_vmx_data {
     uint32_t pin_ctls_base;
     uint32_t pcpu_ctls_base;
     uint32_t scpu_ctls_base;
-    uint32_t entry_ctls_base;
     uint32_t exc_bitmap_base;
     uint32_t exit_ctls_base;
 
@@ -293,8 +292,6 @@ static inline bool valid_vcpu_id(int vcpu_id)
 }
 
 bool vcpu_is_panic(struct vcpu_t *vcpu);
-#ifndef hax_panic_vcpu
-void hax_panic_vcpu(struct vcpu_t *v, char *fmt, ...);
-#endif
+void vcpu_set_panic(struct vcpu_t *vcpu);
 
 #endif  // HAX_CORE_VCPU_H_

@@ -55,23 +55,20 @@ struct test_cpu_t {
     uint8_t mem[0x100];
 };
 
-uint64_t test_read_gpr(void* obj, uint32_t reg_index, uint32_t size) {
+uint64_t test_read_gpr(void* obj, uint32_t reg_index) {
     test_cpu_t* vcpu = reinterpret_cast<test_cpu_t*>(obj);
     if (reg_index >= 16) {
         throw std::exception("Register index OOB");
     }
-    uint64_t value = 0;
-    memcpy(&value, &vcpu->gpr[reg_index], size);
-    return value;
+    return vcpu->gpr[reg_index];
 }
 
-void test_write_gpr(void* obj, uint32_t reg_index,
-                    uint64_t value, uint32_t size) {
+void test_write_gpr(void* obj, uint32_t reg_index, uint64_t value) {
     test_cpu_t* vcpu = reinterpret_cast<test_cpu_t*>(obj);
     if (reg_index >= 16) {
         throw std::exception("Register index OOB");
     }
-    memcpy(&vcpu->gpr[reg_index], &value, size);
+    vcpu->gpr[reg_index] = value;
 }
 
 uint64_t test_read_rflags(void* obj) {
@@ -147,7 +144,9 @@ em_status_t test_write_memory(void* obj, uint64_t ea, uint64_t* value,
 /* Test class */
 class EmulatorTest : public testing::Test {
 private:
-    ks_engine* ks;
+    ks_engine* ks_x86_16;
+    ks_engine* ks_x86_32;
+    ks_engine* ks_x86_64;
     test_cpu_t vcpu;
     em_context_t em_ctxt;
     em_vcpu_ops_t em_ops;
@@ -155,11 +154,12 @@ private:
 protected:
     virtual void SetUp() {
         // Initialize assembler
-        ks_err err;
-        err = ks_open(KS_ARCH_X86, KS_MODE_64, &ks);
-        ASSERT_EQ(err, KS_ERR_OK);
-        err = ks_option(ks, KS_OPT_SYNTAX, KS_OPT_SYNTAX_INTEL);
-        ASSERT_EQ(err, KS_ERR_OK);
+        ASSERT_EQ(KS_ERR_OK, ks_open(KS_ARCH_X86, KS_MODE_16, &ks_x86_16));
+        ASSERT_EQ(KS_ERR_OK, ks_open(KS_ARCH_X86, KS_MODE_32, &ks_x86_32));
+        ASSERT_EQ(KS_ERR_OK, ks_open(KS_ARCH_X86, KS_MODE_64, &ks_x86_64));
+        ASSERT_EQ(KS_ERR_OK, ks_option(ks_x86_16, KS_OPT_SYNTAX, KS_OPT_SYNTAX_INTEL));
+        ASSERT_EQ(KS_ERR_OK, ks_option(ks_x86_32, KS_OPT_SYNTAX, KS_OPT_SYNTAX_INTEL));
+        ASSERT_EQ(KS_ERR_OK, ks_option(ks_x86_64, KS_OPT_SYNTAX, KS_OPT_SYNTAX_INTEL));
 
         // Initialize emulator
         em_ops.read_gpr = test_read_gpr;
@@ -171,45 +171,132 @@ protected:
         em_ops.read_memory = test_read_memory;
         em_ops.write_memory = test_write_memory;
         em_ctxt.ops = &em_ops;
-        em_ctxt.mode = EM_MODE_PROT64;
         em_ctxt.vcpu = &vcpu;
         em_ctxt.rip = 0;
     }
 
-    void assemble_decode(const char* insn,
+    void assemble_decode(em_mode_t mode,
+                         const char* insn,
                          uint64_t rip,
                          size_t* size,
                          size_t* count,
                          em_status_t* decode_status) {
+        ks_engine* ks = nullptr;
         uint8_t* code;
-        int err;
 
-        err = ks_asm(ks, insn, 0, &code, size, count);
-        ASSERT_TRUE(err == 0);
-        EXPECT_TRUE(*size != 0);
-        EXPECT_TRUE(*count != 0);
+        switch (mode) {
+        case EM_MODE_PROT16:
+            ks = ks_x86_16;
+            break;
+        case EM_MODE_PROT32:
+            ks = ks_x86_32;
+            break;
+        case EM_MODE_PROT64:
+            ks = ks_x86_64;
+            break;
+        default:
+            GTEST_FAIL();
+        }
+        ASSERT_EQ(KS_ERR_OK, ks_asm(ks, insn, 0, &code, size, count));
+        EXPECT_NE(*size, 0);
+        EXPECT_NE(*count, 0);
 
         em_ctxt.rip = rip;
+        em_ctxt.mode = mode;
         *decode_status = em_decode_insn(&em_ctxt, code);
         // code == em_ctxt->insn should never be used after em_decode_insn()
         ks_free(code);
     }
 
-    void run(const char* insn,
-             const test_cpu_t& vcpu_original,
-             const test_cpu_t& vcpu_expected) {
+    void run_mode(em_mode_t mode,
+                  const char* insn,
+                  const test_cpu_t& vcpu_original,
+                  const test_cpu_t& vcpu_expected) {
         size_t count;
         size_t size;
         em_status_t ret = EM_ERROR;
 
         vcpu = vcpu_original;
-        assemble_decode(insn, vcpu.rip, &size, &count, &ret);
-        ASSERT_TRUE(ret != EM_ERROR);
+        assemble_decode(mode, insn, vcpu.rip, &size, &count, &ret);
+        ASSERT_NE(ret, EM_ERROR)
+            << "em_decode_insn failed on: " << insn << "\n";
         ret = em_emulate_insn(&em_ctxt);
-        ASSERT_TRUE(ret != EM_ERROR);
-        EXPECT_TRUE(vcpu.rip == vcpu_original.rip + size);
+        ASSERT_NE(ret, EM_ERROR)
+            << "em_emulate_insn failed on: " << insn << "\n";
+
+        // Verify results
+        EXPECT_EQ(vcpu.rip, vcpu_original.rip + size)
+            << "Instruction pointer mismatch on: " << insn << "\n";
         vcpu.rip = vcpu_expected.rip;
-        EXPECT_EQ(memcmp(&vcpu, &vcpu_expected, sizeof(test_cpu_t)), 0);
+        verify(insn, vcpu, vcpu_expected);
+    }
+
+    void run_prot16(const char* insn,
+                    const test_cpu_t& vcpu_original,
+                    const test_cpu_t& vcpu_expected) {
+        run_mode(EM_MODE_PROT16, insn, vcpu_original, vcpu_expected);
+    }
+
+    void run_prot32(const char* insn,
+                    const test_cpu_t& vcpu_original,
+                    const test_cpu_t& vcpu_expected) {
+        run_mode(EM_MODE_PROT32, insn, vcpu_original, vcpu_expected);
+    }
+
+    void run_prot64(const char* insn,
+                    const test_cpu_t& vcpu_original,
+                    const test_cpu_t& vcpu_expected) {
+        run_mode(EM_MODE_PROT64, insn, vcpu_original, vcpu_expected);
+    }
+
+    void run(const char* insn,
+             const test_cpu_t& vcpu_original,
+             const test_cpu_t& vcpu_expected) {
+        // Default to x86-64 protected mode
+        run_prot64(insn, vcpu_original, vcpu_expected);
+    }
+
+    void verify(const char* insn,
+                const test_cpu_t& vcpu_obtained,
+                const test_cpu_t& vcpu_expected) {
+        // Helpers
+#define PRINT_U64(value) \
+        std::hex << std::uppercase << std::setfill('0') << std::setw(16) << value
+#define VERIFY_GPR(reg) \
+        if (vcpu_obtained.gpr[reg] != vcpu_expected.gpr[reg]) \
+            std::cerr << "Register mismatch on: " << insn << "\n" \
+                << "vcpu_obtained.gpr[" #reg "]: 0x" << PRINT_U64(vcpu_obtained.gpr[reg]) << "\n" \
+                << "vcpu_expected.gpr[" #reg "]: 0x" << PRINT_U64(vcpu_expected.gpr[reg]) << "\n";
+
+        // Verify GPRs
+        VERIFY_GPR(REG_RAX);
+        VERIFY_GPR(REG_RCX);
+        VERIFY_GPR(REG_RDX);
+        VERIFY_GPR(REG_RBX);
+        VERIFY_GPR(REG_RSP);
+        VERIFY_GPR(REG_RBP);
+        VERIFY_GPR(REG_RSI);
+        VERIFY_GPR(REG_RDI);
+        VERIFY_GPR(REG_R8);
+        VERIFY_GPR(REG_R9);
+        VERIFY_GPR(REG_R10);
+        VERIFY_GPR(REG_R11);
+        VERIFY_GPR(REG_R12);
+        VERIFY_GPR(REG_R13);
+        VERIFY_GPR(REG_R14);
+        VERIFY_GPR(REG_R15);
+
+        // Verify RFLAGS
+        if (vcpu_obtained.flags != vcpu_expected.flags)
+            std::cerr << "Flags mismatch on: " << insn << "\n"
+                << "vcpu_obtained.flags: 0x" << PRINT_U64(vcpu_obtained.flags) << "\n"
+                << "vcpu_expected.flags: 0x" << PRINT_U64(vcpu_expected.flags) << "\n";
+
+#undef PRINT_U64
+#undef VERIFY_GPR
+
+        // Ensure identical state
+        ASSERT_EQ(memcmp(&vcpu, &vcpu_expected, sizeof(test_cpu_t)), 0);
     }
 
     /* Test cases */
@@ -282,7 +369,7 @@ protected:
         size_t count;
         em_status_t ret = EM_CONTINUE;
 
-        assemble_decode(insn, 0, &size, &count, &ret);
+        assemble_decode(EM_MODE_PROT64, insn, 0, &size, &count, &ret);
         // Decoding should fail
         EXPECT_LT(ret, 0);
     }
@@ -802,6 +889,19 @@ TEST_F(EmulatorTest, insn_cmps) {
     run("repe cmpsb", vcpu_original, vcpu_expected);
 }
 
+TEST_F(EmulatorTest, insn_mov) {
+    test_cpu_t vcpu_original;
+    test_cpu_t vcpu_expected;
+
+    // Test: mov r8, r/m8
+    vcpu_original = {};
+    vcpu_original.gpr[REG_RDX] = 0x88;
+    vcpu_original.mem[0x88] = 0x44;
+    vcpu_expected = vcpu_original;
+    vcpu_expected.gpr[REG_RCX] = 0x4400;
+    run("mov ch, [rdx]", vcpu_original, vcpu_expected);
+}
+
 TEST_F(EmulatorTest, insn_movs) {
     test_cpu_t vcpu_original;
     test_cpu_t vcpu_expected;
@@ -867,6 +967,55 @@ TEST_F(EmulatorTest, insn_or) {
         { 0xF0, 0x0E, RFLAGS_OF,
           0xFE, RFLAGS_SF },
     });
+}
+
+TEST_F(EmulatorTest, insn_pop) {
+    test_cpu_t vcpu_original;
+    test_cpu_t vcpu_expected;
+
+    // Test: pop, prot32, 16-bit, to-mem
+    vcpu_original = {};
+    vcpu_original.gpr[REG_RAX] = 0x20;
+    vcpu_original.gpr[REG_RSP] = 0x40;
+    (uint16_t&)vcpu_original.mem[0x40] = 0x1234;
+    vcpu_expected = vcpu_original;
+    vcpu_expected.gpr[REG_RSP] += 2;
+    (uint16_t&)vcpu_expected.mem[0x20] = 0x1234;
+    run_prot32("pop word ptr [eax]", vcpu_original, vcpu_expected);
+
+    // Test: pop, prot16, 16-bit, to-reg
+    vcpu_original = {};
+    vcpu_original.gpr[REG_RSP] = 0x80;
+    (uint16_t&)vcpu_original.mem[0x80] = 0x1234;
+    vcpu_expected = vcpu_original;
+    vcpu_expected.gpr[REG_RAX] = 0x1234;
+    vcpu_expected.gpr[REG_RSP] += 2;
+    run_prot16("pop ax", vcpu_original, vcpu_expected);
+}
+
+TEST_F(EmulatorTest, insn_push) {
+    test_cpu_t vcpu_original;
+    test_cpu_t vcpu_expected;
+
+    // Test: push, prot64, 16-bit, from-mem
+    vcpu_original = {};
+    vcpu_original.gpr[REG_RAX] = 0x20;
+    vcpu_original.gpr[REG_RSP] = 0x42;
+    (uint16_t&)vcpu_original.mem[0x20] = 0x1234;
+    (uint16_t&)vcpu_original.mem[0x22] = 0x4578;
+    vcpu_expected = vcpu_original;
+    vcpu_expected.gpr[REG_RSP] -= 2;
+    (uint16_t&)vcpu_expected.mem[0x40] = 0x1234;
+    run_prot64("push word ptr [rax]", vcpu_original, vcpu_expected);
+
+    // Test: push, prot32, 32-bit, from-reg
+    vcpu_original = {};
+    vcpu_original.gpr[REG_RAX] = 0x1122334455667788ULL;
+    vcpu_original.gpr[REG_RSP] = 0x80;
+    vcpu_expected = vcpu_original;
+    vcpu_expected.gpr[REG_RSP] -= 4;
+    (uint32_t&)vcpu_expected.mem[0x7C] = 0x55667788;
+    run_prot32("push eax", vcpu_original, vcpu_expected);
 }
 
 TEST_F(EmulatorTest, insn_stos) {

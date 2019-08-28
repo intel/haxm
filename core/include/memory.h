@@ -55,6 +55,8 @@ typedef struct hax_ramblock {
     uint8_t *chunks_bitmap;
     // Reference count of this object
     int ref_count;
+    // Whether this RAM block is associated with a stand-alone mapping
+    bool is_standalone;
     // Turns this object into a list node
     hax_list_node entry;
 } hax_ramblock;
@@ -75,10 +77,13 @@ typedef struct hax_memslot {
 } hax_memslot;
 
 // Read-only mapping, == HAX_RAM_INFO_ROM in hax_interface.h
-#define HAX_MEMSLOT_READONLY 0x01
+#define HAX_MEMSLOT_READONLY (1 << 0)
+// Stand-alone mapping, == HAX_RAM_INFO_STANDALONE in hax_interface.h
+#define HAX_MEMSLOT_STANDALONE (1 << 6)
+
 // Unmapped, == HAX_RAM_INFO_INVALID in hax_interface.h
-// Used only by memslot_set_mapping(), not by any hax_memslot
-#define HAX_MEMSLOT_INVALID  0x80
+// Not to be used by hax_memslot::flags
+#define HAX_MEMSLOT_INVALID (1 << 7)
 
 typedef struct hax_gpa_prot {
     // A bitmap where each bit represents the protection status of a guest page

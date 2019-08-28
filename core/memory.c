@@ -44,11 +44,11 @@ static int handle_alloc_ram(struct vm_t *vm, uint64_t start_uva, uint64_t size)
     hax_ramblock *block;
 
     if (!start_uva) {
-        hax_error("%s: start_uva == 0\n", __func__);
+        hax_log(HAX_LOGE, "%s: start_uva == 0\n", __func__);
         return -EINVAL;
     }
     if (!size) {
-        hax_error("%s: size == 0\n", __func__);
+        hax_log(HAX_LOGE, "%s: size == 0\n", __func__);
         return -EINVAL;
     }
 
@@ -56,8 +56,8 @@ static int handle_alloc_ram(struct vm_t *vm, uint64_t start_uva, uint64_t size)
     ret = ramblock_add(&vm->gpa_space.ramblock_list, start_uva, size, NULL,
                        &block);
     if (ret) {
-        hax_error("%s: ramblock_add() failed: ret=%d, start_uva=0x%llx,"
-                  " size=0x%llx\n", __func__, ret, start_uva, size);
+        hax_log(HAX_LOGE, "%s: ramblock_add() failed: ret=%d, start_uva=0x%llx,"
+                " size=0x%llx\n", __func__, ret, start_uva, size);
         return ret;
     }
     return 0;
@@ -77,32 +77,32 @@ int hax_vm_add_ramblock(struct vm_t *vm, uint64_t start_uva, uint64_t size)
 
     /* A valid size is needed */
     if (0 == size) {
-        hax_error("hax_vm_alloc_ram: the size is 0, invalid!\n");
+        hax_log(HAX_LOGE, "hax_vm_alloc_ram: the size is 0, invalid!\n");
         return -EINVAL;
     }
 
     if (!gva || gva & 0xfff) {
-        hax_error("Invalid gva %llx for allocating memory.\n", gva);
+        hax_log(HAX_LOGE, "Invalid gva %llx for allocating memory.\n", gva);
         return -EINVAL;
     }
 
-    hax_info("hax_vm_alloc_ram: size 0x%x\n", size);
+    hax_log(HAX_LOGI, "hax_vm_alloc_ram: size 0x%x\n", size);
     if (!hax_test_bit(VM_STATE_FLAGS_MEM_ALLOC, &vm->flags)) {
-        hax_info("!VM_STATE_FLAGS_MEM_ALLOC\n");
+        hax_log(HAX_LOGI, "!VM_STATE_FLAGS_MEM_ALLOC\n");
         hax_mutex_lock(hax->hax_lock);
         if (hax->mem_limit && (size > hax->mem_quota)) {
-            hax_error("HAX is out of memory quota.\n");
+            hax_log(HAX_LOGE, "HAX is out of memory quota.\n");
             hax_mutex_unlock(hax->hax_lock);
             return -EINVAL;
         }
         hax_mutex_unlock(hax->hax_lock);
-        hax_info("Memory allocation, va:%llx, size:%x\n", *va, size);
+        hax_log(HAX_LOGI, "Memory allocation, va:%llx, size:%x\n", *va, size);
     } else {
-        hax_info("spare alloc: mem_limit 0x%llx, size 0x%x, spare_ram 0x%llx\n",
-                 hax->mem_limit, size, vm->spare_ramsize);
+        hax_log(HAX_LOGI, "spare alloc: mem_limit 0x%llx, size 0x%x, "
+                "spare_ram 0x%llx\n", hax->mem_limit, size, vm->spare_ramsize);
         if (hax->mem_limit && (size > vm->spare_ramsize)) {
-            hax_error("HAX is out of memory quota, because application"
-                      " requests another %x bytes\n", size);
+            hax_log(HAX_LOGE, "HAX is out of memory quota, because application"
+                    " requests another %x bytes\n", size);
             return -EINVAL;
         }
     }
@@ -123,14 +123,15 @@ int hax_vm_add_ramblock(struct vm_t *vm, uint64_t start_uva, uint64_t size)
     leftsize = size;
     while (leftsize > 0) {
         cursize = leftsize > HAX_RAM_ENTRY_SIZE ? HAX_RAM_ENTRY_SIZE : leftsize;
-        hax_debug("Memory allocation, gva:%llx, cur_size:%x\n", gva, cursize);
+        hax_log(HAX_LOGD, "Memory allocation, gva:%llx, cur_size:%x\n",
+                gva, cursize);
 
         ret = hax_setup_vcpumem(curmem, gva, cursize, HAX_VCPUMEM_VALIDVA);
         if (ret < 0)
             goto fail;
 
-        hax_debug("Alloc ram %x kva is %p uva %llx\n", cursize, curmem->kva,
-                  curmem->uva);
+        hax_log(HAX_LOGD, "Alloc ram %x kva is %p uva %llx\n",
+                cursize, curmem->kva, curmem->uva);
 
         leftsize -= cursize;
         curmem++;
@@ -152,16 +153,16 @@ int hax_vm_add_ramblock(struct vm_t *vm, uint64_t start_uva, uint64_t size)
         hax_mutex_unlock(hax->hax_lock);
         hax_test_and_set_bit(VM_STATE_FLAGS_MEM_ALLOC, &vm->flags);
         vm->spare_ramsize = VM_SPARE_RAMSIZE;
-        hax_info("!VM_STATE_FLAGS_MEM_ALLOC: spare_ram 0x%llx\n",
-                 vm->spare_ramsize);
+        hax_log(HAX_LOGI, "!VM_STATE_FLAGS_MEM_ALLOC: spare_ram 0x%llx\n",
+                vm->spare_ramsize);
     } else {
         if (hax->mem_limit) {
             vm->spare_ramsize -= size;
-            hax_info("VM_STATE_FLAGS_MEM_ALLOC: spare_ram 0x%llx\n",
-                     vm->spare_ramsize);
+            hax_log(HAX_LOGI, "VM_STATE_FLAGS_MEM_ALLOC: spare_ram 0x%llx\n",
+                    vm->spare_ramsize);
         }
     }
-    hax_debug("Memory allocationg done!\n");
+    hax_log(HAX_LOGD, "Memory allocationg done!\n");
     return 0;
 
 fail:
@@ -235,7 +236,7 @@ static struct hax_vcpu_mem *get_pmem_range(struct vm_t *vm, uint64_t va)
 static int handle_set_ram(struct vm_t *vm, uint64_t start_gpa, uint64_t size,
                           uint64_t start_uva, uint32_t flags)
 {
-    bool unmap = flags & HAX_RAM_INFO_INVALID;
+    bool unmap = flags & HAX_MEMSLOT_INVALID;
     hax_gpa_space *gpa_space;
     uint64_t start_gfn, npages;
     int ret;
@@ -243,17 +244,17 @@ static int handle_set_ram(struct vm_t *vm, uint64_t start_gpa, uint64_t size,
 
     // HAX_RAM_INFO_INVALID indicates that guest physical address range
     // [start_gpa, start_gpa + size) should be unmapped
-    if (unmap && (flags != HAX_RAM_INFO_INVALID || start_uva)) {
-        hax_error("%s: Invalid start_uva=0x%llx or flags=0x%x for unmapping\n",
-                  __func__, start_uva, flags);
+    if (unmap && (flags != HAX_MEMSLOT_INVALID || start_uva)) {
+        hax_log(HAX_LOGE, "%s: Invalid start_uva=0x%llx or flags=0x%x for "
+                "unmapping\n", __func__, start_uva, flags);
         return -EINVAL;
     }
     if (!unmap && !start_uva) {
-        hax_error("%s: Cannot map to an invalid UVA\n", __func__);
+        hax_log(HAX_LOGE, "%s: Cannot map to an invalid UVA\n", __func__);
         return -EINVAL;
     }
     if (!size) {
-        hax_error("%s: size == 0\n", __func__);
+        hax_log(HAX_LOGE, "%s: size == 0\n", __func__);
         return -EINVAL;
     }
 
@@ -264,17 +265,17 @@ static int handle_set_ram(struct vm_t *vm, uint64_t start_gpa, uint64_t size,
 
     ret = gpa_space_adjust_prot_bitmap(gpa_space, start_gfn + npages);
     if (ret) {
-        hax_error("%s: Failed to resize prot bitmap: ret=%d, start_gfn=0x%llx,"
-                  " npages=0x%llx, start_uva=0x%llx, flags=0x%x\n", __func__,
-                  ret, start_gfn, npages, start_uva, flags);
+        hax_log(HAX_LOGE, "%s: Failed to resize prot bitmap: ret=%d, start_gfn="
+                "0x%llx, npages=0x%llx, start_uva=0x%llx, flags=0x%x\n",
+                __func__, ret, start_gfn, npages, start_uva, flags);
         return ret;
     }
 
     ret = memslot_set_mapping(gpa_space, start_gfn, npages, start_uva, flags);
     if (ret) {
-        hax_error("%s: memslot_set_mapping() failed: ret=%d, start_gfn=0x%llx,"
-                  " npages=0x%llx, start_uva=0x%llx, flags=0x%x\n", __func__,
-                  ret, start_gfn, npages, start_uva, flags);
+        hax_log(HAX_LOGE, "%s: memslot_set_mapping() failed: ret=%d, start_gfn="
+                "0x%llx, npages=0x%llx, start_uva=0x%llx, flags=0x%x\n",
+                __func__, ret, start_gfn, npages, start_uva, flags);
         return ret;
     }
     memslot_dump_list(gpa_space);
@@ -282,7 +283,8 @@ static int handle_set_ram(struct vm_t *vm, uint64_t start_gpa, uint64_t size,
     ept_tree = &vm->ept_tree;
     if (!hax_test_and_clear_bit(0, (uint64_t *)&ept_tree->invept_pending)) {
         // INVEPT pending flag was set
-        hax_info("%s: Invoking INVEPT for VM #%d\n", __func__, vm->vm_id);
+        hax_log(HAX_LOGI, "%s: Invoking INVEPT for VM #%d\n",
+                __func__, vm->vm_id);
         invept(vm, EPT_INVEPT_SINGLE_CONTEXT);
     }
     return 0;
@@ -308,8 +310,8 @@ int hax_vm_set_ram(struct vm_t *vm, struct hax_set_ram_info *info)
     // HAX_RAM_INFO_INVALID indicates that guest physical address range
     // [pa_start, pa_start + size) should be unmapped
     if (is_unmap && (info->flags != HAX_RAM_INFO_INVALID || info->va)) {
-        hax_error("HAX_VM_IOCTL_SET_RAM called with invalid parameter(s):"
-                  " flags=0x%x, va=0x%llx\n", info->flags, info->va);
+        hax_log(HAX_LOGE, "HAX_VM_IOCTL_SET_RAM called with invalid "
+                "parameter(s): flags=0x%x, va=0x%llx\n", info->flags, info->va);
         return -EINVAL;
     }
 
@@ -324,13 +326,13 @@ int hax_vm_set_ram(struct vm_t *vm, struct hax_set_ram_info *info)
         } else {
             struct hax_vcpu_mem *pmem = get_pmem_range(vm, cur_va);
             if (!pmem) {
-                hax_error("Can't find pmem for va %llx", cur_va);
+                hax_log(HAX_LOGE, "Can't find pmem for va %llx", cur_va);
                 return -ENOMEM;
             }
             hpfn = get_hpfn_from_pmem(pmem, cur_va);
 
             if (hpfn <= 0) {
-                hax_error("Can't get host address for va %llx", cur_va);
+                hax_log(HAX_LOGE, "Can't get host address for va %llx", cur_va);
                 /*
                  * Shall we revert the already setup one? Assume not since the
                  * QEMU should exit on such situation, although it does not.
@@ -358,8 +360,8 @@ int hax_vm_set_ram(struct vm_t *vm, struct hax_set_ram_info *info)
         }
         if (!ept_set_pte(vm, gpfn << HAX_PAGE_SHIFT, hpfn << HAX_PAGE_SHIFT, emt, perm,
                          &epte_modified)) {
-            hax_error("ept_set_pte() failed at gpfn 0x%llx hpfn 0x%llx\n", gpfn,
-                      hpfn);
+            hax_log(HAX_LOGE, "ept_set_pte() failed at gpfn 0x%llx "
+                    "hpfn 0x%llx\n", gpfn, hpfn);
             return -ENOMEM;
         }
         ept_modified = ept_modified || epte_modified;
@@ -369,8 +371,9 @@ int hax_vm_set_ram(struct vm_t *vm, struct hax_set_ram_info *info)
     }
     if (ept_modified) {
         /* Invalidate EPT cache (see IASDM Vol. 3C 28.3.3.4) */
-        hax_info("Calling INVEPT after EPT update (pa_start=0x%llx, size=0x%x,"
-                 " flags=0x%x)\n", info->pa_start, info->size, info->flags);
+        hax_log(HAX_LOGI, "Calling INVEPT after EPT update (pa_start=0x%llx, "
+                "size=0x%x, flags=0x%x)\n", info->pa_start, info->size,
+                info->flags);
         invept(vm, EPT_INVEPT_SINGLE_CONTEXT);
     }
     return 0;
@@ -400,7 +403,7 @@ int hax_vcpu_setup_hax_tunnel(struct vcpu_t *cv, struct hax_tunnel_info *info)
 
     // The tunnel and iobuf are always set together.
     if (cv->tunnel && cv->iobuf_vcpumem) {
-        hax_info("setup hax tunnel request for already setup one\n");
+        hax_log(HAX_LOGI, "setup hax tunnel request for already setup one\n");
         info->size = HAX_PAGE_SIZE;
         info->va = cv->tunnel_vcpumem->uva;
         info->io_va = cv->iobuf_vcpumem->uva;

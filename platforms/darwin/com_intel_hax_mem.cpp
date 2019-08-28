@@ -68,19 +68,19 @@ int hax_setup_vcpumem(struct hax_vcpu_mem *mem, uint64_t uva, uint32_t size,
         md = IOMemoryDescriptor::withAddressRange(uva, size, options,
                                                   current_task());
         if (!md) {
-            hax_error("Failed to create mapping for %llx\n", uva);
+            hax_log(HAX_LOGE, "Failed to create mapping for %llx\n", uva);
             goto error;
         }
 
         result = md->prepare();
         if (result != KERN_SUCCESS) {
-            hax_error("Failed to prepare\n");
+            hax_log(HAX_LOGE, "Failed to prepare\n");
             goto error;
         }
 
         mm = md->createMappingInTask(kernel_task, 0, kIOMapAnywhere, 0, size);
         if (!mm) {
-            hax_error("Failed to map into kernel\n");
+            hax_log(HAX_LOGE, "Failed to map into kernel\n");
             md->complete();
             goto error;
         }

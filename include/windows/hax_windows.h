@@ -194,15 +194,6 @@ static inline bool cpu_is_online(int cpu)
 int hax_notify_host_event(enum hax_notify_event event, uint32_t *param,
                           uint32_t size);
 
-extern int default_hax_log_level;
-
-void hax_error(char *fmt, ...);
-void hax_warning(char *fmt, ...);
-void hax_info(char *fmt, ...);
-void hax_debug(char *fmt, ...);
-
-#define hax_panic DbgPrint
-
 #define hax_assert(condition) ASSERT(condition)
 
 #endif  // HAX_WINDOWS_HAX_WINDOWS_H_

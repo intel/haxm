@@ -502,6 +502,12 @@ enum {
     GAS_CSTATE      = 4
 };
 
+// Intel SDM Vol. 3C: Table 24-3. Format of Interruptibility State
+#define GUEST_INTRSTAT_STI_BLOCKING            0x00000001
+#define GUEST_INTRSTAT_SS_BLOCKING             0x00000002
+#define GUEST_INTRSTAT_SMI_BLOCKING            0x00000004
+#define GUEST_INTRSTAT_NMI_BLOCKING            0x00000008
+
 #ifdef HAX_COMPILER_MSVC
 #pragma pack(push, 1)
 #endif
@@ -657,6 +663,7 @@ void vmx_vmwrite(struct vcpu_t *vcpu, const char *name,
 #define vmwrite(vcpu, x, y) vmx_vmwrite(vcpu, #x, x, y)
 
 #define VMREAD_SEG(vcpu, seg, val)                                 \
+    do {                                                           \
         ((val).selector = vmread(vcpu, GUEST_##seg##_SELECTOR),    \
          (val).base     = vmread(vcpu, GUEST_##seg##_BASE),        \
          (val).limit    = vmread(vcpu, GUEST_##seg##_LIMIT),       \
@@ -664,7 +671,8 @@ void vmx_vmwrite(struct vcpu_t *vcpu, const char *name,
         {                                                          \
             if ((val).null == 1)                                   \
                 (val).ar = 0;                                      \
-        }
+        }                                                          \
+    } while (false)
 
 #define VMREAD_DESC(vcpu, desc, val)                               \
         ((val).base  = vmread(vcpu, GUEST_##desc##_BASE),          \

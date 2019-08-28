@@ -31,19 +31,8 @@
 #include "hax_win.h"
 #include "../../core/include/ia32.h"
 
-int default_hax_log_level = 3;
 int max_cpus;
 hax_cpumap_t cpu_online_map;
-
-int hax_log_level(int level, const char *fmt,  ...)
-{
-    va_list arglist;
-    va_start(arglist, fmt);
-
-    if (level >=  default_hax_log_level)
-        vDbgPrintExWithPrefix("haxm: ", -1, 0, fmt, arglist);
-    return 0;
-}
 
 uint32_t hax_cpuid()
 {
@@ -107,7 +96,7 @@ int hax_smp_call_function(hax_cpumap_t *cpus, void (*scfunc)(void *), void * par
     event_result = KeWaitForSingleObject(&dpc_event, Executive, KernelMode,
                                          FALSE, NULL);
     if (event_result!= STATUS_SUCCESS) {
-        hax_error("Failed to get the smp_call event object\n");
+        hax_log(HAX_LOGE, "Failed to get the smp_call event object\n");
         return -1;
     }
 
@@ -127,16 +116,16 @@ int hax_smp_call_function(hax_cpumap_t *cpus, void (*scfunc)(void *), void * par
         cur_dpc = smpc_dpcs + i;
         result = KeInsertQueueDpc(cur_dpc, &done, sp);
         if (result != TRUE)
-            hax_error("Failed to insert queue on CPU %x\n", i);
+            hax_log(HAX_LOGE, "Failed to insert queue on CPU %x\n", i);
     }
 
     /* Delay 100 ms */
     delay.QuadPart =  100 * -1 *((LONGLONG) 1 * 10 * 1000);
     if (KeDelayExecutionThread( KernelMode, TRUE, &delay ) != STATUS_SUCCESS)
-        hax_error("Delay execution is not success\n");
+        hax_log(HAX_LOGE, "Delay execution is not success\n");
 
     if (done != *cpus)
-        hax_error("sm call function is not called in all required CPUs\n");
+        hax_log(HAX_LOGE, "sm call function is not called in all required CPUs\n");
 
     KeSetEvent(&dpc_event, 0, FALSE);
 
@@ -237,47 +226,40 @@ void hax_disable_irq(void)
     asm_disable_irq();
 }
 
-void hax_error(char *fmt, ...)
+static const int kLogLevel[] = {
+    DPFLTR_ERROR_LEVEL,
+    DPFLTR_TRACE_LEVEL,     // HAX_LOGD
+    DPFLTR_INFO_LEVEL,      // HAX_LOGI
+    DPFLTR_WARNING_LEVEL,   // HAX_LOGW
+    DPFLTR_ERROR_LEVEL,     // HAX_LOGE
+    DPFLTR_ERROR_LEVEL      // HAX_LOGPANIC
+};
+
+static const char* kLogPrefix[] = {
+    "haxm: ",
+    "haxm_debug: ",
+    "haxm_info: ",
+    "haxm_warning: ",
+    "haxm_error: ",
+    "haxm_panic: "
+};
+
+void hax_log(int level, const char *fmt,  ...)
 {
     va_list arglist;
-
     va_start(arglist, fmt);
-    if (HAX_LOGE >= default_hax_log_level)
-        vDbgPrintExWithPrefix("haxm_error:", -1, 0, fmt, arglist);
+
+    if (level >= HAX_LOG_DEFAULT)
+        vDbgPrintExWithPrefix(kLogPrefix[level], DPFLTR_IHVDRIVER_ID,
+                              kLogLevel[level], fmt, arglist);
+
+    va_end(arglist);
 }
 
-void hax_warning(char *fmt, ...)
+void hax_panic(const char *fmt, ...)
 {
     va_list arglist;
     va_start(arglist, fmt);
-
-    if (HAX_LOGW >= default_hax_log_level)
-        vDbgPrintExWithPrefix("haxm_warning:", -1, 0, fmt, arglist);
-}
-
-void hax_info(char *fmt, ...)
-{
-    va_list arglist;
-    va_start(arglist, fmt);
-
-    if (HAX_LOGI >= default_hax_log_level)
-        vDbgPrintExWithPrefix("haxm_info:", -1, 0, fmt, arglist);
-}
-
-void hax_debug(char *fmt, ...)
-{
-    va_list arglist;
-    va_start(arglist, fmt);
-
-    if (HAX_LOGD >= default_hax_log_level)
-        vDbgPrintExWithPrefix("haxm_debug:", -1, 0, fmt, arglist);
-}
-
-void hax_panic_vcpu(struct vcpu_t *v, char *fmt, ...)
-{
-    va_list arglist;
-
-    va_start(arglist, fmt);
-    vDbgPrintExWithPrefix("haxm_panic:", -1, 0, fmt, arglist);
-    vcpu_set_panic(v);
+    hax_log(HAX_LOGPANIC, fmt, arglist);
+    va_end(arglist);
 }

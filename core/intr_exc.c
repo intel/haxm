@@ -68,7 +68,7 @@ void hax_set_pending_intr(struct vcpu_t *vcpu, uint8_t vector)
     uint8_t nr_word = vector / 32;
 
     if (intr_pending[nr_word] & (1 << offset)) {
-        hax_debug("vector :%d is already pending.", vector);
+        hax_log(HAX_LOGD, "vector :%d is already pending.", vector);
         return;
     }
     intr_pending[nr_word] |= 1 << offset;
@@ -121,12 +121,15 @@ uint hax_intr_is_blocked(struct vcpu_t *vcpu)
 {
     struct vcpu_state_t *state = vcpu->state;
     uint32_t intr_status;
+    uint32_t intr_blocking = 0;
 
     if (!(state->_eflags & EFLAGS_IF))
         return 1;
 
+    intr_blocking |= GUEST_INTRSTAT_STI_BLOCKING;
+    intr_blocking |= GUEST_INTRSTAT_SS_BLOCKING;
     intr_status = vmx(vcpu, interruptibility_state).raw;
-    if (intr_status & 3)
+    if (intr_status & intr_blocking)
         return 1;
     return 0;
 }
@@ -144,12 +147,12 @@ void hax_handle_idt_vectoring(struct vcpu_t *vcpu)
             /* One ext interrupt is pending ? Re-inject it ? */
             vector = (uint8_t) (idt_vec & 0xff);
             hax_set_pending_intr(vcpu, vector);
-            hax_debug("extern interrupt is vectoring....vector:%d\n", vector);
+            hax_log(HAX_LOGD, "extern interrupt is vectoring....vector:%d\n",
+                    vector);
         } else {
-            hax_debug("VM Exit @ IDT vectoring, type:%d, vector:%d,"
-                      " error code:%llx\n",
-                      (idt_vec & 0x700) >> 8, idt_vec & 0xff,
-                      vmread(vcpu, VM_EXIT_INFO_IDT_VECTORING_ERROR_CODE));
+            hax_log(HAX_LOGD, "VM Exit @ IDT vectoring, type:%d, vector:%d, "
+                    "error code:%llx\n", (idt_vec & 0x700) >> 8, idt_vec & 0xff,
+                    vmread(vcpu, VM_EXIT_INFO_IDT_VECTORING_ERROR_CODE));
         }
     }
 }
@@ -202,7 +205,7 @@ void hax_inject_exception(struct vcpu_t *vcpu, uint8_t vector, uint32_t error_co
     uint32_t exit_instr_length = vmx(vcpu, exit_instr_length);
 
     if (vcpu->event_injected == 1)
-        hax_debug("Event is injected already!!:\n");
+        hax_log(HAX_LOGD, "Event is injected already!!:\n");
 
     if (vect_info & INTR_INFO_VALID_MASK) {
         first_vec = (uint8_t) (vect_info & INTR_INFO_VECTOR_MASK);
@@ -237,7 +240,7 @@ void hax_inject_exception(struct vcpu_t *vcpu, uint8_t vector, uint32_t error_co
         vmwrite(vcpu, VMX_ENTRY_INTERRUPT_INFO, intr_info);
     }
 
-    hax_debug("Guest is injecting exception info:%x\n", intr_info);
+    hax_log(HAX_LOGD, "Guest is injecting exception info:%x\n", intr_info);
     vcpu->event_injected = 1;
 }
 

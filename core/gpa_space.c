@@ -39,7 +39,7 @@ int gpa_space_init(hax_gpa_space *gpa_space)
     int ret = 0;
 
     if (!gpa_space) {
-        hax_error("gpa_space_init: param gpa_space is null!\n");
+        hax_log(HAX_LOGE, "gpa_space_init: param gpa_space is null!\n");
         return -EINVAL;
     }
 
@@ -79,7 +79,7 @@ void gpa_space_free(hax_gpa_space *gpa_space)
 {
     hax_gpa_space_listener *listener, *tmp;
     if (!gpa_space) {
-        hax_error("gpa_space_free: invalid param!\n");
+        hax_log(HAX_LOGE, "gpa_space_free: invalid param!\n");
         return;
     }
 
@@ -100,7 +100,7 @@ void gpa_space_add_listener(hax_gpa_space *gpa_space,
                             hax_gpa_space_listener *listener)
 {
     if (!gpa_space || !listener) {
-        hax_error("gpa_space_add_listener: invalid param!\n");
+        hax_log(HAX_LOGE, "gpa_space_add_listener: invalid param!\n");
         return;
     }
 
@@ -112,7 +112,7 @@ void gpa_space_remove_listener(hax_gpa_space *gpa_space,
                                hax_gpa_space_listener *listener)
 {
     if (!gpa_space || !listener) {
-        hax_error("gpa_space_remove_listener: invalid param!\n");
+        hax_log(HAX_LOGE, "gpa_space_remove_listener: invalid param!\n");
         return;
     }
 
@@ -139,7 +139,7 @@ static int gpa_space_map_range(hax_gpa_space *gpa_space, uint64_t start_gpa,
     void *kva;
 
     if (len < 0) {
-        hax_error("%s: len=%d < 0\n", __func__, len);
+        hax_log(HAX_LOGE, "%s: len=%d < 0\n", __func__, len);
         return -EINVAL;
     }
     if (!len) {
@@ -154,18 +154,18 @@ static int gpa_space_map_range(hax_gpa_space *gpa_space, uint64_t start_gpa,
     npages = (size + PAGE_SIZE_4K - 1) >> PG_ORDER_4K;
     slot = memslot_find(gpa_space, gfn);
     if (!slot) {
-        hax_error("%s: start_gpa=0x%llx is reserved for MMIO\n", __func__,
-                  start_gpa);
+        hax_log(HAX_LOGE, "%s: start_gpa=0x%llx is reserved for MMIO\n",
+                __func__, start_gpa);
         return -EINVAL;
     }
     if (writable) {
         *writable = !(slot->flags & HAX_MEMSLOT_READONLY);
     }
     if (gfn + npages > slot->base_gfn + slot->npages) {
-        hax_warning("%s: GPA range spans more than one memslot:"
-                    " start_gpa=0x%llx, len=%d, slot_base_gfn=0x%llx,"
-                    " slot_npages=%llu, gfn=0x%llx, npages=%u\n", __func__,
-                    start_gpa, len, slot->base_gfn, slot->npages, gfn, npages);
+        hax_log(HAX_LOGW, "%s: GPA range spans more than one memslot:"
+                " start_gpa=0x%llx, len=%d, slot_base_gfn=0x%llx,"
+                " slot_npages=%llu, gfn=0x%llx, npages=%u\n", __func__,
+                start_gpa, len, slot->base_gfn, slot->npages, gfn, npages);
         npages = (uint) (slot->base_gfn + slot->npages - gfn);
         size = npages << PG_ORDER_4K;
     }
@@ -175,25 +175,25 @@ static int gpa_space_map_range(hax_gpa_space *gpa_space, uint64_t start_gpa,
                           slot->offset_within_block;
     chunk = ramblock_get_chunk(block, offset_within_block, true);
     if (!chunk) {
-        hax_error("%s: ramblock_get_chunk() failed: start_gpa=0x%llx\n",
-                  __func__, start_gpa);
+        hax_log(HAX_LOGE, "%s: ramblock_get_chunk() failed: start_gpa=0x%llx\n",
+                __func__, start_gpa);
         return -ENOMEM;
     }
     offset_within_chunk = offset_within_block - (chunk->base_uva -
                           block->base_uva);
     if (offset_within_chunk + size > chunk->size) {
-        hax_warning("%s: GPA range spans more than one chunk: start_gpa=0x%llx,"
-                    " len=%d, offset_within_chunk=0x%llx, size=0x%x,"
-                    " chunk_size=0x%llx\n", __func__, start_gpa, len,
-                    offset_within_chunk, size, chunk->size);
+        hax_log(HAX_LOGW, "%s: GPA range spans more than one chunk: "
+                "start_gpa=0x%llx, len=%d, offset_within_chunk=0x%llx, "
+                "size=0x%x, chunk_size=0x%llx\n", __func__, start_gpa, len,
+                offset_within_chunk, size, chunk->size);
         size = (uint) (chunk->size - offset_within_chunk);
     }
 
     // Assuming kmap != NULL
     kva = hax_map_user_pages(&chunk->memdesc, offset_within_chunk, size, kmap);
     if (!kva) {
-        hax_error("%s: hax_map_user_pages() failed: start_gpa=0x%llx, len=%d\n",
-                  __func__, start_gpa, len);
+        hax_log(HAX_LOGE, "%s: hax_map_user_pages() failed: start_gpa=0x%llx,"
+                " len=%d\n", __func__, start_gpa, len);
         return -ENOMEM;
     }
     // Assuming buf != NULL
@@ -209,22 +209,22 @@ int gpa_space_read_data(hax_gpa_space *gpa_space, uint64_t start_gpa, int len,
     int ret, nbytes;
 
     if (!data) {
-        hax_error("%s: data == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: data == NULL\n", __func__);
         return -EINVAL;
     }
 
     ret = gpa_space_map_range(gpa_space, start_gpa, len, &buf, &kmap, NULL);
     if (ret < 0) {
-        hax_error("%s: gpa_space_map_range() failed: start_gpa=0x%llx,"
-                  " len=%d\n", __func__, start_gpa, len);
+        hax_log(HAX_LOGE, "%s: gpa_space_map_range() failed: start_gpa=0x%llx,"
+                " len=%d\n", __func__, start_gpa, len);
         return ret;
     }
 
     nbytes = ret;
     if (nbytes < len) {
-        hax_warning("%s: Not enough bytes readable from guest RAM: nbytes=%d,"
-                    " start_gpa=0x%llx, len=%d\n", __func__, nbytes, start_gpa,
-                    len);
+        hax_log(HAX_LOGW, "%s: Not enough bytes readable from guest RAM: "
+                "nbytes=%d, start_gpa=0x%llx, len=%d\n", __func__, nbytes,
+                start_gpa, len);
         if (!nbytes) {
             return 0;
         }
@@ -232,8 +232,8 @@ int gpa_space_read_data(hax_gpa_space *gpa_space, uint64_t start_gpa, int len,
     memcpy_s(data, nbytes, buf, nbytes);
     ret = hax_unmap_user_pages(&kmap);
     if (ret) {
-        hax_warning("%s: hax_unmap_user_pages() failed: ret=%d\n", __func__,
-                    ret);
+        hax_log(HAX_LOGW, "%s: hax_unmap_user_pages() failed: ret=%d\n",
+                __func__, ret);
         // This is not a fatal error, so ignore it
     }
     return nbytes;
@@ -244,32 +244,32 @@ int gpa_space_write_data(hax_gpa_space *gpa_space, uint64_t start_gpa, int len,
 {
     uint8_t *buf;
     hax_kmap_user kmap;
-    bool writable;
+    bool writable = false;
     int ret, nbytes;
 
     if (!data) {
-        hax_error("%s: data == NULL\n", __func__);
+        hax_log(HAX_LOGE, "%s: data == NULL\n", __func__);
         return -EINVAL;
     }
 
     ret = gpa_space_map_range(gpa_space, start_gpa, len, &buf, &kmap,
                               &writable);
     if (ret < 0) {
-        hax_error("%s: gpa_space_map_range() failed: start_gpa=0x%llx,"
-                  " len=%d\n", __func__, start_gpa, len);
+        hax_log(HAX_LOGE, "%s: gpa_space_map_range() failed: start_gpa=0x%llx,"
+                " len=%d\n", __func__, start_gpa, len);
         return ret;
     }
     if (!writable) {
-        hax_error("%s: Cannot write to ROM: start_gpa=0x%llx, len=%d\n",
-                  __func__, start_gpa, len);
+        hax_log(HAX_LOGE, "%s: Cannot write to ROM: start_gpa=0x%llx, len=%d\n",
+                __func__, start_gpa, len);
         return -EACCES;
     }
 
     nbytes = ret;
     if (nbytes < len) {
-        hax_warning("%s: Not enough bytes writable to guest RAM: nbytes=%d,"
-                    " start_gpa=0x%llx, len=%d\n", __func__, nbytes, start_gpa,
-                    len);
+        hax_log(HAX_LOGW, "%s: Not enough bytes writable to guest RAM: "
+                "nbytes=%d, start_gpa=0x%llx, len=%d\n", __func__, nbytes,
+                start_gpa, len);
         if (!nbytes) {
             return 0;
         }
@@ -277,8 +277,8 @@ int gpa_space_write_data(hax_gpa_space *gpa_space, uint64_t start_gpa, int len,
     memcpy_s(buf, nbytes, data, nbytes);
     ret = hax_unmap_user_pages(&kmap);
     if (ret) {
-        hax_warning("%s: hax_unmap_user_pages() failed: ret=%d\n", __func__,
-                    ret);
+        hax_log(HAX_LOGW, "%s: hax_unmap_user_pages() failed: ret=%d\n",
+                __func__, ret);
         // This is not a fatal error, so ignore it
     }
     return nbytes;
@@ -296,7 +296,8 @@ void * gpa_space_map_page(hax_gpa_space *gpa_space, uint64_t gfn,
     ret = gpa_space_map_range(gpa_space, gfn << PG_ORDER_4K, PAGE_SIZE_4K, &buf,
                               kmap, writable);
     if (ret < PAGE_SIZE_4K) {
-        hax_error("%s: gpa_space_map_range() returned %d\n", __func__, ret);
+        hax_log(HAX_LOGE, "%s: gpa_space_map_range() returned %d\n",
+                __func__, ret);
         return NULL;
     }
     kva = (void *) buf;
@@ -311,7 +312,8 @@ void gpa_space_unmap_page(hax_gpa_space *gpa_space, hax_kmap_user *kmap)
     hax_assert(kmap != NULL);
     ret = hax_unmap_user_pages(kmap);
     if (ret) {
-        hax_warning("%s: hax_unmap_user_pages() returned %d\n", __func__, ret);
+        hax_log(HAX_LOGW, "%s: hax_unmap_user_pages() returned %d\n",
+                __func__, ret);
     }
 }
 
@@ -328,7 +330,8 @@ uint64_t gpa_space_get_pfn(hax_gpa_space *gpa_space, uint64_t gfn, uint8_t *flag
     slot = memslot_find(gpa_space, gfn);
     if (!slot) {
         // The gfn is reserved for MMIO
-        hax_debug("%s: gfn=0x%llx is reserved for MMIO\n", __func__, gfn);
+        hax_log(HAX_LOGD, "%s: gfn=0x%llx is reserved for MMIO\n",
+                __func__, gfn);
         if (flags) {
             *flags = HAX_MEMSLOT_INVALID;
         }
@@ -347,13 +350,13 @@ uint64_t gpa_space_get_pfn(hax_gpa_space *gpa_space, uint64_t gfn, uint8_t *flag
     hax_assert(offset_within_block < block->size);
     chunk = ramblock_get_chunk(block, offset_within_block, true);
     if (!chunk) {
-        hax_error("%s: Failed to grab the RAM chunk for %s gfn=0x%llx:"
-                  " slot.base_gfn=0x%llx, slot.offset_within_block=0x%llx,"
-                  " offset_within_slot=0x%llx, block.base_uva=0x%llx,"
-                  " block.size=0x%llx\n", __func__,
-                  (slot->flags & HAX_MEMSLOT_READONLY) ? "ROM" : "RAM", gfn,
-                  slot->base_gfn, slot->offset_within_block, offset_within_slot,
-                  block->base_uva, block->size);
+        hax_log(HAX_LOGE, "%s: Failed to grab the RAM chunk for %s gfn=0x%llx:"
+                " slot.base_gfn=0x%llx, slot.offset_within_block=0x%llx,"
+                " offset_within_slot=0x%llx, block.base_uva=0x%llx,"
+                " block.size=0x%llx\n", __func__,
+                (slot->flags & HAX_MEMSLOT_READONLY) ? "ROM" : "RAM", gfn,
+                slot->base_gfn, slot->offset_within_block, offset_within_slot,
+                block->base_uva, block->size);
         return INVALID_PFN;
     }
 
@@ -376,16 +379,17 @@ int gpa_space_adjust_prot_bitmap(hax_gpa_space *gpa_space, uint64_t end_gfn)
     if (end_gfn <= pb->end_gfn)
         return 0;
 
-    hax_info("%s: end_gfn 0x%llx -> 0x%llx\n", __func__, pb->end_gfn, end_gfn);
+    hax_log(HAX_LOGI, "%s: end_gfn 0x%llx -> 0x%llx\n", __func__,
+            pb->end_gfn, end_gfn);
     new_size = gpa_space_prot_bitmap_size(end_gfn);
     if (!new_size) {
-        hax_error("%s: end_gfn=0x%llx is too big\n", __func__, end_gfn);
+        hax_log(HAX_LOGE, "%s: end_gfn=0x%llx is too big\n", __func__, end_gfn);
         return -EINVAL;
     }
     bmnew = hax_vmalloc(new_size, HAX_MEM_NONPAGE);
     if (!bmnew) {
-        hax_error("%s: Not enough memory for new protection bitmap\n",
-                  __func__);
+        hax_log(HAX_LOGE, "%s: Not enough memory for new protection bitmap\n",
+                __func__);
         return -ENOMEM;
     }
     pb->bitmap = bmnew;
@@ -483,30 +487,30 @@ int gpa_space_protect_range(struct hax_gpa_space *gpa_space,
     hax_gpa_space_listener *listener;
 
     if (perm == HAX_RAM_PERM_NONE) {
-        hax_info("%s: Restricting access to GPA range 0x%llx..0x%llx\n",
-                 __func__, start_gpa, start_gpa + len);
+        hax_log(HAX_LOGI, "%s: Restricting access to GPA range 0x%llx.."
+                "0x%llx\n", __func__, start_gpa, start_gpa + len);
     } else {
-        hax_debug("%s: start_gpa=0x%llx, len=0x%llx, flags=%x\n", __func__,
-                  start_gpa, len, flags);
+        hax_log(HAX_LOGD, "%s: start_gpa=0x%llx, len=0x%llx, flags=%x\n",
+                __func__, start_gpa, len, flags);
     }
 
     if (len == 0) {
-        hax_error("%s: len = 0\n", __func__);
+        hax_log(HAX_LOGE, "%s: len = 0\n", __func__);
         return -EINVAL;
     }
 
     // Find-grained protection (R/W/X) is not supported yet
     if (perm != HAX_RAM_PERM_NONE && perm != HAX_RAM_PERM_RWX) {
-        hax_error("%s: Unsupported flags=%d\n", __func__, flags);
+        hax_log(HAX_LOGE, "%s: Unsupported flags=%d\n", __func__, flags);
         return -EINVAL;
     }
 
     first_gfn = start_gpa >> PG_ORDER_4K;
     last_gfn = (start_gpa + len - 1) >> PG_ORDER_4K;
     if (last_gfn >= gpa_space->prot.end_gfn) {
-        hax_error("%s: GPA range exceeds protection bitmap, start_gpa=0x%llx,"
-                  " len=0x%llx, flags=0x%x, end_gfn=0x%llx\n", __func__,
-                  start_gpa, len, flags, gpa_space->prot.end_gfn);
+        hax_log(HAX_LOGE, "%s: GPA range exceeds protection bitmap, "
+                "start_gpa=0x%llx, len=0x%llx, flags=0x%x, end_gfn=0x%llx\n",
+                __func__, start_gpa, len, flags, gpa_space->prot.end_gfn);
         return -EINVAL;
     }
     npages = last_gfn - first_gfn + 1;

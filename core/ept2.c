@@ -42,12 +42,13 @@ void ept_handle_mapping_removed(hax_gpa_space_listener *listener,
     hax_ept_tree *tree;
     int ret;
 
-    hax_info("%s: %s=>MMIO: start_gfn=0x%llx, npages=0x%llx, uva=0x%llx\n",
-             __func__, is_rom ? "ROM" : "RAM", start_gfn, npages, uva);
+    hax_log(HAX_LOGI, "%s: %s=>MMIO: start_gfn=0x%llx, npages=0x%llx, "
+            "uva=0x%llx\n", __func__, is_rom ? "ROM" : "RAM", start_gfn,
+            npages, uva);
     hax_assert(listener != NULL);
     tree = (hax_ept_tree *) listener->opaque;
     ret = ept_tree_invalidate_entries(tree, start_gfn, npages);
-    hax_info("%s: Invalidated %d PTEs\n", __func__, ret);
+    hax_log(HAX_LOGI, "%s: Invalidated %d PTEs\n", __func__, ret);
 }
 
 void ept_handle_mapping_changed(hax_gpa_space_listener *listener,
@@ -60,13 +61,14 @@ void ept_handle_mapping_changed(hax_gpa_space_listener *listener,
     hax_ept_tree *tree;
     int ret;
 
-    hax_info("%s: %s=>%s: start_gfn=0x%llx, npages=0x%llx, old_uva=0x%llx,"
-             " new_uva=0x%llx\n", __func__, was_rom ? "ROM" : "RAM",
-             is_rom ? "ROM" : "RAM", start_gfn, npages, old_uva, new_uva);
+    hax_log(HAX_LOGI, "%s: %s=>%s: start_gfn=0x%llx, npages=0x%llx, "
+            "old_uva=0x%llx, new_uva=0x%llx\n", __func__,
+            was_rom ? "ROM" : "RAM", is_rom ? "ROM" : "RAM", start_gfn,
+            npages, old_uva, new_uva);
     hax_assert(listener != NULL);
     tree = (hax_ept_tree *) listener->opaque;
     ret = ept_tree_invalidate_entries(tree, start_gfn, npages);
-    hax_info("%s: Invalidated %d PTEs\n", __func__, ret);
+    hax_log(HAX_LOGI, "%s: Invalidated %d PTEs\n", __func__, ret);
 }
 
 int ept_handle_access_violation(hax_gpa_space *gpa_space, hax_ept_tree *tree,
@@ -84,23 +86,31 @@ int ept_handle_access_violation(hax_gpa_space *gpa_space, hax_ept_tree *tree,
     uint64_t start_gpa, size;
     int ret;
 
-    // Extract bits 5..3 from Exit Qualification
-    combined_perm = (uint) ((qual.raw >> 3) & 7);
-    // See IA SDM Vol. 3C 27.2.1 Table 27-7, especially note 2
-    if (combined_perm != HAX_EPT_PERM_NONE) {
-        hax_error("%s: Cannot handle the case where the PTE corresponding to"
-                  " the faulting GPA is present: qual=0x%llx, gpa=0x%llx\n",
-                  __func__, qual.raw, gpa);
-        return -EACCES;
-    }
-
     gfn = gpa >> PG_ORDER_4K;
     hax_assert(gpa_space != NULL);
     slot = memslot_find(gpa_space, gfn);
     if (!slot) {
         // The faulting GPA is reserved for MMIO
-        hax_debug("%s: gpa=0x%llx is reserved for MMIO\n", __func__, gpa);
+        hax_log(HAX_LOGD, "%s: gpa=0x%llx is reserved for MMIO\n",
+                __func__, gpa);
         return 0;
+    }
+
+    // Extract bits 5..3 from Exit Qualification
+    combined_perm = (uint) ((qual.raw >> 3) & 7);
+    if (combined_perm != HAX_EPT_PERM_NONE) {
+        if ((qual.raw & HAX_EPT_ACC_W) && !(combined_perm & HAX_EPT_PERM_W) &&
+            (slot->flags == HAX_MEMSLOT_READONLY)) {
+            // Handle a write to ROM/ROM device as MMIO
+            hax_log(HAX_LOGD, "%s: write to a read-only gpa=0x%llx\n",
+                    __func__, gpa);
+            return 0;
+        }
+        // See IA SDM Vol. 3C 27.2.1 Table 27-7, especially note 2
+        hax_log(HAX_LOGE, "%s: Cannot handle the case where the PTE "
+                "corresponding to the faulting GPA is present: qual=0x%llx, "
+                "gpa=0x%llx\n", __func__, qual.raw, gpa);
+        return -EACCES;
     }
 
     // Ideally we should call gpa_space_is_page_protected() and ask user space
@@ -128,12 +138,12 @@ int ept_handle_access_violation(hax_gpa_space *gpa_space, hax_ept_tree *tree,
     hax_assert(offset_within_block < block->size);
     chunk = ramblock_get_chunk(block, offset_within_block, true);
     if (!chunk) {
-        hax_error("%s: Failed to grab the RAM chunk for %s gpa=0x%llx:"
-                  " slot.base_gfn=0x%llx, slot.offset_within_block=0x%llx,"
-                  " offset_within_slot=0x%llx, block.base_uva=0x%llx,"
-                  " block.size=0x%llx\n", __func__, is_rom ? "ROM" : "RAM", gpa,
-                  slot->base_gfn, slot->offset_within_block, offset_within_slot,
-                  block->base_uva, block->size);
+        hax_log(HAX_LOGE, "%s: Failed to grab the RAM chunk for %s gpa=0x%llx:"
+                " slot.base_gfn=0x%llx, slot.offset_within_block=0x%llx,"
+                " offset_within_slot=0x%llx, block.base_uva=0x%llx,"
+                " block.size=0x%llx\n", __func__, is_rom ? "ROM" : "RAM", gpa,
+                slot->base_gfn, slot->offset_within_block, offset_within_slot,
+                block->base_uva, block->size);
         return -ENOMEM;
     }
 
@@ -157,14 +167,14 @@ int ept_handle_access_violation(hax_gpa_space *gpa_space, hax_ept_tree *tree,
                                   size >> PG_ORDER_4K, chunk,
                                   offset_within_chunk, slot->flags);
     if (ret < 0) {
-        hax_error("%s: Failed to create PTEs for GFN range: ret=%d, gpa=0x%llx,"
-                  " start_gfn=0x%llx, npages=%llu\n", __func__, ret, gpa,
-                  start_gpa >> PG_ORDER_4K, size >> PG_ORDER_4K);
+        hax_log(HAX_LOGE, "%s: Failed to create PTEs for GFN range: ret=%d, "
+                "gpa=0x%llx, start_gfn=0x%llx, npages=%llu\n", __func__, ret,
+                gpa, start_gpa >> PG_ORDER_4K, size >> PG_ORDER_4K);
         return ret;
     }
-    hax_debug("%s: Created %d PTEs for GFN range: gpa=0x%llx, start_gfn=0x%llx,"
-              " npages=%llu\n", __func__, ret, gpa, start_gpa >> PG_ORDER_4K,
-              size >> PG_ORDER_4K);
+    hax_log(HAX_LOGD, "%s: Created %d PTEs for GFN range: gpa=0x%llx, "
+            "start_gfn=0x%llx, npages=%llu\n", __func__, ret, gpa,
+            start_gpa >> PG_ORDER_4K, size >> PG_ORDER_4K);
     return 1;
 }
 
@@ -190,9 +200,9 @@ static void fix_epte(hax_ept_tree *tree, uint64_t gfn, int level, hax_epte *epte
         // Entries that are not present are never checked by hardware for
         // misconfigurations
         if (old_epte.value) {
-            hax_warning("%s: Entry is not present but some bits are set:"
-                        " value=0x%llx, level=%d, gfn=0x%llx\n", __func__,
-                        old_epte.value, level, gfn);
+            hax_log(HAX_LOGW, "%s: Entry is not present but some bits are set:"
+                    " value=0x%llx, level=%d, gfn=0x%llx\n", __func__,
+                    old_epte.value, level, gfn);
         }
         return;
     }
@@ -233,8 +243,9 @@ static void fix_epte(hax_ept_tree *tree, uint64_t gfn, int level, hax_epte *epte
         // Clear all reserved bits
         new_epte.value &= preserved_bits;
     }
-    hax_warning("%s: gfn=0x%llx, level=%d, value=0x%llx, new_value=0x%llx\n",
-                __func__, gfn, level, old_epte.value, new_epte.value);
+    hax_log(HAX_LOGW, "%s: gfn=0x%llx, level=%d, value=0x%llx, "
+            "new_value=0x%llx\n", __func__, gfn, level, old_epte.value,
+            new_epte.value);
     if (epte->value != new_epte.value) {
         bundle->misconfigured_count++;
         if (epte->pfn != new_epte.pfn) {
@@ -244,8 +255,8 @@ static void fix_epte(hax_ept_tree *tree, uint64_t gfn, int level, hax_epte *epte
                                   &epte->value)) {
             // *epte != old_epte, probably because another thread has changed
             // this EPT entry, so just assume the entry has been fixed
-            hax_warning("%s: Entry has changed: current_value=0x%llx\n",
-                        __func__, epte->value);
+            hax_log(HAX_LOGW, "%s: Entry has changed: current_value=0x%llx\n",
+                    __func__, epte->value);
         }
     }
 }
@@ -268,17 +279,18 @@ int ept_handle_misconfiguration(hax_gpa_space *gpa_space, hax_ept_tree *tree,
     bundle.slot = memslot_find(gpa_space, gfn);
     if (!bundle.slot) {
         // The GPA being accessed is reserved for MMIO
-        hax_warning("%s: gpa=0x%llx is reserved for MMIO\n", __func__, gpa);
+        hax_log(HAX_LOGW, "%s: gpa=0x%llx is reserved for MMIO\n",
+                __func__, gpa);
     }
 
     ept_tree_walk(tree, gfn, fix_epte, &bundle);
     if (bundle.error_count) {
-        hax_error("%s: Failed to fix %d/%d misconfigured entries for"
-                  " gpa=0x%llx\n", __func__, bundle.error_count,
-                  bundle.misconfigured_count, gpa);
+        hax_log(HAX_LOGE, "%s: Failed to fix %d/%d misconfigured entries for"
+                " gpa=0x%llx\n", __func__, bundle.error_count,
+                bundle.misconfigured_count, gpa);
         return -bundle.error_count;
     }
-    hax_warning("%s: Fixed %d misconfigured entries for gpa=0x%llx\n", __func__,
-                bundle.misconfigured_count, gpa);
+    hax_log(HAX_LOGW, "%s: Fixed %d misconfigured entries for gpa=0x%llx\n",
+            __func__, bundle.misconfigured_count, gpa);
     return bundle.misconfigured_count;
 }

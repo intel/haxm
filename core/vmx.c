@@ -87,7 +87,8 @@ static void __vmx_vmwrite_common(struct vcpu_t *vcpu, const char *name,
             break;
         }
         default: {
-            hax_error("Unsupported component %x, val %x\n", component, val);
+            hax_log(HAX_LOGE, "Unsupported component %x, val %x\n",
+                    component, val);
             break;
         }
     }
@@ -105,6 +106,7 @@ void vmx_vmwrite(struct vcpu_t *vcpu, const char *name,
     if (!loaded) {
         if (load_vmcs(vcpu, &flags)) {
             vcpu_set_panic(vcpu);
+            hax_log(HAX_LOGPANIC, "%s load_vmcs fail\n", __FUNCTION__);
             hax_panic_log(vcpu);
             return;
         }
@@ -115,6 +117,7 @@ void vmx_vmwrite(struct vcpu_t *vcpu, const char *name,
     if (!loaded) {
         if (put_vmcs(vcpu, &flags)) {
             vcpu_set_panic(vcpu);
+            hax_log(HAX_LOGPANIC, "%s put_vmcs fail\n", __FUNCTION__);
             hax_panic_log(vcpu);
             return;
         }
@@ -171,7 +174,8 @@ static uint64_t __vmread_common(struct vcpu_t *vcpu,
             break;
         }
         default: {
-            hax_error("Unsupported component %x val %x\n", component, val);
+            hax_log(HAX_LOGE, "Unsupported component %x val %x\n",
+                    component, val);
             break;
         }
     }
@@ -190,6 +194,7 @@ uint64_t vmread(struct vcpu_t *vcpu, component_index_t component)
     if (!loaded) {
         if (load_vmcs(vcpu, &flags)) {
             vcpu_set_panic(vcpu);
+            hax_log(HAX_LOGPANIC, "%s load_vmcs fail\n", __FUNCTION__);
             hax_panic_log(vcpu);
             return 0;
         }
@@ -200,6 +205,7 @@ uint64_t vmread(struct vcpu_t *vcpu, component_index_t component)
     if (!loaded) {
         if (put_vmcs(vcpu, &flags)) {
             vcpu_set_panic(vcpu);
+            hax_log(HAX_LOGPANIC, "%s put_vmcs fail\n", __FUNCTION__);
             hax_panic_log(vcpu);
             return 0;
         }
@@ -216,21 +222,21 @@ uint64_t vmread_dump(struct vcpu_t *vcpu, unsigned enc, const char *name)
         case 0:
         case 2: {
             val = vmread(vcpu, enc);
-            hax_warning("%04x %s: %llx\n", enc, name, val);
+            hax_log(HAX_LOGW, "%04x %s: %llx\n", enc, name, val);
             break;
         }
         case 1: {
             val = vmread(vcpu, enc);
-            hax_warning("%04x %s: %llx\n", enc, name, val);
+            hax_log(HAX_LOGW, "%04x %s: %llx\n", enc, name, val);
             break;
         }
         case 3: {
             val = vmread(vcpu, enc);
-            hax_warning("%04x %s: %llx\n", enc, name, val);
+            hax_log(HAX_LOGW, "%04x %s: %llx\n", enc, name, val);
             break;
         }
         default: {
-            hax_error("unsupported enc %x\n", enc);
+            hax_log(HAX_LOGE, "Unsupported enc %x\n", enc);
             break;
         }
     }

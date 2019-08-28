@@ -185,25 +185,29 @@ static int hax_vmx_enable_check(void)
         }
     }
     if (vts != tnum) {
-        hax_error("VT is not supported in the system, HAXM exits, sorry!\n");
+        hax_log(HAX_LOGE, "VT is not supported in the system, HAXM exits, "
+                "sorry!\n");
         hax_notify_host_event(HaxNoVtEvent, NULL, 0);
         return -1;
     }
 
     if (nxs != tnum) {
-        hax_error("NX is not supported in the system, HAXM exits, sorry!\n");
+        hax_log(HAX_LOGE, "NX is not supported in the system, HAXM exits, "
+                "sorry!\n");
         hax_notify_host_event(HaxNoNxEvent, NULL, 0);
         return -1;
     }
 #if 0
     if (em64s != tnum) {
-        hax_error("EM64T is not supported in the system, HAXM exits, sorry!\n");
+        hax_log(HAX_LOGE, "EM64T is not supported in the system, HAXM exits, "
+                "sorry!\n");
         hax_notify_host_event(HaxNoEMT64Event, NULL, 0);
         return -1;
     }
 #endif
     if (nxe != tnum) {
-        hax_error("NX is not enabled in the system, HAXM does not function.\n");
+        hax_log(HAX_LOGE, "NX is not enabled in the system, "
+                "HAXM does not function.\n");
         error = 1;
         hax_notify_host_event(HaxNxDisable, NULL, 0);
     } else {
@@ -211,7 +215,8 @@ static int hax_vmx_enable_check(void)
     }
 
     if (vte != tnum) {
-        hax_error("VT is not enabled in the system, HAXM does not function.\n");
+        hax_log(HAX_LOGE, "VT is not enabled in the system, "
+                "HAXM does not function.\n");
         hax_notify_host_event(HaxVtDisable, NULL, 0);
         error = 1;
     } else {
@@ -230,7 +235,7 @@ static int hax_vmx_enable_check(void)
     }
 
     if ((error == 0) && (tnum != finished)) {
-        hax_error("Unknown reason happens to VT init, HAXM exit\n");
+        hax_log(HAX_LOGE, "Unknown reason happens to VT init, HAXM exit\n");
         hax_notify_host_event(HaxVtEnableFailure, NULL, 0);
         return -1;
     }
@@ -305,10 +310,10 @@ int hax_set_memlimit(void *buf, int bufLeng, int *outLength)
     }
     if (!memlimit->enable_memlimit) {
         hax->mem_limit = 0;
-        hax_error("disable memlimit\n");
+        hax_log(HAX_LOGE, "disable memlimit\n");
     } else {
         hax->mem_limit = hax->mem_quota = memlimit->memory_limit << 20;
-        hax_info("set memlimit 0x%llx\n", hax->mem_limit);
+        hax_log(HAX_LOGI, "set memlimit 0x%llx\n", hax->mem_limit);
     }
     hax_mutex_unlock(hax->hax_lock);
     return 0;
@@ -340,6 +345,7 @@ int hax_get_capability(void *buf, int bufLeng, int *outLength)
         cap->winfo |= HAX_CAP_64BIT_RAMBLOCK;
 #ifdef CONFIG_HAX_EPT2
         cap->winfo |= HAX_CAP_64BIT_SETRAM;
+        cap->winfo |= HAX_CAP_IMPLICIT_RAMBLOCK;
 #endif
         cap->winfo |= HAX_CAP_TUNNEL_PAGE;
         cap->winfo |= HAX_CAP_RAM_PROTECTION;
@@ -425,7 +431,8 @@ static void hax_pmu_init(void)
         cpu_data = hax_cpu_data[cpu_id];
         // Should never happen
         if (!cpu_data) {
-            hax_warning("hax_pmu_init: hax_cpu_data[%d] is NULL\n", cpu_id);
+            hax_log(HAX_LOGW, "hax_pmu_init: hax_cpu_data[%d] is NULL\n",
+                    cpu_id);
             continue;
         }
 
@@ -458,11 +465,11 @@ static void hax_pmu_init(void)
                 ? APM_MAX_EVENT_COUNT : ref_pmu_info->apm_event_count;
         hax->apm_event_unavailability = ref_pmu_info->apm_event_unavailability &
                                         ((1UL << hax->apm_event_count) - 1);
-        hax_info("APM: version %u\n", hax->apm_version);
-        hax_info("APM: %u general-purpose counters, bitmask 0x%llx\n",
-                 hax->apm_general_count, hax->apm_general_mask);
-        hax_info("APM: %u events, unavailability 0x%x\n", hax->apm_event_count,
-                 hax->apm_event_unavailability);
+        hax_log(HAX_LOGI, "APM: version %u\n", hax->apm_version);
+        hax_log(HAX_LOGI, "APM: %u general-purpose counters, bitmask 0x%llx\n",
+                hax->apm_general_count, hax->apm_general_mask);
+        hax_log(HAX_LOGI, "APM: %u events, unavailability 0x%x\n",
+                hax->apm_event_count, hax->apm_event_unavailability);
 
         set_msr_access(IA32_PMC0, hax->apm_general_count, true, true);
         set_msr_access(IA32_PERFEVTSEL0, hax->apm_general_count, true, true);
@@ -474,8 +481,8 @@ static void hax_pmu_init(void)
             apm_fixed_bitlen = ref_pmu_info->apm_fixed_bitlen;
             hax->apm_fixed_mask = apm_fixed_bitlen > 63 ? (uint64_t)-1
                                   : (1ULL << apm_fixed_bitlen) - 1;
-            hax_info("APM: %u fixed-function counters, bitmask 0x%llx\n",
-                     hax->apm_fixed_count, hax->apm_fixed_mask);
+            hax_log(HAX_LOGI, "APM: %u fixed-function counters, bitmask "
+                    "0x%llx\n",hax->apm_fixed_count, hax->apm_fixed_mask);
         } else {
             hax->apm_fixed_count = 0;
             apm_fixed_bitlen = 0;
@@ -493,7 +500,7 @@ static void hax_pmu_init(void)
         pmu_info->apm_fixed_count = hax->apm_fixed_count;
         pmu_info->apm_fixed_bitlen = apm_fixed_bitlen;
     } else {
-        hax_warning("Host CPU does not support APM\n");
+        hax_log(HAX_LOGW, "Host CPU does not support APM\n");
         hax->apm_general_count = 0;
         hax->apm_general_mask = 0;
         hax->apm_event_count = 0;
@@ -544,7 +551,8 @@ int hax_module_init(void)
     hax_pmu_init();
 
     hax_init_list_head(&hax->hax_vmlist);
-    hax_warning("-------- HAXM v%s Start --------\n", HAXM_RELEASE_VERSION_STR);
+    hax_log(HAX_LOGW, "-------- HAXM v%s Start --------\n",
+            HAXM_RELEASE_VERSION_STR);
 
     return 0;
 
@@ -570,7 +578,7 @@ int hax_module_exit(void)
     int i, ret;
 
     if (!hax_list_empty(&hax->hax_vmlist)) {
-        hax_error("Still VM not be destroyed?\n");
+        hax_log(HAX_LOGE, "Still VM not be destroyed?\n");
         return -EBUSY;
     }
 
@@ -590,7 +598,8 @@ int hax_module_exit(void)
     hax_vfree(hax_cpu_data, max_cpus * sizeof(void *));
     hax_mutex_free(hax->hax_lock);
     hax_vfree(hax, sizeof(struct hax_t));
-    hax_warning("-------- HAXM v%s End --------\n", HAXM_RELEASE_VERSION_STR);
+    hax_log(HAX_LOGW, "-------- HAXM v%s End --------\n",
+            HAXM_RELEASE_VERSION_STR);
 
     return 0;
 }
