@@ -4207,7 +4207,7 @@ void vcpu_debug(struct vcpu_t *vcpu, struct hax_debug_t *debug)
 void vcpu_setexcbmp(struct vcpu_t *vcpu, uint32_t excbmp)
 {
     vcpu->user_excbmp = excbmp;
-	hax_log(HAX_LOGE, "set user_excbmp = %08X", vcpu->user_excbmp);
+    hax_log(HAX_LOGE, "set user_excbmp = %08X", vcpu->user_excbmp);
     vcpu_update_exception_bitmap(vcpu);
 }
 
