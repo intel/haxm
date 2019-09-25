@@ -1711,6 +1711,14 @@ int vcpu_execute(struct vcpu_t *vcpu)
             goto out;
         }
     }
+
+    // Check if Qemu pauses VM
+    if (htun->_exit_reason == HAX_EXIT_PAUSED) {
+        htun->_exit_status = HAX_EXIT_PAUSED;
+        hax_log(HAX_LOGD, "vcpu paused\n");
+        goto out;
+    }
+
     err = cpu_vmx_execute(vcpu, htun);
     vcpu_is_panic(vcpu);
 out:
