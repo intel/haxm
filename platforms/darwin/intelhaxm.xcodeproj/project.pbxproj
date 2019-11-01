@@ -542,7 +542,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "-fstack-protector-strong";
 				PREBINDING = NO;
-				SDKROOT = macosx10.10;
+				SDKROOT = macosx10.12;
 				USE_HEADERMAPS = NO;
 			};
 			name = Debug;
@@ -557,7 +557,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				OTHER_CFLAGS = "-fstack-protector-strong";
 				PREBINDING = NO;
-				SDKROOT = macosx10.10;
+				SDKROOT = macosx10.12;
 			};
 			name = Release;
 		};
