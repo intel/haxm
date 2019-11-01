@@ -57,8 +57,8 @@ matrix:
       os: windows
       install:
         - choco install -y nuget.commandline
-        - choco install -y windowsdriverkit10 --version 10.0.17763
-        - choco install -y windows-sdk-10.1 --version 10.1.17763.1
+        - choco install -y windowsdriverkit10
+        - choco install -y windows-sdk-10.1
       script:
         - cd platforms/windows
         - nuget restore
@@ -71,7 +71,7 @@ matrix:
         #       but since those are not supported by TravisCI, we need to install targets manually.
         - unzip "/c/Program Files (x86)/Windows Kits/10/Vsix/WDK.vsix" -d wdk
         - cp -R wdk/\$VCTargets/* "$MSVC/Common7/IDE/VC/VCTargets"
-        - export PROPS="//p:DefaultWindowsSDKVersion=10.0.17763.0 //p:SpectreMitigation=false"
+        - export PROPS="//p:SpectreMitigation=false"
         - MSBuild.exe haxm.sln $PROPS //p:Configuration="Debug" //p:Platform="Win32"
         - MSBuild.exe haxm.sln $PROPS //p:Configuration="Debug" //p:Platform="x64"
         - build/tests/x64/Debug/haxm-tests.exe
