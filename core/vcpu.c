@@ -2556,7 +2556,7 @@ static void handle_cpuid_virtual(struct vcpu_t *vcpu, uint32_t a, uint32_t c)
     uint32_t hw_model;
     uint8_t physical_address_size;
 
-    static uint32_t cpu_features_1 =
+    static uint32_t cpuid_1_features_edx =
             // pat is disabled!
             FEATURE(FPU)        |
             FEATURE(VME)        |
@@ -2581,30 +2581,24 @@ static void handle_cpuid_virtual(struct vcpu_t *vcpu, uint32_t a, uint32_t c)
             FEATURE(PSE)        |
             FEATURE(HTT);
 
-    static uint32_t cpu_features_2 =
+    static uint32_t cpuid_1_features_ecx =
             FEATURE(SSE3)       |
             FEATURE(SSSE3)      |
             FEATURE(SSE41)      |
             FEATURE(SSE42)      |
             FEATURE(CMPXCHG16B) |
             FEATURE(MOVBE)      |
+            FEATURE(AESNI)      |
+            FEATURE(PCLMULQDQ)  |
             FEATURE(POPCNT);
 
-    uint32_t cpu_features_ext =
+    static uint32_t cpuid_8000_0001_features_edx =
             FEATURE(NX)         |
             FEATURE(SYSCALL)    |
+            FEATURE(RDTSCP)     |
             FEATURE(EM64T);
 
-    // Conditional features
-    if (cpu_has_feature(X86_FEATURE_AESNI)) {
-        cpu_features_2 |= FEATURE(AESNI);
-    }
-    if (cpu_has_feature(X86_FEATURE_PCLMULQDQ)) {
-        cpu_features_2 |= FEATURE(PCLMULQDQ);
-    }
-    if (cpu_has_feature(X86_FEATURE_RDTSCP)) {
-        cpu_features_ext |= FEATURE(RDTSCP);
-    }
+    static uint32_t cpuid_8000_0001_features_ecx = 0;
 
     switch (a) {
         case 0: {                       // Maximum Basic Information
@@ -2622,10 +2616,31 @@ static void handle_cpuid_virtual(struct vcpu_t *vcpu, uint32_t a, uint32_t c)
              * that is an old i7 system, so the emulator can still utilize the
              * enough extended features of the hardware, but doesn't crash.
              */
-            hw_family = ((state->_eax >> 16) & 0xFF0) |
-                        ((state->_eax >> 8) & 0xF);
-            hw_model = ((state->_eax >> 12) & 0xF0) |
-                       ((state->_eax >> 4) & 0xF);
+            union cpuid_1_eax {
+                uint32_t raw;
+                struct {
+                    uint32_t steppingID    : 4;
+                    uint32_t model         : 4;
+                    uint32_t familyID      : 4;
+                    uint32_t processorType : 2;
+                    uint32_t reserved      : 2;
+                    uint32_t extModelID    : 4;
+                    uint32_t extFamilyID   : 8;
+                    uint32_t reserved2     : 4;
+                };
+            } cpuid_eax;
+            cpuid_eax.raw = state->_eax;
+
+            if (0xF != cpuid_eax.familyID)
+                hw_family = cpuid_eax.familyID;
+            else
+                hw_family = cpuid_eax.familyID + (cpuid_eax.extFamilyID << 4);
+
+            if (0x6 == cpuid_eax.familyID || 0xF == cpuid_eax.familyID)
+                hw_model = (cpuid_eax.extModelID << 4) + cpuid_eax.model;
+            else
+                hw_model = cpuid_eax.model;
+
             if (hw_family == VIRT_FAMILY && hw_model > VIRT_MODEL) {
                 state->_eax = ((VIRT_FAMILY & 0xFF0) << 16) |
                               ((VIRT_FAMILY & 0xF) << 8) |
@@ -2659,8 +2674,8 @@ static void handle_cpuid_virtual(struct vcpu_t *vcpu, uint32_t a, uint32_t c)
             // supported by the host CPU, but including "hypervisor", which is
             // desirable for VMMs.
             // TBD: This will need to be changed to emulate new features.
-            state->_ecx = (cpu_features_2 & state->_ecx) | FEATURE(HYPERVISOR);
-            state->_edx = cpu_features_1 & state->_edx;
+            state->_ecx = (cpuid_1_features_ecx & state->_ecx) | FEATURE(HYPERVISOR);
+            state->_edx = cpuid_1_features_edx & state->_edx;
             return;
         }
         case 2: {                       // Cache and TLB Information
@@ -2724,10 +2739,11 @@ static void handle_cpuid_virtual(struct vcpu_t *vcpu, uint32_t a, uint32_t c)
             return;
         }
         case 0x80000001: {              // Extended Signature and Features
-            state->_eax = state->_ebx = state->_ecx = 0;
+            state->_eax = state->_ebx = 0;
             // Report only the features specified but turn off any features
             // this processor doesn't support.
-            state->_edx = cpu_features_ext & state->_edx;
+            state->_ecx = cpuid_8000_0001_features_ecx & state->_ecx;
+            state->_edx = cpuid_8000_0001_features_edx & state->_edx;
             return;
         }
         /*
