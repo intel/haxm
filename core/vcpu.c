@@ -100,6 +100,8 @@ static int exit_invalid_guest_state(struct vcpu_t *vcpu,
 static int exit_ept_misconfiguration(struct vcpu_t *vcpu,
                                      struct hax_tunnel *htun);
 static int exit_ept_violation(struct vcpu_t *vcpu, struct hax_tunnel *htun);
+static int exit_unsupported_instruction(struct vcpu_t *vcpu, 
+                                        struct hax_tunnel *htun);
 static int null_handler(struct vcpu_t *vcpu, struct hax_tunnel *hun);
 
 static void advance_rip(struct vcpu_t *vcpu);
@@ -388,6 +390,22 @@ static int (*handler_funcs[])(struct vcpu_t *vcpu, struct hax_tunnel *htun) = {
     [VMX_EXIT_FAILED_VMENTER_GS]  = exit_invalid_guest_state,
     [VMX_EXIT_EPT_VIOLATION]      = exit_ept_violation,
     [VMX_EXIT_EPT_MISCONFIG]      = exit_ept_misconfiguration,
+    [VMX_EXIT_GETSEC]             = exit_unsupported_instruction,
+    [VMX_EXIT_INVD]               = exit_unsupported_instruction,
+    [VMX_EXIT_VMCALL]             = exit_unsupported_instruction,
+    [VMX_EXIT_VMCLEAR]            = exit_unsupported_instruction,
+    [VMX_EXIT_VMLAUNCH]           = exit_unsupported_instruction,
+    [VMX_EXIT_VMPTRLD]            = exit_unsupported_instruction,
+    [VMX_EXIT_VMPTRST]            = exit_unsupported_instruction,
+    //VMREAD and VMWRITE vm-exits are conditional. When "VMCS shadowing" bit
+    //in secondary CPU VM-execution control is 0, these exit. This condition
+    //holds in haxm.
+    [VMX_EXIT_VMREAD]             = exit_unsupported_instruction,
+    [VMX_EXIT_VMWRITE]            = exit_unsupported_instruction,
+    [VMX_EXIT_VMRESUME]           = exit_unsupported_instruction,
+    [VMX_EXIT_VMXOFF]             = exit_unsupported_instruction,
+    [VMX_EXIT_VMXON]              = exit_unsupported_instruction,
+    [VMX_EXIT_XSETBV]             = exit_unsupported_instruction,
 };
 
 static int nr_handlers = ARRAY_ELEMENTS(handler_funcs);
@@ -3880,6 +3898,13 @@ static int exit_ept_violation(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     // ret == 0: The EPT violation is due to MMIO
 #endif
     return vcpu_emulate_insn(vcpu);
+}
+
+static int exit_unsupported_instruction(struct vcpu_t *vcpu, 
+                                        struct hax_tunnel *htun)
+{
+    hax_inject_exception(vcpu, VECTOR_UD, NO_ERROR_CODE);
+    return HAX_RESUME;
 }
 
 static void handle_mem_fault(struct vcpu_t *vcpu, struct hax_tunnel *htun)
