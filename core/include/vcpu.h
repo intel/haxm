@@ -200,7 +200,8 @@ struct vcpu_t {
         uint64_t interruptibility_dirty          : 1;
         uint64_t pcpu_ctls_dirty                 : 1;
         uint64_t pae_pdpt_dirty                  : 1;
-        uint64_t padding                         : 45;
+        uint64_t check_pae_pdpt                  : 1;
+        uint64_t padding                         : 44;
     };
 
     /* For TSC offseting feature*/
@@ -290,5 +291,5 @@ static inline bool valid_vcpu_id(int vcpu_id)
 
 bool vcpu_is_panic(struct vcpu_t *vcpu);
 void vcpu_set_panic(struct vcpu_t *vcpu);
-
+int vcpu_check_pae_pdpte(struct vcpu_t *vcpu);
 #endif  // HAX_CORE_VCPU_H_

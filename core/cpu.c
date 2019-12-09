@@ -367,6 +367,11 @@ int cpu_vmx_execute(struct vcpu_t *vcpu, struct hax_tunnel *htun)
             hax_panic_log(vcpu);
             return 0;
         }
+        if( vcpu->check_pae_pdpt ) {
+          vcpu->check_pae_pdpt = 0;
+          if( !vcpu_check_pae_pdpte(vcpu) )
+            return 0;
+        }
         vcpu_handle_vmcs_pending(vcpu);
         vcpu_inject_intr(vcpu, htun);
 
