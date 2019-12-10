@@ -370,29 +370,6 @@ int cpu_vmx_execute(struct vcpu_t *vcpu, struct hax_tunnel *htun)
         vcpu_handle_vmcs_pending(vcpu);
         vcpu_inject_intr(vcpu, htun);
 
-        /* sometimes, the code segment type from qemu can be 10 (code segment),
-         * this will cause invalid guest state, since 11 (accessed code segment),
-         * not 10 is required by vmx hardware. Note: 11 is one of the allowed
-         * values by vmx hardware.
-         */
-        {
-            uint32_t temp= vmread(vcpu, GUEST_CS_AR);
-
-            if( (temp & 0xf) == 0xa) {
-                temp = temp +1;
-                vmwrite(vcpu, GUEST_CS_AR, temp);
-            }
-        }
-        /* sometimes, the TSS segment type from qemu is not right.
-         * let's hard-code it for now
-         */
-        {
-            uint32_t temp = vmread(vcpu, GUEST_TR_AR);
-
-            temp = (temp & ~0xf) | 0xb;
-            vmwrite(vcpu, GUEST_TR_AR, temp);
-        }
-
         res = cpu_vmx_run(vcpu, htun);
         if (res) {
             hax_log(HAX_LOGE, "cpu_vmx_run error, code:%x\n", res);
