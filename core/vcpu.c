@@ -4244,7 +4244,12 @@ static void vcpu_dump(struct vcpu_t *vcpu, uint32_t mask, const char *caption)
 
 static void vcpu_state_dump(struct vcpu_t *vcpu)
 {
-    hax_log(HAX_LOGD,
+    int i;
+    struct gstate *gstate = &vcpu->gstate;
+    bool em64t_support = cpu_has_feature(X86_FEATURE_EM64T);
+    struct fx_layout *gfx = (struct fx_layout *)hax_page_va(gstate->gfxpage);
+
+    hax_log(HAX_LOGW,
             "RIP: %08llx  RSP: %08llx  RFLAGS: %08llx\n"
             "RAX: %08llx  RBX: %08llx  RCX: %08llx  RDX: %08llx\n"
             "RSI: %08llx  RDI: %08llx  RBP: %08llx\n"
@@ -4311,6 +4316,80 @@ static void vcpu_state_dump(struct vcpu_t *vcpu)
             vcpu->state->_idt.base,
             vcpu->state->_idt.limit,
             (uint32_t)vcpu->state->_efer);
+
+    // Dump FPU state
+    hax_log(HAX_LOGW,
+            "FX LAYOUT:\n"
+            "FCW:    %08x  FSW:    %08x  FTW: %08x  RES1: %08x  FOP: %08x\n"
+            "FPU_IP: %08llx  FPU_DP: %08llx\n"
+            "MXCSR:  %08x  MXCSR_MASK: %08x\n",
+            gfx->fcw, gfx->fsw, gfx->ftw, gfx->res1, gfx->fop, gfx->fpu_ip,
+            gfx->fpu_dp, gfx->mxcsr, gfx->mxcsr_mask);
+
+    for (i = 0; i < 8; i++) {
+        hax_log(HAX_LOGW, "st_mm[%d]: %02x%02x%02x%02x %02x%02x%02x%02x"
+                " %02x%02x%02x%02x %02x%02x%02x%02x\n", i,
+                gfx->st_mm[i][0], gfx->st_mm[i][1], gfx->st_mm[i][2],
+                gfx->st_mm[i][3], gfx->st_mm[i][4], gfx->st_mm[i][5],
+                gfx->st_mm[i][6], gfx->st_mm[i][7], gfx->st_mm[i][8],
+                gfx->st_mm[i][9], gfx->st_mm[i][10], gfx->st_mm[i][11],
+                gfx->st_mm[i][12], gfx->st_mm[i][13], gfx->st_mm[i][14],
+                gfx->st_mm[i][15]);
+    }
+
+    for (i = 0; i < 8; i++) {
+        hax_log(HAX_LOGW, "mmx_1[%d]: %02x%02x%02x%02x %02x%02x%02x%02x"
+                " %02x%02x%02x%02x %02x%02x%02x%02x\n", i,
+                gfx->mmx_1[i][0], gfx->mmx_1[i][1], gfx->mmx_1[i][2],
+                gfx->mmx_1[i][3], gfx->mmx_1[i][4], gfx->mmx_1[i][5],
+                gfx->mmx_1[i][6], gfx->mmx_1[i][7], gfx->mmx_1[i][8],
+                gfx->mmx_1[i][9], gfx->mmx_1[i][10], gfx->mmx_1[i][11],
+                gfx->mmx_1[i][12], gfx->mmx_1[i][13], gfx->mmx_1[i][14],
+                gfx->mmx_1[i][15]);
+
+    }
+
+    for (i = 0; i < 8; i++) {
+        hax_log(HAX_LOGW, "mmx_2[%d]: %02x%02x%02x%02x %02x%02x%02x%02x"
+                " %02x%02x%02x%02x %02x%02x%02x%02x\n", i,
+                gfx->mmx_2[i][0], gfx->mmx_2[i][1], gfx->mmx_2[i][2],
+                gfx->mmx_2[i][3], gfx->mmx_2[i][4], gfx->mmx_2[i][5],
+                gfx->mmx_2[i][6], gfx->mmx_2[i][7], gfx->mmx_2[i][8],
+                gfx->mmx_2[i][9], gfx->mmx_2[i][10], gfx->mmx_2[i][11],
+                gfx->mmx_2[i][12], gfx->mmx_2[i][13], gfx->mmx_2[i][14],
+                gfx->mmx_2[i][15]);
+
+    }
+
+    for (i = 0; i < 96; i += 8) {
+        hax_log(HAX_LOGW, "pad: %02x%02x%02x%02x %02x%02x%02x%02x\n",
+                gfx->pad[i], gfx->pad[i+1], gfx->pad[i+2],
+                gfx->pad[i+3], gfx->pad[i+4], gfx->pad[i+5],
+                gfx->pad[i+6], gfx->pad[i+7]);
+    }
+
+    // Dump MSRs
+    for (i = 0; i < NR_GMSR; i++) {
+        if (em64t_support || !is_emt64_msr(gstate->gmsr[i].entry)) {
+            hax_log(HAX_LOGW, "MSR %08llx:%08llx\n", gstate->gmsr[i].entry,
+                    gstate->gmsr[i].value);
+        }
+    }
+
+    if (cpu_has_feature(X86_FEATURE_RDTSCP)) {
+        hax_log(HAX_LOGW, "MSR IA32_TSC_AUX:%08llx\n", gstate->tsc_aux);
+    }
+
+    if (!hax->apm_version)
+        return;
+
+    for (i = 0; i < (int)hax->apm_general_count; i++) {
+        uint32_t msr = (uint32_t)(IA32_PMC0 + i);
+        hax_log(HAX_LOGW, "MSR %08x:%08llx\n", msr, gstate->apm_pmc_msrs[i]);
+
+        msr = (uint32_t)(IA32_PERFEVTSEL0 + i);
+        hax_log(HAX_LOGW, "MSR %08x:%08llx\n", msr, gstate->apm_pes_msrs[i]);
+    }
 }
 
 int vcpu_interrupt(struct vcpu_t *vcpu, uint8_t vector)
