@@ -99,38 +99,6 @@ error:
     return -1;
 }
 
-hax_cpumap_t cpu_online_map;
-int max_cpus;
-
-void get_online_map(void *param)
-{
-    uint64_t *omap;
-
-    //printf("%x\n", cpu_number());
-    omap = param;
-    if (!omap) {
-        hax_log(HAX_LOGE, "NULL pointer in get online map\n");
-        return;
-    }
-
-    hax_test_and_set_bit(cpu_number(), omap);
-    printf("%llx\n ", *omap);
-    return;
-}
-
-/* This is provided in unsupported kext */
-extern unsigned int real_ncpus;
-static void init_cpu_info(void)
-{
-    uint64_t possible_map, omap = 0;
-
-    possible_map = ~0ULL;
-    hax_smp_call_function(&possible_map, get_online_map, &omap);
-    printf("possible map %llx cpu_online_map %llx\n", possible_map, omap);
-    cpu_online_map = omap;
-    max_cpus = real_ncpus;
-}
-
 static int com_intel_hax_init(void)
 {
     int ret;
@@ -139,14 +107,9 @@ static int com_intel_hax_init(void)
     if (ret < 0)
         return ret;
 
-    init_cpu_info();
-
-    if (max_cpus > HAX_MAX_CPUS) {
-        hax_log(HAX_LOGE, "Too many cpus in system!, max_cpus:%d\n",
-                real_ncpus);
-        ret = -E2BIG;
+    ret = cpu_info_init();
+    if (ret < 0)
         goto fail0;
-    }
 
     ret = hax_malloc_init();
     if (ret < 0)
@@ -154,6 +117,7 @@ static int com_intel_hax_init(void)
 
     return 0;
 fail0:
+    cpu_info_exit();
     lock_prim_exit();
     return ret;
 }

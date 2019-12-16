@@ -45,14 +45,6 @@ typedef unsigned char bool;
 #define is_leaf(x)  1
 #endif
 
-typedef KAFFINITY hax_cpumap_t;
-inline hax_cpumap_t cpu2cpumap(int cpu)
-{
-    return ((KAFFINITY)0x1 << cpu);
-}
-
-typedef KIRQL preempt_flag;
-
 // Signed Types
 typedef signed char         int8_t;
 typedef signed short        int16_t;
@@ -67,6 +59,15 @@ typedef unsigned long long  uint64_t;
 typedef unsigned int        uint;
 typedef unsigned long       ulong;
 typedef unsigned long       ulong_t;
+
+// KAFFINITY is 32 bits on a 32-bit version of Windows and is 64 bits
+//   on a 64-bit version of Windows. We always use 64-bit to store CPU mask
+//   in haxm so define it as 64-bit here.
+//typedef KAFFINITY hax_cpumask_t;
+typedef uint64_t hax_cpumask_t;
+typedef ULONG_PTR hax_smp_func_ret_t;
+
+typedef KIRQL preempt_flag;
 
 #include "../hax_list.h"
 struct hax_page {

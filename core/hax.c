@@ -55,6 +55,7 @@ struct hax_page *io_bitmap_page_a;
 struct hax_page *io_bitmap_page_b;
 struct hax_page *msr_bitmap_page;
 
+hax_cpumap_t cpu_online_map;
 struct per_cpu_data **hax_cpu_data;
 struct hax_t *hax;
 
@@ -71,25 +72,25 @@ static void hax_disable_vmx(void)
 
 static void free_cpu_vmxon_region(void)
 {
-    int cpu;
+    uint32_t cpu_id;
 
-    for (cpu = 0; cpu < max_cpus; cpu++) {
-        if (!cpu_is_online(cpu) || !hax_cpu_data[cpu])
+    for (cpu_id = 0; cpu_id < cpu_online_map.cpu_num; cpu_id++) {
+        if (!cpu_is_online(&cpu_online_map, cpu_id) || !hax_cpu_data[cpu_id])
             continue;
-        if (hax_cpu_data[cpu]->vmxon_page) {
-            hax_free_pages(hax_cpu_data[cpu]->vmxon_page);
-            hax_cpu_data[cpu]->vmxon_page = NULL;
+        if (hax_cpu_data[cpu_id]->vmxon_page) {
+            hax_free_pages(hax_cpu_data[cpu_id]->vmxon_page);
+            hax_cpu_data[cpu_id]->vmxon_page = NULL;
         }
     }
 }
 
 static int alloc_cpu_vmxon_region(void)
 {
-    int cpu;
+    uint32_t cpu_id;
     struct hax_page *page;
 
-    for (cpu = 0; cpu < max_cpus; cpu++) {
-        if (!cpu_is_online(cpu) || !hax_cpu_data[cpu])
+    for (cpu_id = 0; cpu_id < cpu_online_map.cpu_num; cpu_id++) {
+        if (!cpu_is_online(&cpu_online_map, cpu_id) || !hax_cpu_data[cpu_id])
             continue;
         page = hax_alloc_page(0, 1);
         if (!page) {
@@ -97,32 +98,32 @@ static int alloc_cpu_vmxon_region(void)
             return -ENOMEM;
         }
         hax_clear_page(page);
-        hax_cpu_data[cpu]->vmxon_page = page;
+        hax_cpu_data[cpu_id]->vmxon_page = page;
     }
     return 0;
 }
 
 void free_cpu_template_vmcs(void)
 {
-    int cpu;
+    uint32_t cpu_id;
 
-    for (cpu = 0; cpu < max_cpus; cpu++) {
-        if (!cpu_is_online(cpu) || !hax_cpu_data[cpu])
+    for (cpu_id = 0; cpu_id < cpu_online_map.cpu_num; cpu_id++) {
+        if (!cpu_is_online(&cpu_online_map, cpu_id) || !hax_cpu_data[cpu_id])
             continue;
-        if (hax_cpu_data[cpu]->vmcs_page) {
-            hax_free_pages(hax_cpu_data[cpu]->vmcs_page);
-            hax_cpu_data[cpu]->vmcs_page = NULL;
+        if (hax_cpu_data[cpu_id]->vmcs_page) {
+            hax_free_pages(hax_cpu_data[cpu_id]->vmcs_page);
+            hax_cpu_data[cpu_id]->vmcs_page = NULL;
         }
     }
 }
 
 static int alloc_cpu_template_vmcs(void)
 {
-    int cpu;
+    uint32_t cpu_id;
     struct hax_page *page = NULL;
 
-    for (cpu = 0; cpu < max_cpus; cpu++) {
-        if (!cpu_is_online(cpu) || !hax_cpu_data[cpu])
+    for (cpu_id = 0; cpu_id < cpu_online_map.cpu_num; cpu_id++) {
+        if (!cpu_is_online(&cpu_online_map, cpu_id) || !hax_cpu_data[cpu_id])
             continue;
         page = (struct hax_page *)hax_alloc_page(0, 1);
         if (!page) {
@@ -130,7 +131,7 @@ static int alloc_cpu_template_vmcs(void)
             return -ENOMEM;
         }
         hax_clear_page(page);
-        hax_cpu_data[cpu]->vmcs_page = page;
+        hax_cpu_data[cpu_id]->vmcs_page = page;
     }
     return 0;
 }
@@ -140,6 +141,29 @@ int hax_em64t_enabled(void)
     return hax->em64t_enable_flag;
 }
 
+#ifdef HAX_PLATFORM_DARWIN
+hax_smp_func_ret_t smp_cfunction(void *param)
+#endif
+#ifdef HAX_PLATFORM_LINUX
+hax_smp_func_ret_t smp_cfunction(void *param)
+#endif
+#ifdef HAX_PLATFORM_NETBSD
+hax_smp_func_ret_t smp_cfunction(void *param, void *a2 __unused)
+#endif
+#ifdef HAX_PLATFORM_WINDOWS
+hax_smp_func_ret_t smp_cfunction(void *param)
+#endif
+{
+    struct smp_call_parameter *p = (struct smp_call_parameter *)param;
+    void (*action)(void *parap) = p->func;
+    hax_cpumap_t *hax_cpus = p->cpus;
+
+    if (cpu_is_online(hax_cpus, hax_cpu_id()))
+        action(p->param);
+
+    return (hax_smp_func_ret_t)NULL;
+}
+
 /*
  * This vcpu_data should not be accessed by anyone else at this step.
  * Return 0 if can continue, <0 for error.
@@ -147,14 +171,15 @@ int hax_em64t_enabled(void)
 static int hax_vmx_enable_check(void)
 {
     int vts = 0, nxs = 0, vte = 0, nxe = 0, em64s = 0, em64e = 0, finished = 0;
-    int cpu, tnum = 0, error = 0;
+    int tnum = 0, error = 0;
+    uint32_t cpu_id;
 
-    for (cpu = 0; cpu < max_cpus; cpu++) {
+    for (cpu_id = 0; cpu_id < cpu_online_map.cpu_num; cpu_id++) {
         struct per_cpu_data *cpu_data;
 
-        if (!cpu_is_online(cpu))
+        if (!cpu_is_online(&cpu_online_map, cpu_id))
             continue;
-        cpu_data = hax_cpu_data[cpu];
+        cpu_data = hax_cpu_data[cpu_id];
         // This should not happen !
         if (!cpu_data)
             continue;
@@ -412,8 +437,7 @@ static void set_msr_access(uint32_t start, uint32_t count, bool read, bool write
  */
 static void hax_pmu_init(void)
 {
-    int cpu_id;
-    int ref_cpu_id = -1;
+    uint32_t cpu_id, ref_cpu_id = (uint32_t)(~0ULL);
 
     // Execute cpu_pmu_init() on each logical processor of the host CPU
     hax_smp_call_function(&cpu_online_map, cpu_pmu_init, NULL);
@@ -421,11 +445,11 @@ static void hax_pmu_init(void)
     // Find the common APM version supported by all host logical processors
     // TODO: Theoretically we should do the same for other APM parameters
     // (number of counters, etc.) as well
-    for (cpu_id = 0; cpu_id < max_cpus; cpu_id++) {
+    for (cpu_id = 0; cpu_id < cpu_online_map.cpu_num; cpu_id++) {
         struct per_cpu_data *cpu_data;
         uint apm_version;
 
-        if (!cpu_is_online(cpu_id)) {
+        if (!cpu_is_online(&cpu_online_map, cpu_id)) {
             continue;
         }
         cpu_data = hax_cpu_data[cpu_id];
@@ -512,7 +536,7 @@ static void hax_pmu_init(void)
 
 int hax_module_init(void)
 {
-    int ret = 0, cpu = 0;
+    uint32_t cpu_id;
 
     hax = (struct hax_t *)hax_vmalloc(sizeof(struct hax_t), HAX_MEM_NONPAGE);
     if (!hax)
@@ -523,29 +547,28 @@ int hax_module_init(void)
     if (!hax->hax_lock)
         goto out_0;
 
-    hax_cpu_data = hax_vmalloc(max_cpus * sizeof(void *), 0);
+    hax_cpu_data = hax_vmalloc(cpu_online_map.cpu_num * sizeof(void *), 0);
     if (!hax_cpu_data)
         goto out_1;
-    memset(hax_cpu_data, 0, max_cpus * sizeof(void *));
+    memset(hax_cpu_data, 0, cpu_online_map.cpu_num * sizeof(void *));
 
-    for (cpu = 0; cpu < max_cpus; cpu++) {
-        if (!cpu_is_online(cpu))
+    for (cpu_id = 0; cpu_id < cpu_online_map.cpu_num; cpu_id++) {
+        if (!cpu_is_online(&cpu_online_map, cpu_id))
             continue;
-        hax_cpu_data[cpu] = hax_vmalloc(sizeof(struct per_cpu_data), 0);
-        if (!hax_cpu_data[cpu])
+        hax_cpu_data[cpu_id] = hax_vmalloc(sizeof(struct per_cpu_data), 0);
+        if (!hax_cpu_data[cpu_id])
             goto out_2;
-        memset(hax_cpu_data[cpu], 0, sizeof(struct per_cpu_data));
+        memset(hax_cpu_data[cpu_id], 0, sizeof(struct per_cpu_data));
 
-        hax_cpu_data[cpu]->hstate.hfxpage =
+        hax_cpu_data[cpu_id]->hstate.hfxpage =
                 (struct hax_page *)hax_alloc_page(0, 1);
-        if (!hax_cpu_data[cpu]->hstate.hfxpage)
+        if (!hax_cpu_data[cpu_id]->hstate.hfxpage)
             goto out_2;
-        hax_clear_page(hax_cpu_data[cpu]->hstate.hfxpage);
-        hax_cpu_data[cpu]->cpu_id = cpu;
+        hax_clear_page(hax_cpu_data[cpu_id]->hstate.hfxpage);
+        hax_cpu_data[cpu_id]->cpu_id = cpu_id;
     }
     cpu_init_feature_cache();
-    ret = hax_vmx_init();
-    if (ret < 0)
+    if (hax_vmx_init() < 0)
         goto out_2;
 
     hax_pmu_init();
@@ -557,15 +580,15 @@ int hax_module_init(void)
     return 0;
 
 out_2:
-    for (cpu = 0; cpu < max_cpus; cpu++) {
-        if (hax_cpu_data[cpu]) {
-            if (hax_cpu_data[cpu]->hstate.hfxpage) {
-                hax_free_pages(hax_cpu_data[cpu]->hstate.hfxpage);
+    for (cpu_id = 0; cpu_id < cpu_online_map.cpu_num; cpu_id++) {
+        if (hax_cpu_data[cpu_id]) {
+            if (hax_cpu_data[cpu_id]->hstate.hfxpage) {
+                hax_free_pages(hax_cpu_data[cpu_id]->hstate.hfxpage);
             }
-            hax_vfree(hax_cpu_data[cpu], sizeof(struct per_cpu_data));
+            hax_vfree(hax_cpu_data[cpu_id], sizeof(struct per_cpu_data));
         }
     }
-    hax_vfree(hax_cpu_data, max_cpus * sizeof(void *));
+    hax_vfree(hax_cpu_data, cpu_online_map.cpu_num * sizeof(void *));
 out_1:
     hax_mutex_free(hax->hax_lock);
 out_0:
@@ -575,7 +598,8 @@ out_0:
 
 int hax_module_exit(void)
 {
-    int i, ret;
+    int ret;
+    uint32_t cpu_id;
 
     if (!hax_list_empty(&hax->hax_vmlist)) {
         hax_log(HAX_LOGE, "Still VM not be destroyed?\n");
@@ -587,15 +611,16 @@ int hax_module_exit(void)
         return ret;
 
     hax_vmx_exit();
-    for (i = 0; i < max_cpus; i++) {
-        if (!hax_cpu_data[i])
+    for (cpu_id = 0; cpu_id < cpu_online_map.cpu_num; cpu_id++) {
+        if (!hax_cpu_data[cpu_id])
             continue;
-        if (hax_cpu_data[i]->hstate.hfxpage) {
-            hax_free_pages(hax_cpu_data[i]->hstate.hfxpage);
+        if (hax_cpu_data[cpu_id]->hstate.hfxpage) {
+            hax_free_pages(hax_cpu_data[cpu_id]->hstate.hfxpage);
         }
-        hax_vfree(hax_cpu_data[i], sizeof(struct per_cpu_data));
+        hax_vfree(hax_cpu_data[cpu_id], sizeof(struct per_cpu_data));
     }
-    hax_vfree(hax_cpu_data, max_cpus * sizeof(void *));
+    hax_vfree(hax_cpu_data, cpu_online_map.cpu_num * sizeof(void *));
+    cpu_info_exit();
     hax_mutex_free(hax->hax_lock);
     hax_vfree(hax, sizeof(struct hax_t));
     hax_log(HAX_LOGW, "-------- HAXM v%s End --------\n",

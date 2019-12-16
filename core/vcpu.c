@@ -127,7 +127,7 @@ static uint32_t get_seg_present(uint32_t seg)
 {
     mword ldtr_base;
     struct seg_desc_t *seg_desc;
-    struct hstate *hstate = &get_cpu_data(hax_cpuid())->hstate;
+    struct hstate *hstate = &get_cpu_data(hax_cpu_id())->hstate;
 
     ldtr_base = get_kernel_ldtr_base();
     seg_desc = (struct seg_desc_t *)ldtr_base + (seg >> 3);
@@ -460,8 +460,8 @@ struct vcpu_t *vcpu_create(struct vm_t *vm, void *vm_host, int vcpu_id)
     if (hax_vcpu_create_host(vcpu, vm_host, vm->vm_id, vcpu_id))
         goto fail_7;
 
-    vcpu->prev_cpu_id = -1;
-    vcpu->cpu_id = hax_cpuid();
+    vcpu->prev_cpu_id = (uint32_t)(~0ULL);
+    vcpu->cpu_id = hax_cpu_id();
     vcpu->vcpu_id = vcpu_id;
     vcpu->is_running = 0;
     vcpu->vm = vm;
@@ -1516,7 +1516,7 @@ static void fill_common_vmcs(struct vcpu_t *vcpu)
 static void vcpu_prepare(struct vcpu_t *vcpu)
 {
     hax_log(HAX_LOGD, "vcpu_prepare current %x, CPU %x\n", vcpu->vcpu_id,
-            hax_cpuid());
+            hax_cpu_id());
     hax_mutex_lock(vcpu->tmutex);
     fill_common_vmcs(vcpu);
     hax_mutex_unlock(vcpu->tmutex);
@@ -4320,8 +4320,17 @@ int vcpu_interrupt(struct vcpu_t *vcpu, uint8_t vector)
 }
 
 // Simply to cause vmexit to vcpu, if any vcpu is running on this physical CPU
-static void _vcpu_take_off(void *unused)
+static void _vcpu_take_off(void *param)
 {
+    hax_cpu_pos_t *target = (hax_cpu_pos_t *)param;
+
+    hax_log(HAX_LOGD, "[#%d] _vcpu_take_off\n", current_cpu_data()->cpu_id);
+    if (target)
+        hax_log(HAX_LOGD, "_vcpu_take_off on cpu (group-%d bit-%d)\n",
+                target->group, target->bit);
+    else
+        hax_log(HAX_LOGD, "_vcpu_take_off on all cpu");
+
     return;
 }
 
@@ -4342,16 +4351,16 @@ int vcpu_pause(struct vcpu_t *vcpu)
 
 int vcpu_takeoff(struct vcpu_t *vcpu)
 {
-    int cpu_id;
-    hax_cpumap_t targets;
+    uint32_t cpu_id;
+    hax_cpu_pos_t target = {0};
 
     // Don't change the sequence unless you are sure
     if (vcpu->is_running) {
         cpu_id = vcpu->cpu_id;
-        hax_assert(cpu_id != hax_cpuid());
-        targets = cpu2cpumap(cpu_id);
+        hax_assert(cpu_id != hax_cpu_id());
+        cpu2cpumap(cpu_id, &target);
         // If not considering Windows XP, definitely we don't need this
-        hax_smp_call_function(&targets, _vcpu_take_off, NULL);
+        hax_smp_call_function(&cpu_online_map, _vcpu_take_off, &target);
     }
 
     return 0;

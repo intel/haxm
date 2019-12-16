@@ -228,34 +228,6 @@ static inline unsigned char *hax_page_va(struct hax_page *page)
     return (unsigned char *)page->kva;
 }
 
-#define HAX_MAX_CPUS (sizeof(uint64_t) * 8)
-
-/* Host SMP */
-extern hax_cpumap_t cpu_online_map;
-extern int max_cpus;
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-int hax_smp_call_function(hax_cpumap_t *cpus, void(*scfunc)(void *param),
-                          void *param);
-
-uint32_t hax_cpuid(void);
-int proc_event_pending(struct vcpu_t *vcpu);
-
-void hax_disable_preemption(preempt_flag *eflags);
-void hax_enable_preemption(preempt_flag *eflags);
-
-void hax_enable_irq(void);
-void hax_disable_irq(void);
-
-int hax_em64t_enabled(void);
-
-#ifdef __cplusplus
-}
-#endif
-
 /* Utilities */
 #define HAX_NOLOG       0xff
 #define HAX_LOGPANIC    5
@@ -276,6 +248,136 @@ int hax_em64t_enabled(void);
 #endif
 #ifdef HAX_PLATFORM_WINDOWS
 #include "windows/hax_windows.h"
+#endif
+
+#define HAX_MAX_CPU_PER_GROUP (sizeof(hax_cpumask_t) * 8)
+#define HAX_MAX_CPU_GROUP ((uint16_t)(~0ULL))
+#define HAX_MAX_CPUS (HAX_MAX_CPU_PER_GROUP * HAX_MAX_CPU_GROUP)
+
+typedef struct hax_cpu_group_t {
+    hax_cpumask_t map;
+    uint32_t num;
+    uint16_t id;
+} hax_cpu_group_t;
+
+typedef struct hax_cpu_pos_t {
+    uint16_t group;
+    uint16_t bit;
+} hax_cpu_pos_t;
+
+typedef struct hax_cpumap_t {
+    hax_cpu_group_t *cpu_map;
+    hax_cpu_pos_t *cpu_pos;
+    uint16_t group_num;
+    uint32_t cpu_num;
+} hax_cpumap_t;
+
+typedef struct smp_call_parameter {
+    void (*func)(void *);
+    void *param;
+    hax_cpumap_t *cpus;
+} smp_call_parameter;
+
+extern hax_cpumap_t cpu_online_map;
+
+static inline void cpu2cpumap(uint32_t cpu_id, hax_cpu_pos_t *target)
+{
+    if (!target)
+        return;
+
+    if (cpu_id >= cpu_online_map.cpu_num) {
+        target->group = (uint16_t)(~0ULL);
+        target->bit = (uint16_t)(~0ULL);
+    } else {
+        target->group = cpu_online_map.cpu_pos[cpu_id].group;
+        target->bit = cpu_online_map.cpu_pos[cpu_id].bit;
+    }
+}
+
+static inline bool cpu_is_online(hax_cpumap_t *cpu_map, uint32_t cpu_id)
+{
+    hax_cpumask_t map;
+    uint16_t group, bit;
+
+    if (cpu_id >= cpu_map->cpu_num) {
+        hax_log(HAX_LOGE, "Invalid cpu-%d\n", cpu_id);
+        return 0;
+    }
+
+    group = cpu_map->cpu_pos[cpu_id].group;
+    if (group != cpu_map->cpu_map[group].id) {
+        hax_log(HAX_LOGE, "Group id doesn't match record\n", group);
+        return 0;
+    }
+
+    bit = cpu_map->cpu_pos[cpu_id].bit;
+    map = cpu_map->cpu_map[group].map;
+    return !!(((hax_cpumask_t)1 << bit) & map);
+}
+
+extern uint32_t hax_cpu_id(void);
+static inline void get_online_map(void *param)
+{
+    hax_cpumap_t *omap = (hax_cpumap_t *)param;
+    hax_cpu_group_t *cpu_map;
+    hax_cpu_pos_t * cpu_pos;
+    uint32_t cpu_id, group, bit;
+
+    cpu_id = hax_cpu_id();
+    group = cpu_id / HAX_MAX_CPU_PER_GROUP;
+    bit = cpu_id % HAX_MAX_CPU_PER_GROUP;
+
+    cpu_map = &(omap->cpu_map[group]);
+    cpu_pos = &(omap->cpu_pos[cpu_id]);
+
+    hax_test_and_set_bit(bit, &cpu_map->map);
+    cpu_map->id = group;
+    cpu_pos->group = group;
+    cpu_pos->bit = bit;
+}
+
+static void cpu_info_exit(void)
+{
+    if (cpu_online_map.cpu_map)
+        hax_vfree(cpu_online_map.cpu_map, cpu_online_map.group_num * sizeof(*cpu_online_map.cpu_map));
+    if (cpu_online_map.cpu_pos)
+        hax_vfree(cpu_online_map.cpu_pos, cpu_online_map.cpu_num * sizeof(*cpu_online_map.cpu_pos));
+    memset(&cpu_online_map, 0, sizeof(cpu_online_map));
+}
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+int cpu_info_init(void);
+#ifdef HAX_PLATFORM_DARWIN
+hax_smp_func_ret_t smp_cfunction(void *param);
+#endif
+#ifdef HAX_PLATFORM_LINUX
+hax_smp_func_ret_t smp_cfunction(void *param);
+#endif
+#ifdef HAX_PLATFORM_NETBSD
+hax_smp_func_ret_t smp_cfunction(void *param, void *a2 __unused);
+#endif
+#ifdef HAX_PLATFORM_WINDOWS
+hax_smp_func_ret_t smp_cfunction(void *param);
+#endif
+
+int hax_smp_call_function(hax_cpumap_t *cpus, void(*scfunc)(void *param),
+                          void *param);
+
+int proc_event_pending(struct vcpu_t *vcpu);
+
+void hax_disable_preemption(preempt_flag *eflags);
+void hax_enable_preemption(preempt_flag *eflags);
+
+void hax_enable_irq(void);
+void hax_disable_irq(void);
+
+int hax_em64t_enabled(void);
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif  // HAX_H_

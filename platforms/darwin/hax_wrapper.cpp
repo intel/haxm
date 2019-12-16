@@ -78,29 +78,94 @@ extern "C" void hax_panic(const char *fmt, ...)
     va_end(args);
 }
 
-struct smp_call_parameter {
-    void (*func)(void *);
-    void *param;
-    hax_cpumap_t *cpus;
-};
+extern int cpu_number(void);
+inline uint32_t hax_cpu_id(void)
+{
+    return (uint32_t)cpu_number();
+}
+
+/* This is provided in unsupported kext */
+extern unsigned int real_ncpus;
+int cpu_info_init(void)
+{
+    uint32_t size_group, size_pos, cpu_id, group, bit;
+    hax_cpumap_t omap = {0};
+
+    memset(&cpu_online_map, 0, sizeof(cpu_online_map));
+
+    cpu_online_map.cpu_num = real_ncpus;
+    group = HAX_MAX_CPU_PER_GROUP;
+    cpu_online_map.group_num = (cpu_online_map.cpu_num + group - 1) / group;
+    size_group = cpu_online_map.group_num * sizeof(*cpu_online_map.cpu_map);
+    size_pos = cpu_online_map.cpu_num * sizeof(*cpu_online_map.cpu_pos);
+
+    if (cpu_online_map.group_num > HAX_MAX_CPU_GROUP ||
+        cpu_online_map.cpu_num > HAX_MAX_CPUS) {
+        hax_log(HAX_LOGE, "Too many cpus %d-%d in system\n",
+                cpu_online_map.cpu_num, cpu_online_map.group_num);
+        return -E2BIG;
+    }
+
+    cpu_online_map.cpu_map = (hax_cpu_group_t *)hax_vmalloc(size_group, 0);
+    omap.cpu_map = (hax_cpu_group_t *)hax_vmalloc(size_group, 0);
+    if (!cpu_online_map.cpu_map || !omap.cpu_map) {
+        hax_log(HAX_LOGE, "Couldn't allocate cpu_map for cpu_online_map\n");
+        goto fail_nomem;
+    }
+
+    cpu_online_map.cpu_pos = (hax_cpu_pos_t *)hax_vmalloc(size_pos, 0);
+    omap.cpu_pos = (hax_cpu_pos_t *)hax_vmalloc(size_pos, 0);
+    if (!cpu_online_map.cpu_pos || !omap.cpu_pos) {
+        hax_log(HAX_LOGE, "Couldn't allocate cpu_pos for cpu_online_map\n");
+        goto fail_nomem;
+    }
+
+    // omap is filled for get_online_map() to init all host cpu info.
+    // Since smp_cfunction() will check if host cpu is online in cpu_online_map,
+    // but the first call to smp_cfunction() is to init cpu_online_map itself.
+    // Make smp_cfunction() always check group 0 bit 1 for get_online_map(),
+    // so get_online_map() assumes all online and init the real cpu_online_map.
+    omap.group_num = cpu_online_map.group_num;
+    omap.cpu_num = cpu_online_map.cpu_num;
+    for (cpu_id = 0; cpu_id < omap.cpu_num; cpu_id++) {
+        omap.cpu_pos[cpu_id].group = 0;
+        omap.cpu_pos[cpu_id].bit = 0;
+    }
+    for (group = 0; group < omap.group_num; group++) {
+        omap.cpu_map[group].id = 0;
+        omap.cpu_map[group].map = ~0ULL;
+    }
+    hax_smp_call_function(&omap, get_online_map, &cpu_online_map);
+
+    for (group = 0; group < cpu_online_map.group_num; group++) {
+        cpu_online_map.cpu_map[group].num = 0;
+        for (bit = 0; bit < HAX_MAX_CPU_PER_GROUP; bit++) {
+            if (cpu_online_map.cpu_map[group].map & ((hax_cpumask_t)1 << bit))
+                ++cpu_online_map.cpu_map[group].num;
+        }
+    }
+
+    hax_vfree(omap.cpu_map, size_group);
+    hax_vfree(omap.cpu_pos, size_pos);
+
+    hax_log(HAX_LOGI, "Host cpu init %d logical cpu(s) into %d group(s)\n",
+            cpu_online_map.cpu_num, cpu_online_map.group_num);
+
+    return 0;
+
+fail_nomem:
+    if (cpu_online_map.cpu_map)
+        hax_vfree(cpu_online_map.cpu_map, size_group);
+    if (cpu_online_map.cpu_pos)
+        hax_vfree(cpu_online_map.cpu_pos, size_pos);
+    if (omap.cpu_map)
+        hax_vfree(omap.cpu_map, size_group);
+    if (omap.cpu_pos)
+        hax_vfree(omap.cpu_pos, size_pos);
+    return -ENOMEM;
+}
 
 extern "C" void mp_rendezvous_no_intrs(void (*action_func)(void *), void *arg);
-
-void smp_cfunction(void *param)
-{
-    int cpu_id;
-    void (*action)(void *parap);
-    hax_cpumap_t *hax_cpus;
-    struct smp_call_parameter *p;
-
-    p = (struct smp_call_parameter *)param;
-    cpu_id = cpu_number();
-    action = p->func;
-    hax_cpus = p->cpus;
-    //printf("cpus:%llx, current_cpu:%x\n", *cpus, cpu_id);
-    if (*hax_cpus & (0x1 << cpu_id))
-        action(p->param);
-}
 
 extern "C" int hax_smp_call_function(hax_cpumap_t *cpus, void (*scfunc)(void *),
                                  void *param)
@@ -111,11 +176,6 @@ extern "C" int hax_smp_call_function(hax_cpumap_t *cpus, void (*scfunc)(void *),
     sp.cpus = cpus;
     mp_rendezvous_no_intrs(smp_cfunction, &sp);
     return 0;
-}
-
-extern "C" uint32_t hax_cpuid()
-{
-    return cpu_number();
 }
 
 extern "C" void hax_disable_preemption(preempt_flag *eflags)

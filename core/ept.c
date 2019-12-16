@@ -335,6 +335,8 @@ static void invept_smpfunc(struct invept_bundle *bundle)
     cpu_data = current_cpu_data();
     cpu_data->invept_res = VMX_SUCCEED;
 
+    hax_log(HAX_LOGD, "[#%d] invept_smpfunc\n", cpu_data->cpu_id);
+
     cpu_vmxroot_enter();
 
     if (cpu_data->vmxon_res == VMX_SUCCEED) {
@@ -348,8 +350,7 @@ void invept(hax_vm_t *hax_vm, uint type)
     uint64_t eptp_value = vm_get_eptp(hax_vm);
     struct invept_desc desc = { eptp_value, 0 };
     struct invept_bundle bundle;
-    int cpu_id;
-    uint32_t res;
+    uint32_t cpu_id, res;
 
     if (!ept_has_cap(ept_cap_invept)) {
         hax_log(HAX_LOGW, "INVEPT was not called due to missing host support"
@@ -384,10 +385,10 @@ void invept(hax_vm_t *hax_vm, uint type)
      * especially on macOS; instead, invept_smpfunc() writes VMX instruction
      * results in hax_cpu_data[], which are checked below.
      */
-    for (cpu_id = 0; cpu_id < max_cpus; cpu_id++) {
+    for (cpu_id = 0; cpu_id < cpu_online_map.cpu_num; cpu_id++) {
         struct per_cpu_data *cpu_data;
 
-        if (!cpu_is_online(cpu_id)) {
+        if (!cpu_is_online(&cpu_online_map, cpu_id)) {
             continue;
         }
         cpu_data = hax_cpu_data[cpu_id];
@@ -399,17 +400,17 @@ void invept(hax_vm_t *hax_vm, uint type)
 
         res = (uint32_t)cpu_data->vmxon_res;
         if (res != VMX_SUCCEED) {
-            hax_log(HAX_LOGE, "[Processor #%d] INVEPT was not called, because "
+            hax_log(HAX_LOGE, "[#%d] INVEPT was not called, because "
                     "VMXON failed (err=0x%x)\n", cpu_id, res);
         } else {
             res = (uint32_t)cpu_data->invept_res;
             if (res != VMX_SUCCEED) {
-                hax_log(HAX_LOGE, "[Processor #%d] INVEPT failed (err=0x%x)\n",
+                hax_log(HAX_LOGE, "[#%d] INVEPT failed (err=0x%x)\n",
                         cpu_id, res);
             }
             res = (uint32_t)cpu_data->vmxoff_res;
             if (res != VMX_SUCCEED) {
-                hax_log(HAX_LOGE, "[Processor #%d] INVEPT was called, but "
+                hax_log(HAX_LOGE, "[#%d] INVEPT was called, but "
                         "VMXOFF failed (err=0x%x)\n", cpu_id, res);
             }
         }

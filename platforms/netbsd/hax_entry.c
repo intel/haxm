@@ -120,7 +120,8 @@ static void
 hax_vcpu_attach(device_t parent, device_t self, void *aux)
 {
     struct hax_vcpu_softc *sc;
-    int unit, vm_id, cpu_id;
+    int unit, vm_id;
+    uint32_t vcpu_id;
 
     sc = device_private(self);
     if (sc == NULL) {
@@ -130,13 +131,13 @@ hax_vcpu_attach(device_t parent, device_t self, void *aux)
 
     unit = device_unit(self);
     vm_id = unit2vmmid(unit);
-    cpu_id = unit2vcpuid(unit);
+    vcpu_id = unit2vcpuid(unit);
 
     sc->sc_dev = self;
     sc->vcpu = NULL;
 
     snprintf(self->dv_xname, sizeof self->dv_xname, "hax_vm%02d/vcpu%02d",
-             vm_id, cpu_id);
+             vm_id, vcpu_id);
 
     if (!pmf_device_register(self, NULL, NULL))
         aprint_error_dev(self, "couldn't establish power handler\n");
@@ -216,23 +217,16 @@ MODULE(MODULE_CLASS_MISC, haxm, NULL);
 static int
 haxm_modcmd(modcmd_t cmd, void *arg __unused)
 {
-    struct cpu_info *ci;
-    CPU_INFO_ITERATOR cii;
     int err;
     size_t i;
 
     switch (cmd) {
     case MODULE_CMD_INIT: {
         // Initialization
-        max_cpus = 0;
-
-        ci = NULL;
-
-        for (CPU_INFO_FOREACH(cii, ci)) {
-            ++max_cpus;
-            if (!ISSET(ci->ci_schedstate.spc_flags, SPCF_OFFLINE)) {
-                cpu_online_map |= __BIT(cpu_index(ci));
-            }
+        err = cpu_info_init();
+        if (err) {
+            hax_log(HAX_LOGE, "Unable to init cpu info\n");
+            goto init_err0;
         }
 
         // Register hax_vm
@@ -327,6 +321,8 @@ init_err3:
 init_err2:
         config_cfdriver_detach(&hax_vm_cd);
 init_err1:
+        cpu_info_exit();
+init_err0:
         return ENXIO;
     }
     case MODULE_CMD_FINI: {
