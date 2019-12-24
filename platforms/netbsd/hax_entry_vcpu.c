@@ -67,7 +67,8 @@ int hax_vcpu_open(dev_t self, int flag __unused, int mode __unused,
     struct vcpu_t *cvcpu;
     struct hax_vcpu_netbsd_t *vcpu;
     int ret;
-    int unit, vm_id, vcpu_id;
+    int unit, vm_id;
+    uint32_t vcpu_id;
 
     sc = device_lookup_private(&hax_vcpu_cd, minor(self));
     if (sc == NULL) {

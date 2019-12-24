@@ -132,12 +132,9 @@ typedef struct hax_kmap_phys {
 
 typedef ulong mword;
 typedef mword preempt_flag;
-typedef uint64_t hax_cpumap_t;
+typedef uint64_t hax_cpumask_t;
+typedef void hax_smp_func_ret_t;
 typedef uint64_t HAX_VADDR_T;
 
-static inline hax_cpumap_t cpu2cpumap(int cpu)
-{
-    return (0x1UL << cpu);
-}
 #endif  // CONFIG_KERNEL_HAX
 #endif  // HAX_DARWIN_HAX_TYPES_MAC_H_

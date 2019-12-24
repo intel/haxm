@@ -171,21 +171,4 @@ static inline errno_t memcpy_s(void *dest, size_t destsz, const void *src,
 
 #define hax_assert(condition) assert(condition)
 
-static inline bool cpu_is_online(int cpu)
-{
-    if (cpu < 0 || cpu >= max_cpus)
-        return 0;
-    return !!(((uint64_t)1 << cpu) & cpu_online_map);
-}
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-extern int cpu_number(void);
-
-#ifdef __cplusplus
-}
-#endif
-
 #endif  // HAX_DARWIN_HAX_MAC_H_

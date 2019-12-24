@@ -54,24 +54,25 @@ DRIVER_UNLOAD HaxUnloadDriver;
 
 static int hax_host_init(void)
 {
-    int i, ret;
-    cpu_online_map = KeQueryActiveProcessors();
+    int ret;
 
-    for (i = 0; i < (sizeof(ULONG_PTR) * 8); i++)
-        if (cpu_online_map & ((mword)0x1 << i))
-            max_cpus = i;
-
-    /* we get the max_cpus from real_cpus in darwin, so add 1 here */
-    max_cpus++;
+    ret = cpu_info_init();
+    if (ret < 0) {
+        hax_log(HAX_LOGE, "CPU info init failed\n");
+        return ret;
+    }
 
     ret = smpc_dpc_init();
     if (ret < 0) {
+        hax_log(HAX_LOGE, "SMPC DPC init failed\n");
+        cpu_info_exit();
         return ret;
     }
 
     if (hax_module_init() < 0) {
             hax_log(HAX_LOGE, "Hax module init failed\n");
             smpc_dpc_exit();
+            cpu_info_exit();
             return -1;
     }
 
