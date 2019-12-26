@@ -81,7 +81,7 @@ void hax_panic(const char *fmt, ...)
     va_end(args);
 }
 
-inline uint32_t hax_cpu_id(void)
+uint32_t hax_cpu_id(void)
 {
     return (uint32_t)smp_processor_id();
 }

@@ -31,7 +31,7 @@
 #include "hax_win.h"
 #include "../../core/include/ia32.h"
 
-inline uint32_t hax_cpu_id(void)
+uint32_t hax_cpu_id(void)
 {
     PROCESSOR_NUMBER ProcNumber = {0};
     return (uint32_t)KeGetCurrentProcessorNumberEx(&ProcNumber);
