@@ -218,6 +218,8 @@ void hax_unmap_page(struct hax_page *page);
 void hax_log(int level, const char *fmt, ...);
 void hax_panic(const char *fmt, ...);
 
+uint32_t hax_cpu_id(void);
+
 #ifdef __cplusplus
 }
 #endif
@@ -315,7 +317,6 @@ static inline bool cpu_is_online(hax_cpumap_t *cpu_map, uint32_t cpu_id)
     return !!(((hax_cpumask_t)1 << bit) & map);
 }
 
-extern uint32_t hax_cpu_id(void);
 static inline void get_online_map(void *param)
 {
     hax_cpumap_t *omap = (hax_cpumap_t *)param;

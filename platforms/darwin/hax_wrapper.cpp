@@ -78,8 +78,8 @@ extern "C" void hax_panic(const char *fmt, ...)
     va_end(args);
 }
 
-extern int cpu_number(void);
-inline uint32_t hax_cpu_id(void)
+extern "C" int cpu_number(void);
+extern "C" uint32_t hax_cpu_id(void)
 {
     return (uint32_t)cpu_number();
 }
