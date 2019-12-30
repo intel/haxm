@@ -198,8 +198,10 @@ static void construct_eptp(eptp_t *entry, hax_paddr_t hpa, uint emt)
 #define EPT_INVEPT_SINGLE_CONTEXT 1
 #define EPT_INVEPT_ALL_CONTEXT    2
 
+#ifndef CONFIG_HAX_EPT2
 bool ept_init(hax_vm_t *hax_vm);
 void ept_free(hax_vm_t *hax_vm);
+#endif
 
 uint64_t vcpu_get_eptp(struct vcpu_t *vcpu);
 bool ept_set_pte(hax_vm_t *hax_vm, hax_paddr_t gpa, hax_paddr_t hpa, uint emt,

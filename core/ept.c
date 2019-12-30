@@ -240,6 +240,7 @@ static eptp_t ept_construct_eptp(hax_paddr_t addr)
     return eptp;
 }
 
+#ifndef CONFIG_HAX_EPT2
 bool ept_init(hax_vm_t *hax_vm)
 {
     uint i;
@@ -321,6 +322,7 @@ void ept_free (hax_vm_t *hax_vm)
     hax_vfree(hax_vm->ept, sizeof(struct hax_ept));
     hax_vm->ept = 0;
 }
+#endif
 
 struct invept_bundle {
     uint type;

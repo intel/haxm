@@ -181,7 +181,9 @@ struct vm_t * hax_create_vm(int *vm_id)
 fail2:
     hax_mutex_free(hvm->vm_lock);
 fail1:
+#ifndef CONFIG_HAX_EPT2
     ept_free(hvm);
+#endif
 fail0:
 #ifdef HAX_ARCH_X86_32
     hax_vfree(hvm->hva_list_1,
