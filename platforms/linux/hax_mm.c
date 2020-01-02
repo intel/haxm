@@ -125,10 +125,6 @@ fail:
 
 uint64_t hax_get_memory_threshold(void)
 {
-#ifdef CONFIG_HAX_EPT2
     // Since there is no memory cap, just return a sufficiently large value
     return 1ULL << 48;  // PHYSADDR_MAX + 1
-#else  // !CONFIG_HAX_EPT2
-    return 0;
-#endif  // CONFIG_HAX_EPT2
 }

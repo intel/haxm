@@ -132,43 +132,6 @@ struct _hax_vmap_entry {
     uint32_t size;
 };
 
-extern "C" void * hax_vmap(hax_pa_t pa, uint32_t size)
-{
-    IOMemoryDescriptor *md;
-    IOMemoryMap *mm;
-    struct _hax_vmap_entry *entry;
-
-    entry = (struct _hax_vmap_entry *)hax_vmalloc(
-            sizeof(struct _hax_vmap_entry), 0);
-    if (entry == NULL) {
-        printf("Error to vmalloc the hax vmap entry\n");
-        return NULL;
-    }
-    entry->size = size;
-
-    md = IOMemoryDescriptor::withPhysicalAddress(pa, size, kIODirectionOutIn);
-    if (md == NULL) {
-        hax_vfree(entry, 0);
-        return NULL;
-    }
-    entry->md = md;
-
-    mm = md->createMappingInTask(kernel_task, 0, kIOMapAnywhere, 0, size);
-    if (mm == NULL) {
-        hax_vfree(entry, 0);
-        md->release();
-        return NULL;
-    }
-    entry->mm = mm;
-    entry->va = (void *)(mm->getVirtualAddress());
-
-    hax_spin_lock(vmap_lock);
-    hax_list_add(&entry->list, &_vmap_list);
-    hax_spin_unlock(vmap_lock);
-
-    return entry->va;
-}
-
 extern "C" void hax_vunmap(void *addr, uint32_t size)
 {
     unsigned long va = (unsigned long)addr;

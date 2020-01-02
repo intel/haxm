@@ -42,20 +42,6 @@ struct vcpu_t;
 #define HAX_CUR_VERSION    0x0004
 #define HAX_COMPAT_VERSION 0x0001
 
-// EPT2 refers to the new memory virtualization engine, which implements lazy
-// allocation, and therefore greatly speeds up ALLOC_RAM and SET_RAM VM ioctls
-// as well as brings down HAXM driver's memory footprint. It is mostly written
-// in new source files (including core/include/memory.h, core/include/ept2.h,
-// include/hax_host_mem.h and their respective .c/.cpp files), separate from
-// the code for the legacy memory virtualization engine (which is scattered
-// throughout core/memory.c, core/vm.c, core/ept.c, etc.). This makes it
-// possible to select between the two engines at compile time, simply by
-// defining (which selects the new engine) or undefining (which selects the old
-// engine) the following macro.
-// TODO: Completely remove the legacy engine and this macro when the new engine
-// is considered stable.
-#define CONFIG_HAX_EPT2
-
 /* TBD */
 #define for_each_vcpu(vcpu, vm)
 
@@ -129,8 +115,6 @@ int hax_clear_vcpumem(struct hax_vcpu_mem *mem);
 int hax_setup_vcpumem(struct hax_vcpu_mem *vcpumem, uint64_t uva, uint32_t size,
                       int flags);
 
-uint64_t get_hpfn_from_pmem(struct hax_vcpu_mem *pmem, uint64_t va);
-
 #define HAX_VCPUMEM_VALIDVA 0x1
 
 enum hax_notify_event {
@@ -160,27 +144,11 @@ void hax_slab_free(phax_slab_t *type, void* cache);
  * requirement
  */
 hax_pa_t hax_pa(void *va);
-/*
- * Map the physical address into kernel address space
- * XXX please don't use this function for long-time map.
- * in Mac side, we utilize the IOMemoryDescriptor class to map this, and the
- * object have to be kept in a list till the vunmap. And when we do the vunmap,
- * we need search the list again, thus it will cost memory/performance issue
- */
-void *hax_vmap(hax_pa_t pa, uint32_t size);
-static inline void * hax_vmap_pfn(hax_pfn_t pfn)
-{
-    return hax_vmap(pfn << HAX_PAGE_SHIFT, HAX_PAGE_SIZE);
-}
 
 /*
  * unmap the memory mapped above
  */
 void hax_vunmap(void *va, uint32_t size);
-static inline void hax_vunmap_pfn(void *va)
-{
-    hax_vunmap((void*)((mword)va & ~HAX_PAGE_MASK), HAX_PAGE_SIZE);
-}
 
 struct hax_page;
 typedef struct hax_page * phax_page;

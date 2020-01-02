@@ -66,11 +66,6 @@ void hax_vfree_aligned(void *va, uint32_t size, uint32_t alignment,
     hax_vfree_flags(va, size, flags);
 }
 
-void * hax_vmap(hax_pa_t pa, uint32_t size)
-{
-    return ioremap(pa, size);
-}
-
 void hax_vunmap(void *addr, uint32_t size)
 {
     return iounmap(addr);

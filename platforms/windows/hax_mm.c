@@ -175,75 +175,8 @@ fail:
     return -1;
 }
 
-uint64_t get_hpfn_from_pmem(struct hax_vcpu_mem *pmem, uint64_t va)
-{
-    PHYSICAL_ADDRESS phys;
-
-    if (!in_pmem_range(pmem, va))
-        return 0;
-
-    phys = MmGetPhysicalAddress((PVOID)va);
-    if (phys.QuadPart == 0) {
-        if (pmem->kva != 0) {
-            uint64_t kva;
-            PHYSICAL_ADDRESS kphys;
-
-            kva = (uint64_t)pmem->kva + (va - pmem->uva);
-            kphys = MmGetPhysicalAddress((PVOID)kva);
-            if (kphys.QuadPart == 0)
-                hax_log(HAX_LOGE, "kva phys is 0\n");
-            else
-                return kphys.QuadPart >> PAGE_SHIFT;
-        } else {
-            unsigned long long index = 0;
-            PMDL pmdl = NULL;
-            PPFN_NUMBER ppfnnum;
-
-            pmdl = ((struct windows_vcpu_mem *)(pmem->hinfo))->pmdl;
-            ppfnnum = MmGetMdlPfnArray(pmdl);
-            index = (va - (pmem->uva)) / PAGE_SIZE;
-            return ppfnnum[index];
-        }
-    }
-
-    return phys.QuadPart >> PAGE_SHIFT;
-}
-
 uint64_t hax_get_memory_threshold(void)
 {
-#ifdef CONFIG_HAX_EPT2
     // Since there is no memory cap, just return a sufficiently large value
     return 1ULL << 48;  // PHYSADDR_MAX + 1
-#else  // !CONFIG_HAX_EPT2
-    uint64_t result = 0;
-    NTSTATUS status;
-    ULONG relative_to;
-    UNICODE_STRING path;
-    RTL_QUERY_REGISTRY_TABLE query_table[2];
-    ULONG memlimit_megs = 0;
-
-    relative_to = RTL_REGISTRY_ABSOLUTE | RTL_REGISTRY_OPTIONAL;
-
-    RtlInitUnicodeString(&path, L"\\Registry\\Machine\\SOFTWARE\\HAXM\\HAXM\\");
-
-    /* The registry is Mega byte count */
-    RtlZeroMemory(query_table, sizeof(query_table));
-
-    query_table[0].Flags         = RTL_QUERY_REGISTRY_DIRECT;
-    query_table[0].Name          = L"MemLimit";
-    query_table[0].EntryContext  = &memlimit_megs;
-    query_table[0].DefaultType   = REG_DWORD;
-    query_table[0].DefaultLength = sizeof(ULONG);
-    query_table[0].DefaultData   = &memlimit_megs;
-
-    status = RtlQueryRegistryValues(relative_to, path.Buffer, &query_table[0],
-                                    NULL, NULL);
-
-    if (NT_SUCCESS(status)) {
-        result = (uint64_t)memlimit_megs << 20;
-        hax_log(HAX_LOGI, "%s: result = 0x%x\n", __func__, result);
-    }
-
-    return result;
-#endif  // CONFIG_HAX_EPT2
 }

@@ -84,26 +84,6 @@ void hax_vfree_aligned(void *va, uint32_t size, uint32_t alignment,
     hax_vfree_flags(va, size, flags);
 }
 
-void * hax_vmap(hax_pa_t pa, uint32_t size)
-{
-    vaddr_t kva;
-    vaddr_t va, end_va;
-    unsigned long offset;
-
-    offset = pa & PAGE_MASK;
-    pa = trunc_page(pa);
-    size = round_page(size + offset);
-
-    kva = uvm_km_alloc(kernel_map, size, PAGE_SIZE, UVM_KMF_VAONLY|UVM_KMF_WAITVA);
-
-    for (va = kva, end_va = kva + size; va < end_va; va += PAGE_SIZE, pa += PAGE_SIZE) {
-        pmap_kenter_pa(va, pa, VM_PROT_READ | VM_PROT_WRITE, PMAP_WIRED);
-    }
-    pmap_update(pmap_kernel());
-
-    return (void *)(kva + offset);
-}
-
 void hax_vunmap(void *addr, uint32_t size)
 {
     unsigned long offset;

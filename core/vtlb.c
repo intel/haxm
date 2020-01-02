@@ -546,19 +546,10 @@ static uint32_t vcpu_mmu_walk(struct vcpu_t *vcpu, hax_vaddr_t va, uint32_t acce
 {
     uint lvl, idx;
     void *pte_va;
-#ifdef CONFIG_HAX_EPT2
     hax_kmap_user pte_kmap;
     bool writable;
-#endif // CONFIG_HAX_EPT2
     pte32_t *pte, old_pte;
     hax_paddr_t gpt_base;
-#ifndef CONFIG_HAX_EPT2
-#ifdef HAX_ARCH_X86_32
-    hax_paddr_t g_cr3 = 0;
-    bool is_kernel = false;
-    int old_gpt_base;
-#endif
-#endif // !CONFIG_HAX_EPT2
     bool pat;
     uint64_t rights, requested_rights;
 
@@ -568,70 +559,35 @@ static uint32_t vcpu_mmu_walk(struct vcpu_t *vcpu, hax_vaddr_t va, uint32_t acce
     // Seems the following one is wrong?
     // hax_assert((mmu->guest_mode) == PM_2LVL);
 
-#ifndef CONFIG_HAX_EPT2
-#ifdef HAX_ARCH_X86_32
-    is_kernel = (va >= KERNEL_BASE) ? true : false;
-#endif
-#endif // !CONFIG_HAX_EPT2
-
 retry:
     rights = TF_WRITE | TF_USER;
     gpt_base = vcpu->state->_cr3 & pte32_get_cr3_mask();
-
-#ifndef CONFIG_HAX_EPT2
-#ifdef HAX_ARCH_X86_32
-       g_cr3 = gpt_base;
-#endif
-#endif // !CONFIG_HAX_EPT2
 
     // Page table walker.
     for (lvl = PM_2LVL; lvl--; ) {
         // Fetch the page table entry.
         idx = pte32_get_idx(lvl, va);
-#ifdef CONFIG_HAX_EPT2
         pte_va = gpa_space_map_page(&vcpu->vm->gpa_space,
                                     gpt_base >> PG_ORDER_4K, &pte_kmap,
                                     &writable);
-#else // !CONFIG_HAX_EPT2
-#ifdef HAX_ARCH_X86_32
-        pte_va = hax_map_gpfn(vcpu->vm, gpt_base >> 12, is_kernel, g_cr3, lvl);
-#else
-        pte_va = hax_map_gpfn(vcpu->vm, gpt_base >> 12);
-#endif
-#endif // CONFIG_HAX_EPT2
+
         if (!pte_va)
             return TF_FAILED;
-#ifdef CONFIG_HAX_EPT2
+
         hax_assert(!(update && !writable));
-#endif // CONFIG_HAX_EPT2
+
         pte = (pte32_t *)pte_va + idx;
         old_pte = *pte;
 
         // Check access
         if (!pte32_is_present(&old_pte)) {
-#ifdef CONFIG_HAX_EPT2
             gpa_space_unmap_page(&vcpu->vm->gpa_space, &pte_kmap);
-#else // !CONFIG_HAX_EPT2
-#ifdef HAX_ARCH_X86_32
-            hax_unmap_gpfn(vcpu->vm, pte_va, gpt_base >> 12);
-#else
-            hax_unmap_gpfn(pte_va);
-#endif
-#endif // CONFIG_HAX_EPT2
 
             return TF_FAILED | access;
         }
 
         if (pte32_check_rsvd(&old_pte, lvl)) {
-#ifdef CONFIG_HAX_EPT2
             gpa_space_unmap_page(&vcpu->vm->gpa_space, &pte_kmap);
-#else // !CONFIG_HAX_EPT2
-#ifdef HAX_ARCH_X86_32
-            hax_unmap_gpfn(vcpu->vm, pte_va, gpt_base >> 12);
-#else
-            hax_unmap_gpfn(pte_va);
-#endif
-#endif // CONFIG_HAX_EPT2
 
             return TF_FAILED | TF_PROTECT | TF_RSVD | access;
         }
@@ -648,35 +604,13 @@ retry:
                 if (!pte32_atomic_set_accessed(pte, &old_pte)) {
                     hax_log(HAX_LOGD,
                             "translate walk: atomic PTE update failed\n");
-#ifdef CONFIG_HAX_EPT2
                     gpa_space_unmap_page(&vcpu->vm->gpa_space, &pte_kmap);
-#else // !CONFIG_HAX_EPT2
-#ifdef HAX_ARCH_X86_32
-                    hax_unmap_gpfn(vcpu->vm, pte_va, gpt_base >> 12);
-#else
-                    hax_unmap_gpfn(pte_va);
-#endif
-#endif // CONFIG_HAX_EPT2
+
                     goto retry;
                 }
             }
-#ifndef CONFIG_HAX_EPT2
-#ifdef HAX_ARCH_X86_32
-            old_gpt_base = gpt_base;
-#endif
-#endif // !CONFIG_HAX_EPT2
             gpt_base = pte32_get_address(&old_pte, lvl, 0);
-#ifdef CONFIG_HAX_EPT2
             gpa_space_unmap_page(&vcpu->vm->gpa_space, &pte_kmap);
-#else // !CONFIG_HAX_EPT2
-#ifdef HAX_ARCH_X86_32
-            hax_unmap_gpfn(vcpu->vm, pte_va, old_gpt_base >> 12);
-#endif
-
-#ifdef HAX_ARCH_X86_64
-        hax_unmap_gpfn(pte_va);
-#endif // CONFIG_HAX_EPT2
-#endif
         } else {
             // Permission violations must be checked only after present bit is
             // checked at every level.
@@ -687,15 +621,8 @@ retry:
             }
 
             if ((rights & requested_rights) != requested_rights) {
-#ifdef CONFIG_HAX_EPT2
                 gpa_space_unmap_page(&vcpu->vm->gpa_space, &pte_kmap);
-#else // !CONFIG_HAX_EPT2
-#ifdef HAX_ARCH_X86_32
-                hax_unmap_gpfn(vcpu->vm, pte_va, gpt_base >> 12);
-#else
-                hax_unmap_gpfn(pte_va);
-#endif // CONFIG_HAX_EPT2
-#endif
+
                 return TF_FAILED | TF_PROTECT | access;
             }
 
@@ -706,15 +633,7 @@ retry:
                     &old_pte)) {
                     hax_log(HAX_LOGD,
                             "translate walk: atomic PTE update failed\n");
-#ifdef CONFIG_HAX_EPT2
                     gpa_space_unmap_page(&vcpu->vm->gpa_space, &pte_kmap);
-#else // !CONFIG_HAX_EPT2
-#ifdef HAX_ARCH_X86_32
-                    hax_unmap_gpfn(vcpu->vm, pte_va, gpt_base >> 12);
-#else
-                    hax_unmap_gpfn(pte_va);
-#endif
-#endif // CONFIG_HAX_EPT2
                     goto retry;
                 }
             }
@@ -767,17 +686,9 @@ retry:
                     vcpu->prefetch[i].flag = 1;
                 }
             }
-#ifdef CONFIG_HAX_EPT2
-            gpa_space_unmap_page(&vcpu->vm->gpa_space, &pte_kmap);
-#else // !CONFIG_HAX_EPT2
-#ifdef HAX_ARCH_X86_32
-            hax_unmap_gpfn(vcpu->vm, pte_va, gpt_base >> 12);
-#endif
 
-#ifdef HAX_ARCH_X86_64
-            hax_unmap_gpfn(pte_va);
-#endif
-#endif // CONFIG_HAX_EPT2
+            gpa_space_unmap_page(&vcpu->vm->gpa_space, &pte_kmap);
+
             return TF_OK;
         }
     }
@@ -813,7 +724,6 @@ bool handle_vtlb(struct vcpu_t *vcpu)
     return 1;
 }
 
-#ifdef CONFIG_HAX_EPT2
 // TODO: Move these functions to another source file (e.g. mmio.c), since they
 // are not specific to vTLB mode
 static inline void * mmio_map_guest_virtual_page_fast(struct vcpu_t *vcpu,
@@ -921,7 +831,6 @@ int mmio_fetch_instruction(struct vcpu_t *vcpu, uint64_t gva, uint8_t *buf, int 
     memcpy_s(buf, len, src_buf + offset, len);
     return 0;
 }
-#endif  // CONFIG_HAX_EPT2
 
 /*
  * Read guest-linear memory.
@@ -941,24 +850,10 @@ uint32_t vcpu_read_guest_virtual(struct vcpu_t *vcpu, hax_vaddr_t addr, void *ds
     // TBD: use guest CPL for access checks
     char *dstp = dst;
     uint32_t offset = 0;
-#ifdef CONFIG_HAX_EPT2
     int len2;
-#else // !CONFIG_HAX_EPT2
-    void *hva, *hva_base;
-#ifdef HAX_ARCH_X86_32
-    bool is_kernel = false;
-    hax_paddr_t g_cr3 = 0;
-#endif
-#endif // !CONFIG_HAX_EPT2
+
     // Flag == 1 is not currently used, but it could be enabled if useful.
     hax_assert(flag == 0 || flag == 2);
-
-#ifndef CONFIG_HAX_EPT2
-#ifdef HAX_ARCH_X86_32
-    is_kernel = addr >= KERNEL_BASE;
-    g_cr3 = vcpu->state->_cr3 & pte32_get_cr3_mask();
-#endif
-#endif // !CONFIG_HAX_EPT2
 
     while (offset < size) {
         hax_paddr_t gpa;
@@ -981,7 +876,7 @@ uint32_t vcpu_read_guest_virtual(struct vcpu_t *vcpu, hax_vaddr_t addr, void *ds
 //          hax_log(HAX_LOGI, "%s: gva=0x%llx, gpa=0x%llx, len=0x%llx\n",
 //                  __func__, addr + offset, gpa, len);
 //      }
-#ifdef CONFIG_HAX_EPT2
+
         len2 = gpa_space_read_data(&vcpu->vm->gpa_space, gpa, (int)len,
                                    (uint8_t *)(dstp + offset));
         if (len2 <= 0) {
@@ -993,25 +888,7 @@ uint32_t vcpu_read_guest_virtual(struct vcpu_t *vcpu, hax_vaddr_t addr, void *ds
         } else {
             len = (uint64_t)len2;
         }
-#else // !CONFIG_HAX_EPT2
-#ifdef HAX_ARCH_X86_32
-        hva_base = hax_map_gpfn(vcpu->vm, gpa >> 12, is_kernel, g_cr3, 0);
-#else
-        hva_base = hax_map_gpfn(vcpu->vm, gpa >> 12);
-#endif
-        if (hva_base) {
-            hva = (uint8_t *)hva_base + (gpa & 0xfff);
-            memcpy_s((void *)(dstp + offset), dst_buflen - offset , hva, len);
-        } else {
-            vcpu_set_panic(vcpu);
-            hax_log(HAX_LOGPANIC, "BUG_ON during the call:%s\n", __FUNCTION__);
-        }
-#ifdef HAX_ARCH_X86_32
-        hax_unmap_gpfn(vcpu->vm, hva_base, gpa >> 12);
-#else
-        hax_unmap_gpfn(hva_base);
-#endif
-#endif //CONFIG_HAX_EPT2
+
         offset += len;
     }
 
@@ -1037,24 +914,9 @@ uint32_t vcpu_write_guest_virtual(struct vcpu_t *vcpu, hax_vaddr_t addr,
     // TODO: use guest CPL for access checks
     const char *srcp = src;
     uint32_t offset = 0;
-#ifdef CONFIG_HAX_EPT2
     int len2;
-#else // !CONFIG_HAX_EPT2
-    void *hva, *hva_base;
-#ifdef HAX_ARCH_X86_32
-    bool is_kernel = false;
-    hax_paddr_t g_cr3 = 0;
-#endif
-#endif // !CONFIG_HAX_EPT2
+
     hax_assert(flag == 0 || flag == 1);
-
-#ifndef CONFIG_HAX_EPT2
-#ifdef HAX_ARCH_X86_32
-    is_kernel = addr >= KERNEL_BASE;
-    g_cr3 = vcpu->state->_cr3 & pte32_get_cr3_mask();
-#endif
-#endif // !CONFIG_HAX_EPT2
-
     hax_assert(dst_buflen >= size);
 
     while (offset < size) {
@@ -1076,7 +938,7 @@ uint32_t vcpu_write_guest_virtual(struct vcpu_t *vcpu, hax_vaddr_t addr,
             hax_inject_page_fault(vcpu, r & 0x1f);
             return false;
         }
-#ifdef CONFIG_HAX_EPT2
+
         len2 = (uint64_t)gpa_space_write_data(&vcpu->vm->gpa_space, gpa, len,
                                             (uint8_t *)(srcp + offset));
         if (len2 <= 0) {
@@ -1088,25 +950,7 @@ uint32_t vcpu_write_guest_virtual(struct vcpu_t *vcpu, hax_vaddr_t addr,
         } else {
             len = len2;
         }
-#else // !CONFIG_HAX_EPT2
-#ifdef HAX_ARCH_X86_32
-        hva_base = hax_map_gpfn(vcpu->vm, gpa >> 12, is_kernel, g_cr3, 0);
-#else
-        hva_base = hax_map_gpfn(vcpu->vm, gpa >> 12);
-#endif
-        if (hva_base) {
-            hva = (uint8_t *)hva_base + (gpa & 0xfff);
-            memcpy_s(hva, dst_buflen - offset , (void *)(srcp + offset), len);
-        } else {
-            vcpu_set_panic(vcpu);
-            hax_log(HAX_LOGPANIC, "BUG_ON during the call:%s\n", __FUNCTION__);
-        }
-#ifdef HAX_ARCH_X86_32
-        hax_unmap_gpfn(vcpu->vm, hva_base, gpa >> 12);
-#else
-        hax_unmap_gpfn(hva_base);
-#endif
-#endif // CONFIG_HAX_EPT2
+
         offset += len;
     }
 

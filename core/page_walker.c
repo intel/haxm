@@ -582,17 +582,10 @@ uint32_t pw_perform_page_walk(
     PW_PAGE_ENTRY *pml4te_ptr, *pdpte_ptr, *pde_ptr, *pte_ptr = NULL;
     PW_PAGE_ENTRY pml4te_val, pdpte_val, pde_val, pte_val;
     void *pml4t_hva, *pdpt_hva, *pd_hva, *pt_hva;
-#ifdef CONFIG_HAX_EPT2
     hax_kmap_user pml4t_kmap, pdpt_kmap, pd_kmap, pt_kmap;
-#endif // CONFIG_HAX_EPT2
     uint64_t pml4t_gpa, pdpt_gpa, pd_gpa, pt_gpa;
     uint32_t pml4te_index, pdpte_index, pde_index, pte_index;
     bool is_write, is_user;
-#ifndef CONFIG_HAX_EPT2
-#ifdef HAX_ARCH_X86_32
-    bool is_kernel;
-#endif
-#endif // !CONFIG_HAX_EPT2
 
     pml4te_ptr = pdpte_ptr = pde_ptr = NULL;
     pml4t_hva = pdpt_hva = pd_hva = pt_hva = NULL;
@@ -604,11 +597,6 @@ uint32_t pw_perform_page_walk(
 
     is_write = access & TF_WRITE;
     is_user  = access & TF_USER;
-#ifndef CONFIG_HAX_EPT2
-#ifdef HAX_ARCH_X86_32
-    is_kernel = (virt_addr >= KERNEL_BASE) ? true : false;
-#endif
-#endif // !CONFIG_HAX_EPT2
 
     pw_retrieve_indices(virt_addr, is_pae, is_lme, &pml4te_index, &pdpte_index,
                         &pde_index, &pte_index);
@@ -620,18 +608,10 @@ uint32_t pw_perform_page_walk(
 
         if (is_lme) {
             pml4t_gpa = first_table;
-#ifdef CONFIG_HAX_EPT2
             pml4t_hva = gpa_space_map_page(&vcpu->vm->gpa_space,
                                            pml4t_gpa >> PG_ORDER_4K,
                                            &pml4t_kmap, NULL);
-#else // !CONFIG_HAX_EPT2
-#ifdef HAX_ARCH_X86_32
-            pml4t_hva = hax_map_gpfn(vcpu->vm, pml4t_gpa >> 12, is_kernel, cr3,
-                                     1);
-#else
-            pml4t_hva = hax_map_gpfn(vcpu->vm, pml4t_gpa >> 12);
-#endif
-#endif // CONFIG_HAX_EPT2
+
             if (pml4t_hva == NULL) {
                 retval = TF_FAILED;
                 goto out;
@@ -656,17 +636,10 @@ uint32_t pw_perform_page_walk(
             pdpt_gpa = first_table;
         }
 
-#ifdef CONFIG_HAX_EPT2
         pdpt_page_hva = gpa_space_map_page(&vcpu->vm->gpa_space,
                                            pdpt_gpa >> PG_ORDER_4K,
                                            &pdpt_kmap, NULL);
-#else // !CONFIG_HAX_EPT2
-#ifdef HAX_ARCH_X86_32
-        pdpt_page_hva = hax_map_gpfn(vcpu->vm, pdpt_gpa >> 12, is_kernel, cr3, 1);
-#else
-        pdpt_page_hva = hax_map_gpfn(vcpu->vm, pdpt_gpa >> 12);
-#endif
-#endif // CONFIG_HAX_EPT2
+
         if (pdpt_page_hva == NULL) {
             retval = TF_FAILED;
             goto out;
@@ -735,16 +708,9 @@ uint32_t pw_perform_page_walk(
     }
 
     pd_gpa = is_pae ? pw_retrieve_phys_addr(&pdpte_val, is_pae) : first_table;
-#ifdef CONFIG_HAX_EPT2
     pd_hva = gpa_space_map_page(&vcpu->vm->gpa_space, pd_gpa >> PG_ORDER_4K,
                                 &pd_kmap, NULL);
-#else // !CONFIG_HAX_EPT2
-#ifdef HAX_ARCH_X86_32
-    pd_hva = hax_map_gpfn(vcpu->vm, pd_gpa >> 12, is_kernel, cr3, 2);
-#else
-    pd_hva = hax_map_gpfn(vcpu->vm, pd_gpa >> 12);
-#endif
-#endif // CONFIG_HAX_EPT2
+
     if (pd_hva == NULL) {
         retval = TF_FAILED;
         goto out;
@@ -813,16 +779,9 @@ uint32_t pw_perform_page_walk(
     // 4KB page size
     *order = PG_ORDER_4K;
     pt_gpa = pw_retrieve_phys_addr(&pde_val, is_pae);
-#ifdef CONFIG_HAX_EPT2
     pt_hva = gpa_space_map_page(&vcpu->vm->gpa_space, pt_gpa >> 12, &pt_kmap,
                                 NULL);
-#else // !CONFIG_HAX_EPT2
-#ifdef HAX_ARCH_X86_32
-    pt_hva = hax_map_gpfn(vcpu->vm, pt_gpa >> 12, is_kernel, cr3, 1);
-#else
-    pt_hva = hax_map_gpfn(vcpu->vm, pt_gpa >> 12);
-#endif
-#endif // CONFIG_HAX_EPT2
+
     if (pt_hva == NULL) {
         retval = TF_FAILED;
         goto out;
@@ -876,37 +835,18 @@ uint32_t pw_perform_page_walk(
     // page walk succeeded
 
 out:
-#ifdef CONFIG_HAX_EPT2
-    if (pml4t_hva != NULL)
+    if (pml4t_hva != NULL) {
         gpa_space_unmap_page(&vcpu->vm->gpa_space, &pml4t_kmap);
-    if (pdpt_hva  != NULL)
+    }
+    if (pdpt_hva != NULL) {
         gpa_space_unmap_page(&vcpu->vm->gpa_space, &pdpt_kmap);
-    if (pd_hva    != NULL)
+    }
+    if (pd_hva != NULL) {
         gpa_space_unmap_page(&vcpu->vm->gpa_space, &pd_kmap);
-    if (pt_hva    != NULL)
+    }
+    if (pt_hva != NULL) {
         gpa_space_unmap_page(&vcpu->vm->gpa_space, &pt_kmap);
-#else // !CONFIG_HAX_EPT2
-#ifdef HAX_ARCH_X86_32
-    if (pml4t_hva != NULL)
-        hax_unmap_gpfn(vcpu->vm, pml4t_hva, pml4t_gpa >> 12);
-    if (pdpt_hva  != NULL)
-        hax_unmap_gpfn(vcpu->vm, pdpt_hva, pdpt_gpa >> 12);
-    if (pd_hva    != NULL)
-        hax_unmap_gpfn(vcpu->vm, pd_hva, pd_gpa >> 12);
-    if (pt_hva    != NULL)
-        hax_unmap_gpfn(vcpu->vm, pt_hva, pt_gpa >> 12);
-#else
-    if (pml4t_hva != NULL)
-        hax_unmap_gpfn(pml4t_hva);
-    if (pdpt_hva  != NULL)
-        hax_unmap_gpfn(pdpt_hva);
-    if (pd_hva    != NULL)
-        hax_unmap_gpfn(pd_hva);
-    if (pt_hva    != NULL)
-        hax_unmap_gpfn(pt_hva);
-#endif
-#endif // CONFIG_HAX_EPT2
-
+    }
     if (gpa_out != NULL) {
         *gpa_out = gpa;
     }
