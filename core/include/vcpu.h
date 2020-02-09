@@ -237,6 +237,8 @@ struct vcpu_t {
 #ifdef CONFIG_HAX_EPT2
     struct mmio_fetch_cache mmio_fetch;
 #endif  // CONFIG_HAX_EPT2
+
+    uint32_t user_excbmp;
 };
 
 #define vmx(v, field) v->vmx.field
@@ -263,6 +265,7 @@ int vcpu_put_fpu(struct vcpu_t *vcpu, struct fx_layout *fl);
 int vcpu_get_msr(struct vcpu_t *vcpu, uint64_t entry, uint64_t *val);
 int vcpu_put_msr(struct vcpu_t *vcpu, uint64_t entry, uint64_t val);
 void vcpu_debug(struct vcpu_t *vcpu, struct hax_debug_t *debug);
+void vcpu_setexcbmp(struct vcpu_t *vcpu, uint32_t excbmp);
 
 /* The declaration for OS wrapper code */
 int hax_vcpu_destroy_host(struct vcpu_t *cvcpu, void *vcpu_host);

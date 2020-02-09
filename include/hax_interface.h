@@ -153,6 +153,9 @@ struct hax_tunnel {
             uint64_t dr6;
             uint64_t dr7;
         } debug;
+        struct {
+            uint32_t exit_intr_info;
+        } nmi;
     };
     uint64_t apic_base;
 } PACKED;

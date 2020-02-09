@@ -111,7 +111,8 @@ enum exit_status {
     HAX_EXIT_PAUSED,
     HAX_EXIT_FAST_MMIO,
     HAX_EXIT_PAGEFAULT,
-    HAX_EXIT_DEBUG
+    HAX_EXIT_DEBUG,
+    HAX_EXIT_NMI
 };
 
 enum run_flag {
