@@ -111,7 +111,6 @@ uint32_t vcpu_write_guest_virtual(struct vcpu_t *vcpu, hax_vaddr_t addr,
                                 uint32_t dst_buflen, const void *src, uint32_t size,
                                 uint flag);
 
-#ifdef CONFIG_HAX_EPT2
 /*
  * Reads the given number of bytes from guest RAM (using a GVA) into the given
  * buffer. This function is supposed to be called by the MMIO handler to obtain
@@ -128,7 +127,6 @@ uint32_t vcpu_write_guest_virtual(struct vcpu_t *vcpu, hax_vaddr_t addr,
  */
 int mmio_fetch_instruction(struct vcpu_t *vcpu, uint64_t gva, uint8_t *buf,
                            int len);
-#endif  // CONFIG_HAX_EPT2
 
 void hax_inject_page_fault(struct vcpu_t *vcpu, mword error_code);
 

@@ -552,7 +552,6 @@ NTSTATUS HaxVmControl(PDEVICE_OBJECT DeviceObject, struct hax_vm_windows *ext,
             }
             break;
         }
-#ifdef CONFIG_HAX_EPT2
         case HAX_VM_IOCTL_SET_RAM2: {
             struct hax_set_ram_info2 *info;
             int res;
@@ -601,7 +600,6 @@ NTSTATUS HaxVmControl(PDEVICE_OBJECT DeviceObject, struct hax_vm_windows *ext,
             }
             break;
         }
-#endif
         case HAX_VM_IOCTL_NOTIFY_QEMU_VERSION: {
             struct hax_qemu_version *info;
 

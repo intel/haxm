@@ -147,30 +147,8 @@ extern "C" int hax_clear_vcpumem(struct hax_vcpu_mem *mem)
     return 0;
 }
 
-extern "C" uint64_t get_hpfn_from_pmem(struct hax_vcpu_mem *pmem, uint64_t va)
-{
-    uint64_t phys;
-    uint64_t length;
-    struct darwin_vcpu_mem *hinfo;
-
-    if (!pmem || !pmem->hinfo)
-        return 0;
-    if (!in_pmem_range(pmem, va))
-        return 0;
-
-    hinfo = (struct darwin_vcpu_mem *)pmem->hinfo;
-    phys = hinfo->md->getPhysicalSegment((va - pmem->uva),
-                                         (IOByteCount *)&length,
-                                         kIOMemoryMapperNone);
-    return phys >> page_shift;
-}
-
 /* In darwin, we depend on boot code to set the limit */
 extern "C" uint64_t hax_get_memory_threshold(void) {
-#ifdef CONFIG_HAX_EPT2
     // Since there is no memory cap, just return a sufficiently large value
     return 1ULL << 48;  // PHYSADDR_MAX + 1
-#else  // !CONFIG_HAX_EPT2
-    return 0;
-#endif  // CONFIG_HAX_EPT2
 }

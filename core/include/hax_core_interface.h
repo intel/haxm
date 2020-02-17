@@ -54,12 +54,9 @@ struct hax_tunnel * get_vcpu_tunnel(struct vcpu_t *vcpu);
 int hax_vcpu_destroy_hax_tunnel(struct vcpu_t *cv);
 int hax_vcpu_setup_hax_tunnel(struct vcpu_t *cv, struct hax_tunnel_info *info);
 int hax_vm_set_ram(struct vm_t *vm, struct hax_set_ram_info *info);
-#ifdef CONFIG_HAX_EPT2
 int hax_vm_set_ram2(struct vm_t *vm, struct hax_set_ram_info2 *info);
 int hax_vm_protect_ram(struct vm_t *vm, struct hax_protect_ram_info *info);
-#endif
 int hax_vm_free_all_ram(struct vm_t *vm);
-int in_pmem_range(struct hax_vcpu_mem *pmem, uint64_t va);
 int hax_vm_add_ramblock(struct vm_t *vm, uint64_t start_uva, uint64_t size);
 
 void * get_vm_host(struct vm_t *vm);

@@ -528,11 +528,9 @@ static int _vcpu_teardown(struct vcpu_t *vcpu)
 {
     int vcpu_id = vcpu->vcpu_id;
 
-#ifdef CONFIG_HAX_EPT2
     if (vcpu->mmio_fetch.kva) {
         gpa_space_unmap_page(&vcpu->vm->gpa_space, &vcpu->mmio_fetch.kmap);
     }
-#endif  // CONFIG_HAX_EPT2
 
     // TODO: we should call invvpid after calling vcpu_vpid_free().
     vcpu_vpid_free(vcpu);
@@ -1898,7 +1896,6 @@ static int vcpu_prepare_pae_pdpt(struct vcpu_t *vcpu)
 {
     uint64_t cr3 = vcpu->state->_cr3;
     int pdpt_size = (int)sizeof(vcpu->pae_pdptes);
-#ifdef CONFIG_HAX_EPT2
     // CR3 is the GPA of the page-directory-pointer table. According to IASDM
     // Vol. 3A 4.4.1, Table 4-7, bits 63..32 and 4..0 of this GPA are ignored.
     uint64_t gpa = cr3 & 0xffffffe0;
@@ -1919,29 +1916,6 @@ static int vcpu_prepare_pae_pdpt(struct vcpu_t *vcpu)
     }
     vcpu->pae_pdpt_dirty = 1;
     return 0;
-#else // !CONFIG_HAX_EPT2
-    uint64_t gpfn = (cr3 & 0xfffff000) >> PG_ORDER_4K;
-    uint8_t *buf, *pdpt;
-#ifdef HAX_ARCH_X86_64
-    buf = hax_map_gpfn(vcpu->vm, gpfn);
-#else  // !HAX_ARCH_X86_64, i.e. HAX_ARCH_X86_32
-    buf = hax_map_gpfn(vcpu->vm, gpfn, false, cr3 & 0xfffff000, 1);
-#endif  // HAX_ARCH_X86_64
-    if (!buf) {
-        hax_log(HAX_LOGE, "%s: Failed to map guest page frame containing PAE "
-                "PDPT: cr3=0x%llx\n",  __func__, cr3);
-        return -ENOMEM;
-    }
-    pdpt = buf + (cr3 & 0xfe0);
-    memcpy_s(vcpu->pae_pdptes, pdpt_size, pdpt, pdpt_size);
-#ifdef HAX_ARCH_X86_64
-    hax_unmap_gpfn(buf);
-#else  // !HAX_ARCH_X86_64, i.e. HAX_ARCH_X86_32
-    hax_unmap_gpfn(vcpu->vm, buf, gpfn);
-#endif  // HAX_ARCH_X86_64
-    vcpu->pae_pdpt_dirty = 1;
-    return 0;
-#endif  // CONFIG_HAX_EPT2
 }
 
 static void vmwrite_cr(struct vcpu_t *vcpu)
@@ -2009,10 +1983,6 @@ static void vmwrite_cr(struct vcpu_t *vcpu)
         vmwrite(vcpu, GUEST_CR3, vtlb_get_cr3(vcpu));
         state->_efer = 0;
     } else {  // EPTE
-#ifndef CONFIG_HAX_EPT2
-        struct hax_ept *ept = vcpu->vm->ept;
-        ept->is_enabled = 1;
-#endif  // !CONFIG_HAX_EPT2
         vcpu->mmu->mmu_mode = MMU_MODE_EPT;
         // In EPT mode, we need to monitor guest writes to CR.PAE, so that we
         // know when it wants to enter PAE paging mode (see IASDM Vol. 3A 4.1.2,
@@ -2148,15 +2118,11 @@ static bool is_mmio_address(struct vcpu_t *vcpu, hax_paddr_t gpa)
         hpa = hax_gpfn_to_hpa(vcpu->vm, gpa >> HAX_PAGE_SHIFT);
         // hax_gpfn_to_hpa() assumes hpa == 0 is invalid
         return !hpa;
-    } else {
-#ifdef CONFIG_HAX_EPT2
-        hax_memslot *slot = memslot_find(&vcpu->vm->gpa_space,
-                                         gpa >> PG_ORDER_4K);
-        return !slot;
-#else  // !CONFIG_HAX_EPT2
-        return !ept_translate(vcpu, gpa, PG_ORDER_4K, &hpa);
-#endif  // CONFIG_HAX_EPT2
     }
+
+    hax_memslot *slot = memslot_find(&vcpu->vm->gpa_space, gpa >> PG_ORDER_4K);
+
+    return !slot;
 }
 
 static int vcpu_emulate_insn(struct vcpu_t *vcpu)
@@ -2187,7 +2153,6 @@ static int vcpu_emulate_insn(struct vcpu_t *vcpu)
     // Fetch the instruction at guest CS:IP = CS.Base + IP, omitting segment
     // limit and privilege checks
     va = (mode == EM_MODE_PROT64) ? rip : cs_base + rip;
-#ifdef CONFIG_HAX_EPT2
     if (mmio_fetch_instruction(vcpu, va, instr, INSTR_MAX_LEN)) {
         vcpu_set_panic(vcpu);
         hax_log(HAX_LOGPANIC, "%s: mmio_fetch_instruction() failed: vcpu_id=%u,"
@@ -2196,16 +2161,6 @@ static int vcpu_emulate_insn(struct vcpu_t *vcpu)
         dump_vmcs(vcpu);
         return -1;
     }
-#else  // !CONFIG_HAX_EPT2
-    if (!vcpu_read_guest_virtual(vcpu, va, &instr, INSTR_MAX_LEN, INSTR_MAX_LEN,
-                                 0)) {
-        vcpu_set_panic(vcpu);
-        hax_log(HAX_LOGPANIC, "Error reading instruction at 0x%llx for decoding"
-                " (CS:IP=0x%llx:0x%llx)\n", va, cs_base, rip);
-        dump_vmcs(vcpu);
-        return -1;
-    }
-#endif  // CONFIG_HAX_EPT2
 
     em_ctxt->rip = rip;
     rc = em_decode_insn(em_ctxt, instr);
@@ -3831,12 +3786,9 @@ static int exit_ept_misconfiguration(struct vcpu_t *vcpu,
                                      struct hax_tunnel *htun)
 {
     hax_paddr_t gpa;
-#ifdef CONFIG_HAX_EPT2
     int ret;
-#endif  // CONFIG_HAX_EPT2
 
     htun->_exit_reason = vmx(vcpu, exit_reason).basic_reason;
-#ifdef CONFIG_HAX_EPT2
     gpa = vmx(vcpu, exit_gpa);
     ret = ept_handle_misconfiguration(&vcpu->vm->gpa_space, &vcpu->vm->ept_tree,
                                       gpa);
@@ -3844,7 +3796,6 @@ static int exit_ept_misconfiguration(struct vcpu_t *vcpu,
         // The misconfigured entries have been fixed
         return HAX_RESUME;
     }
-#endif  // CONFIG_HAX_EPT2
 
     vcpu_set_panic(vcpu);
     hax_log(HAX_LOGPANIC, "%s: Unexpected EPT misconfiguration: gpa=0x%llx\n",
@@ -3858,9 +3809,7 @@ static int exit_ept_violation(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     exit_qualification_t *qual = &vmx(vcpu, exit_qualification);
     hax_paddr_t gpa;
     int ret = 0;
-#ifdef CONFIG_HAX_EPT2
     uint64_t fault_gfn;
-#endif
 
     htun->_exit_reason = vmx(vcpu, exit_reason).basic_reason;
 
@@ -3873,7 +3822,6 @@ static int exit_ept_violation(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 
     gpa = vmx(vcpu, exit_gpa);
 
-#ifdef CONFIG_HAX_EPT2
     ret = ept_handle_access_violation(&vcpu->vm->gpa_space, &vcpu->vm->ept_tree,
                                       *qual, gpa, &fault_gfn);
     if (ret == -EFAULT) {
@@ -3912,7 +3860,7 @@ static int exit_ept_violation(struct vcpu_t *vcpu, struct hax_tunnel *htun)
         return HAX_RESUME;
     }
     // ret == 0: The EPT violation is due to MMIO
-#endif
+
     return vcpu_emulate_insn(vcpu);
 }
 

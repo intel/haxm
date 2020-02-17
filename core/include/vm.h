@@ -36,10 +36,8 @@
 #include "vcpu.h"
 #include "../../include/hax.h"
 
-#ifdef CONFIG_HAX_EPT2
 #include "memory.h"
 #include "ept2.h"
-#endif  // CONFIG_HAX_EPT2
 
 #define KERNEL_BASE                    0xC0000000
 
@@ -71,13 +69,10 @@ struct vm_t {
     hax_list_head vcpu_list;
     uint16_t bsp_vcpu_id;
     void *vm_host;
-    struct hax_ept *ept;
     void *p2m_map[MAX_GMEM_G];
-#ifdef CONFIG_HAX_EPT2
     hax_gpa_space gpa_space;
     hax_ept_tree ept_tree;
     hax_gpa_space_listener gpa_space_listener;
-#endif  // CONFIG_HAX_EPT2
 #ifdef HAX_ARCH_X86_32
     uint64_t hva_limit;
     uint64_t hva_index;
@@ -125,19 +120,6 @@ enum run_flag {
 
 uint64_t hax_gpfn_to_hpa(struct vm_t *vm, uint64_t gpfn);
 
-#ifndef CONFIG_HAX_EPT2
-#ifdef HAX_ARCH_X86_32
-void * hax_map_gpfn(struct vm_t *vm, uint64_t gpfn, bool flag, hax_paddr_t cr3_cur,
-                    uint8_t level);
-void hax_unmap_gpfn(struct vm_t *vm, void *va, uint64_t gpfn);
-#else
-void * hax_map_gpfn(struct vm_t *vm, uint64_t gpfn);
-void hax_unmap_gpfn(void *va);
-#endif
-#endif // !CONFIG_HAX_EPT2
-
-int hax_core_set_p2m(struct vm_t *vm, uint64_t gpfn, uint64_t hpfn, uint64_t hva,
-                     uint8_t flags);
 struct vm_t *hax_create_vm(int *vm_id);
 int hax_teardown_vm(struct vm_t *vm);
 

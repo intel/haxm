@@ -182,7 +182,6 @@ int hax_vm_ioctl(dev_t self __unused, u_long cmd, void *data, int flag,
         ret = hax_vm_set_ram(cvm, info);
         break;
     }
-#ifdef CONFIG_HAX_EPT2
     case HAX_VM_IOCTL_SET_RAM2: {
         struct hax_set_ram_info2 *info;
         info = (struct hax_set_ram_info2 *)data;
@@ -208,7 +207,6 @@ int hax_vm_ioctl(dev_t self __unused, u_long cmd, void *data, int flag,
         ret = hax_vm_protect_ram(cvm, info);
         break;
     }
-#endif
     case HAX_VM_IOCTL_NOTIFY_QEMU_VERSION: {
         struct hax_qemu_version *info;
         info = (struct hax_qemu_version *)data;

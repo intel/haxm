@@ -368,10 +368,8 @@ int hax_get_capability(void *buf, int bufLeng, int *outLength)
         // Fast MMIO supported since API version 2
         cap->winfo = HAX_CAP_FASTMMIO;
         cap->winfo |= HAX_CAP_64BIT_RAMBLOCK;
-#ifdef CONFIG_HAX_EPT2
         cap->winfo |= HAX_CAP_64BIT_SETRAM;
         cap->winfo |= HAX_CAP_IMPLICIT_RAMBLOCK;
-#endif
         cap->winfo |= HAX_CAP_TUNNEL_PAGE;
         cap->winfo |= HAX_CAP_RAM_PROTECTION;
         cap->winfo |= HAX_CAP_DEBUG;

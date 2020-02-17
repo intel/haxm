@@ -132,7 +132,6 @@ struct vcpu_post_mmio {
     uint64_t value;
 };
 
-#ifdef CONFIG_HAX_EPT2
 struct mmio_fetch_cache {
     uint64_t last_gva;
     uint64_t last_guest_cr3;
@@ -140,7 +139,6 @@ struct mmio_fetch_cache {
     hax_kmap_user kmap;
     int hit_count;
 };
-#endif  // CONFIG_HAX_EPT2
 
 #define IOS_MAX_BUFFER 64
 
@@ -234,9 +232,7 @@ struct vcpu_t {
 
     struct em_context_t emulate_ctxt;
     struct vcpu_post_mmio post_mmio;
-#ifdef CONFIG_HAX_EPT2
     struct mmio_fetch_cache mmio_fetch;
-#endif  // CONFIG_HAX_EPT2
 };
 
 #define vmx(v, field) v->vmx.field

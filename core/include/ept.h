@@ -33,133 +33,6 @@
 
 #include "../../include/hax_types.h"
 #include "vm.h"
-#include "vcpu.h"
-
-/*
- * Structure for an EPT entry
- */
-
-/*
- * Note:
- * (1) Bit large_page must be 1 if this is used for 2MB page PDE.
- * (2) Do not use accessed/dirty bits for other purpose.
- */
-
-typedef struct epte {
-    union {
-        uint64_t val;
-        struct {
-            uint64_t perm       : 3;
-            uint64_t emt        : 3;
-            uint64_t ignore_pat : 1;
-            uint64_t large_page : 1;
-            uint64_t accessed   : 1;
-            uint64_t dirty      : 1;
-            uint64_t dont_use   : 2;
-            uint64_t addr       : 45;
-            uint64_t rsvd       : 5;
-            uint64_t avail1     : 2;
-        };
-    };
-} epte_t;
-
-#define EMT_UC    0
-#define EMT_WB    6
-#define EMT_NONE  0
-
-#define EPT_ENTRY 512
-
-/* 4 bits are avaiable for software use. */
-#define EPT_TYPE_NONE  0
-#define EPT_TYPE_MEM   0x1
-#define EPT_TYPE_MMIO  0x2
-#define EPT_TYPE_ROM   0x3
-#define EPT_TYPE_RSVD  0x4
-
-static inline bool epte_is_present(epte_t *entry)
-{
-    return !!entry->perm;
-}
-
-static inline hax_paddr_t epte_get_address(epte_t *entry)
-{
-    return (entry->addr << 12);
-}
-
-static inline uint epte_get_perm(epte_t *entry)
-{
-    return (uint)entry->perm;
-}
-
-static inline uint epte_get_emt(epte_t *entry)
-{
-    return (uint)entry->emt;
-}
-
-static void epte_set_entry(epte_t *entry, hax_paddr_t addr, uint perm, uint emt)
-{
-    entry->val = 0;
-    entry->addr = addr >> 12;
-    entry->perm = perm;
-    entry->emt = emt;
-}
-
-static inline void epte_set_emt(epte_t *entry, uint emt)
-{
-    entry->emt = emt;
-}
-
-static inline uint ept_get_pde_idx(hax_paddr_t gpa)
-{
-    return ((gpa >> 21) & 0x1ff);
-}
-
-static inline uint ept_get_pte_idx(hax_paddr_t gpa)
-{
-    return ((gpa >> 12) & 0x1ff);
-}
-
-/* FIXME: Only support 4-level EPT page table. */
-#define EPT_DEFAULT_GAW 3
-
-/* Support up to 14G memory for the guest */
-#define EPT_PRE_ALLOC_PAGES 16
-
-/* Two pages used to build up to 2-level table */
-#define EPT_MAX_MEM_G MAX_GMEM_G
-
-#define EPT_PRE_ALLOC_PG_ORDER 4
-/* 2 ^ EPT_PRE_ALLOC_PG_ORDER = EPT_PRE_ALLOC_PAGES */
-
-typedef struct eptp {
-    union {
-        uint64_t val;
-        struct {
-            uint64_t emt    :  3;
-            uint64_t gaw    :  3;
-            uint64_t rsvd1  :  6;
-            uint64_t asr    : 48;
-            uint64_t rsvd2  :  4;
-        };
-    };
-} eptp_t;
-
-#define INVALID_EPTP ~(uint64_t)0
-
-struct hax_ept {
-    bool is_enabled;
-    struct hax_link_list ept_page_list;
-    struct hax_page *ept_root_page;
-    struct eptp eptp;
-};
-
-static void construct_eptp(eptp_t *entry, hax_paddr_t hpa, uint emt)
-{
-    entry->val = 0;
-    entry->emt = emt;
-    entry->asr = hpa >> 12;
-    entry->gaw = EPT_DEFAULT_GAW;
-};
 
 #define ept_cap_rwX             ((uint64_t)1 << 0)
 #define ept_cap_rWx             ((uint64_t)1 << 1)
@@ -192,22 +65,15 @@ static void construct_eptp(eptp_t *entry, hax_paddr_t hpa, uint emt)
 #define ept_cap_invvpid_ac      ((uint64_t)1 << 42)
 #define ept_cap_invvpid_cwpg    ((uint64_t)1 << 43)
 
+#define INVALID_EPTP            ((uint64_t)~0ULL)
+
 #define EPT_UNSUPPORTED_FEATURES \
         (ept_cap_sp2M | ept_cap_sp1G | ept_cap_sp512G | ept_cap_sp256T)
 
 #define EPT_INVEPT_SINGLE_CONTEXT 1
 #define EPT_INVEPT_ALL_CONTEXT    2
 
-bool ept_init(hax_vm_t *hax_vm);
-void ept_free(hax_vm_t *hax_vm);
-
-uint64_t vcpu_get_eptp(struct vcpu_t *vcpu);
-bool ept_set_pte(hax_vm_t *hax_vm, hax_paddr_t gpa, hax_paddr_t hpa, uint emt,
-                 uint mem_type, bool *is_modified);
 void invept(hax_vm_t *hax_vm, uint type);
 bool ept_set_caps(uint64_t caps);
-
-/* Deprecated API due to low performance */
-bool ept_translate(struct vcpu_t *vcpu, hax_paddr_t gpa, uint order, hax_paddr_t *hpa);
 
 #endif  // HAX_CORE_EPT_H_

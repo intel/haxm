@@ -411,7 +411,6 @@ static int hax_vm_ioctl(dev_t dev, ulong cmd, caddr_t data, int flag,
             ret = hax_vm_set_ram(cvm, info);
             break;
         }
-#ifdef CONFIG_HAX_EPT2
         case HAX_VM_IOCTL_SET_RAM2: {
             struct hax_set_ram_info2 *info;
             info = (struct hax_set_ram_info2 *)data;
@@ -437,7 +436,6 @@ static int hax_vm_ioctl(dev_t dev, ulong cmd, caddr_t data, int flag,
             ret = hax_vm_protect_ram(cvm, info);
             break;
         }
-#endif
         case HAX_VM_IOCTL_NOTIFY_QEMU_VERSION: {
             int pid;
             char task_name[TASK_NAME_LEN];
