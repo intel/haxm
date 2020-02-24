@@ -3964,6 +3964,13 @@ static int _copy_desc(segment_desc_t *old, segment_desc_t *new)
     return flags;
 }
 
+int vcpu_get_state_size(struct vcpu_t *vcpu)
+{
+    if (vcpu->vm->features & VM_FEATURES_CR8)
+        return sizeof(struct vcpu_state_t);
+    return offsetof(struct vcpu_state_t, _cr8);
+}
+
 int vcpu_get_regs(struct vcpu_t *vcpu, struct vcpu_state_t *ustate)
 {
     struct vcpu_state_t *state = vcpu->state;
@@ -3998,6 +4005,9 @@ int vcpu_get_regs(struct vcpu_t *vcpu, struct vcpu_state_t *ustate)
     _copy_desc(&state->_tr, &ustate->_tr);
     _copy_desc(&state->_gdt, &ustate->_gdt);
     _copy_desc(&state->_idt, &ustate->_idt);
+
+    if (vcpu->vm->features & VM_FEATURES_CR8)
+        ustate->_cr8 = state->_cr8;
 
     return 0;
 }
@@ -4123,6 +4133,9 @@ int vcpu_set_regs(struct vcpu_t *vcpu, struct vcpu_state_t *ustate)
     if (_copy_desc(&ustate->_idt, &state->_idt)) {
         VMWRITE_DESC(vcpu, IDTR, state->_idt);
     }
+
+    if (vcpu->vm->features & VM_FEATURES_CR8)
+        state->_cr8 = ustate->_cr8;
 
     if ((vmcs_err = put_vmcs(vcpu, &flags))) {
         vcpu_set_panic(vcpu);

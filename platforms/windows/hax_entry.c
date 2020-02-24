@@ -387,7 +387,7 @@ NTSTATUS HaxVcpuControl(PDEVICE_OBJECT DeviceObject,
         }
         case HAX_VCPU_SET_REGS: {
             struct vcpu_state_t *vc_state;
-            if(inBufLength < sizeof(struct vcpu_state_t)) {
+            if (inBufLength < vcpu_get_state_size(cvcpu)) {
                 ret = STATUS_INVALID_PARAMETER;
                 goto done;
             }
@@ -398,7 +398,8 @@ NTSTATUS HaxVcpuControl(PDEVICE_OBJECT DeviceObject,
         }
         case HAX_VCPU_GET_REGS: {
             struct vcpu_state_t *vc_state;
-            if(outBufLength < sizeof(struct vcpu_state_t)) {
+            infret = vcpu_get_state_size(cvcpu);
+            if (outBufLength < infret) {
                 ret = STATUS_INVALID_PARAMETER;
                 goto done;
 
@@ -406,7 +407,6 @@ NTSTATUS HaxVcpuControl(PDEVICE_OBJECT DeviceObject,
             vc_state = (struct vcpu_state_t *)outBuf;
             // vcpu_get_regs() cannot fail
             vcpu_get_regs(cvcpu, vc_state);
-            infret = sizeof(struct vcpu_state_t);
             break;
         }
         case HAX_VCPU_IOCTL_INTERRUPT: {
