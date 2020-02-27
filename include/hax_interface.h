@@ -194,6 +194,7 @@ struct hax_module_version {
 #define HAX_CAP_RAM_PROTECTION     (1 << 6)
 #define HAX_CAP_DEBUG              (1 << 7)
 #define HAX_CAP_IMPLICIT_RAMBLOCK  (1 << 8)
+#define HAX_CAP_CPUID              (1 << 9)
 
 struct hax_capabilityinfo {
     /*
