@@ -2713,10 +2713,13 @@ static void handle_cpuid_virtual(struct vcpu_t *vcpu, uint32_t a, uint32_t c)
             state->_edx = 0x0c040844;
             return;
         }
-        case 3:                         // Reserved
+        case 3: {                       // Reserved
+            state->_eax = state->_ebx = state->_ecx = state->_edx = 0;
+            return;
+        }
         case 4: {                       // Deterministic Cache Parameters
             // [31:26] cores per package - 1
-            state->_eax = state->_ebx = state->_ecx = state->_edx = 0;
+            // Use host cache values.
             return;
         }
         case 5:                         // MONITOR/MWAIT
