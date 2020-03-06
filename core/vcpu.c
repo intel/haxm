@@ -1227,6 +1227,9 @@ void vcpu_save_host_state(struct vcpu_t *vcpu)
         vmwrite(vcpu, HOST_EFER, hstate->_efer);
     }
 
+    hstate->_pat = ia32_rdmsr(IA32_CR_PAT);
+    vmwrite(vcpu, HOST_PAT, hstate->_pat);
+
 #ifdef HAX_ARCH_X86_64
     vmwrite(vcpu, HOST_CS_SELECTOR, get_kernel_cs());
 #else
@@ -1393,15 +1396,15 @@ static void fill_common_vmcs(struct vcpu_t *vcpu)
 
 #ifdef HAX_ARCH_X86_64
     exit_ctls = EXIT_CONTROL_HOST_ADDR_SPACE_SIZE | EXIT_CONTROL_LOAD_EFER |
-                EXIT_CONTROL_SAVE_DEBUG_CONTROLS;
+                EXIT_CONTROL_SAVE_DEBUG_CONTROLS | EXIT_CONTROL_LOAD_PAT;
 #endif
 
 #ifdef HAX_ARCH_X86_32
     if (is_compatible()) {
         exit_ctls = EXIT_CONTROL_HOST_ADDR_SPACE_SIZE | EXIT_CONTROL_LOAD_EFER |
-                    EXIT_CONTROL_SAVE_DEBUG_CONTROLS;
+                    EXIT_CONTROL_SAVE_DEBUG_CONTROLS | EXIT_CONTROL_LOAD_PAT;
     } else {
-        exit_ctls = EXIT_CONTROL_SAVE_DEBUG_CONTROLS;
+        exit_ctls = EXIT_CONTROL_SAVE_DEBUG_CONTROLS | EXIT_CONTROL_LOAD_PAT;
     }
 #endif
 
@@ -1472,6 +1475,9 @@ static void fill_common_vmcs(struct vcpu_t *vcpu)
     if (exit_ctls & EXIT_CONTROL_LOAD_EFER) {
         vmwrite(vcpu, HOST_EFER, ia32_rdmsr(IA32_EFER));
     }
+
+    vmwrite(vcpu, HOST_PAT, ia32_rdmsr(IA32_CR_PAT));
+    vmwrite(vcpu, GUEST_PAT, vcpu->cr_pat);
 
     WRITE_CONTROLS(vcpu, VMX_ENTRY_CONTROLS, entry_ctls);
 
@@ -2040,6 +2046,8 @@ static void vmwrite_cr(struct vcpu_t *vcpu)
         entry_ctls &= ~ENTRY_CONTROL_LOAD_EFER;
     }
 
+    entry_ctls |= ENTRY_CONTROL_LOAD_PAT;
+
     if (pcpu_ctls != vmx(vcpu, pcpu_ctls)) {
         vmx(vcpu, pcpu_ctls) = pcpu_ctls;
         vcpu->pcpu_ctls_dirty = 1;
@@ -2530,7 +2538,7 @@ static void handle_cpuid_virtual(struct vcpu_t *vcpu, uint32_t a, uint32_t c)
     uint8_t physical_address_size;
 
     static uint32_t cpuid_1_features_edx =
-            // pat is disabled!
+            FEATURE(PAT)        |
             FEATURE(FPU)        |
             FEATURE(VME)        |
             FEATURE(DE)         |
@@ -2660,10 +2668,13 @@ static void handle_cpuid_virtual(struct vcpu_t *vcpu, uint32_t a, uint32_t c)
             state->_edx = 0x0c040844;
             return;
         }
-        case 3:                         // Reserved
+        case 3: {                       // Reserved
+            state->_eax = state->_ebx = state->_ecx = state->_edx = 0;
+            return;
+        }
         case 4: {                       // Deterministic Cache Parameters
             // [31:26] cores per package - 1
-            state->_eax = state->_ebx = state->_ecx = state->_edx = 0;
+            // Use host cache values.
             return;
         }
         case 5:                         // MONITOR/MWAIT
@@ -3560,6 +3571,15 @@ static int misc_msr_write(struct vcpu_t *vcpu, uint32_t msr, uint64_t val)
     return 1;
 }
 
+static inline bool is_pat_valid(uint64_t val)
+{
+    if (val & 0xF8F8F8F8F8F8F8F8)
+        return false;
+
+    // 0, 1, 4, 5, 6, 7 are valid values.
+    return (val | ((val & 0x0202020202020202) << 1)) == val;
+}
+
 static int handle_msr_write(struct vcpu_t *vcpu, uint32_t msr, uint64_t val,
                             bool by_host)
 {
@@ -3718,7 +3738,15 @@ static int handle_msr_write(struct vcpu_t *vcpu, uint32_t msr, uint64_t val,
             break;
         }
         case IA32_CR_PAT: {
+            // Attempting to write an undefined memory type encoding into the
+            // PAT causes a general-protection (#GP) exception to be generated
+            if (!is_pat_valid(val)) {
+                r = 1;
+                break;
+            }
+
             vcpu->cr_pat = val;
+            vmwrite(vcpu, GUEST_PAT, vcpu->cr_pat);
             break;
         }
         case IA32_MTRR_DEF_TYPE: {
@@ -3912,6 +3940,13 @@ static int _copy_desc(segment_desc_t *old, segment_desc_t *new)
     return flags;
 }
 
+int vcpu_get_state_size(struct vcpu_t *vcpu)
+{
+    if (vcpu->vm->features & VM_FEATURES_CR8)
+        return sizeof(struct vcpu_state_t);
+    return offsetof(struct vcpu_state_t, _cr8);
+}
+
 int vcpu_get_regs(struct vcpu_t *vcpu, struct vcpu_state_t *ustate)
 {
     struct vcpu_state_t *state = vcpu->state;
@@ -3946,6 +3981,9 @@ int vcpu_get_regs(struct vcpu_t *vcpu, struct vcpu_state_t *ustate)
     _copy_desc(&state->_tr, &ustate->_tr);
     _copy_desc(&state->_gdt, &ustate->_gdt);
     _copy_desc(&state->_idt, &ustate->_idt);
+
+    if (vcpu->vm->features & VM_FEATURES_CR8)
+        ustate->_cr8 = state->_cr8;
 
     return 0;
 }
@@ -4071,6 +4109,9 @@ int vcpu_set_regs(struct vcpu_t *vcpu, struct vcpu_state_t *ustate)
     if (_copy_desc(&ustate->_idt, &state->_idt)) {
         VMWRITE_DESC(vcpu, IDTR, state->_idt);
     }
+
+    if (vcpu->vm->features & VM_FEATURES_CR8)
+        state->_cr8 = ustate->_cr8;
 
     if ((vmcs_err = put_vmcs(vcpu, &flags))) {
         vcpu_set_panic(vcpu);

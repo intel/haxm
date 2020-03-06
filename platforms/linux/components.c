@@ -411,7 +411,8 @@ static long hax_vcpu_ioctl(struct file *filp, unsigned int cmd,
     }
     case HAX_VCPU_SET_REGS: {
         struct vcpu_state_t vc_state;
-        if (copy_from_user(&vc_state, argp, sizeof(vc_state))) {
+        int size = vcpu_get_state_size(cvcpu);
+        if (copy_from_user(&vc_state, argp, size)) {
             ret = -EFAULT;
             break;
         }
@@ -420,8 +421,9 @@ static long hax_vcpu_ioctl(struct file *filp, unsigned int cmd,
     }
     case HAX_VCPU_GET_REGS: {
         struct vcpu_state_t vc_state;
+        int size = vcpu_get_state_size(cvcpu);
         ret = vcpu_get_regs(cvcpu, &vc_state);
-        if (copy_to_user(argp, &vc_state, sizeof(vc_state))) {
+        if (copy_to_user(argp, &vc_state, size)) {
             ret = -EFAULT;
             break;
         }

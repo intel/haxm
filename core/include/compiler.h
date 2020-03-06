@@ -43,7 +43,7 @@
 // a non-POD structure.
 // We have to use 1 instead of 0 so the compiler doesn't generate an error.
 #define offsetof(type, mem) \
-        ((uint32)((char *)&((const type *)1)->mem - (char *)((const type *)1)))
+        ((uint32_t)((char *)&((const type *)1)->mem - (char *)((const type *)1)))
 
 #define ALWAYS_INLINE           __attribute__ ((always_inline))
 #define NOINLINE                __attribute__ ((noinline))
