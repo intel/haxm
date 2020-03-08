@@ -288,5 +288,6 @@ static inline bool valid_vcpu_id(int vcpu_id)
 
 bool vcpu_is_panic(struct vcpu_t *vcpu);
 void vcpu_set_panic(struct vcpu_t *vcpu);
+bool is_cpuid_supported(struct hax_cpuid *cpuid_data);
 
 #endif  // HAX_CORE_VCPU_H_

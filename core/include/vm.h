@@ -84,6 +84,7 @@ struct vm_t {
     uint64_t spare_ramsize;
     uint ram_entry_num;
     struct hax_vcpu_mem *ram_entry;
+    struct hax_cpuid *cpuid_data;
 };
 
 struct hva_entry {
@@ -128,6 +129,7 @@ int _hax_teardown_vm(struct vm_t *vm);
 void hax_teardown_vcpus(struct vm_t *vm);
 int hax_destroy_host_interface(void);
 int hax_vm_set_qemuversion(struct vm_t *vm, struct hax_qemu_version *ver);
+//int hax_vm_set_cpuid(struct vm_t *vm, struct hax_cpuid *cpuid_data);
 
 uint64_t vm_get_eptp(struct vm_t *vm);
 

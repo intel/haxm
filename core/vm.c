@@ -81,6 +81,35 @@ int hax_vm_set_qemuversion(struct vm_t *vm, struct hax_qemu_version *ver)
     return 0;
 }
 
+int hax_vm_set_cpuid(struct vm_t *vm, struct hax_cpuid *cpuid_data)
+{
+    uint32_t size;
+
+    if (vm->cpuid_data) {
+        size = sizeof(struct hax_cpuid) +
+               sizeof(struct hax_cpuid_entry) * vm->cpuid_data->nent;
+
+        hax_vfree(vm->cpuid_data, size);
+        vm->cpuid_data = 0;
+    }
+
+    if (!is_cpuid_supported(cpuid_data)) {
+        hax_log(HAX_LOGE, "%s: is_cpuid_supported failed\n", __func__);
+        return -EINVAL;
+    }
+    size = sizeof(struct hax_cpuid) +
+           sizeof(struct hax_cpuid_entry) * cpuid_data->nent;
+
+    vm->cpuid_data = hax_vmalloc(size, HAX_MEM_NONPAGE);
+    if (!vm->cpuid_data) {
+        hax_log(HAX_LOGE, "%s: Not enough memory for cpuid_data\n", __func__);
+        return -ENOMEM;
+    }
+
+    memcpy(vm->cpuid_data, cpuid_data, size);
+    return 0;
+}
+
 uint64_t vm_get_eptp(struct vm_t *vm)
 {
     return vm->ept_tree.eptp.value;

@@ -2506,22 +2506,92 @@ static int exit_cpuid(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     return HAX_RESUME;
 }
 
+bool is_cpuid_supported(struct hax_cpuid *cpuid_data)
+{
+    uint32_t cpuid_i;
+    for (cpuid_i = 0; cpuid_i < cpuid_data->nent; cpuid_i++) {
+        switch (cpuid_data->entries[cpuid_i].function) {
+            case 0: {
+                if (cpuid_data->entries[cpuid_i].eax > 0xa) {
+                    hax_log(HAX_LOGE, "Unsupported cpuid level %d\n",
+                            cpuid_data->entries[cpuid_i].eax);
+                    return false;
+                }
+                break;
+            }
+            case 0x80000000: {
+                if (cpuid_data->entries[cpuid_i].eax > 0x80000008) {
+                    hax_log(HAX_LOGE, "Unsupported cpuid xlevel %d\n",
+                            cpuid_data->entries[cpuid_i].eax);
+                    return false;
+                }
+                break;
+            }
+            case 1: {
+                // Disallow to clear these feature bits, since MSR handling
+                // code is written as if these are supported.
+                uint32_t nonDisabledFlags = FEATURE(MCE) | FEATURE(APIC) |
+                                            FEATURE(MTRR) | FEATURE(PAT);
+                if ((cpuid_data->entries[cpuid_i].edx & nonDisabledFlags) !=
+                     nonDisabledFlags) {
+                    hax_log(HAX_LOGE, "MCE/APIC/MTRR/PAT disabling in cpuid "
+                            "not supported\n");
+                    return false;
+                }
+                break;
+            }
+        }
+    }
+    return true;
+}
+
+static int get_vm_cpuid(struct vcpu_t *vcpu, uint32_t a, uint32_t c)
+{
+    uint32_t cpuid_i;
+    struct hax_cpuid_entry *cpuid_entry;
+    struct vcpu_state_t *state = vcpu->state;
+
+    cpuid_entry = &vcpu->vm->cpuid_data->entries[0];
+    for (cpuid_i = 0; cpuid_i < vcpu->vm->cpuid_data->nent;
+         cpuid_i++) {
+        if (cpuid_entry[cpuid_i].function == a &&
+           (!(cpuid_entry[cpuid_i].flags & HAX_CPUID_FLAG_SIGNIFCANT_INDEX) ||
+           cpuid_entry[cpuid_i].index == c)) {
+
+            state->_eax = cpuid_entry[cpuid_i].eax;
+            state->_ecx = cpuid_entry[cpuid_i].ecx;
+            state->_edx = cpuid_entry[cpuid_i].edx;
+            state->_ebx = cpuid_entry[cpuid_i].ebx;
+            return 1;
+        }
+    }
+
+    state->_eax = 0;
+    state->_ecx = 0;
+    state->_edx = 0;
+    state->_ebx = 0;
+    return 0;
+}
+
 static void handle_cpuid(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
     struct vcpu_state_t *state = vcpu->state;
     uint32_t a = state->_eax, c = state->_ecx;
     cpuid_args_t args;
 
-    args.eax = state->_eax;
-    args.ecx = state->_ecx;
-    asm_cpuid(&args);
-    state->_eax = args.eax;
-    state->_ecx = args.ecx;
-    state->_edx = args.edx;
-    state->_ebx = args.ebx;
+    if(vcpu->vm->cpuid_data) {
+        get_vm_cpuid(vcpu, a, c);
+    } else {
+        args.eax = state->_eax;
+        args.ecx = state->_ecx;
+        asm_cpuid(&args);
+        state->_eax = args.eax;
+        state->_ecx = args.ecx;
+        state->_edx = args.edx;
+        state->_ebx = args.ebx;
 
-    handle_cpuid_virtual(vcpu, a, c);
-
+        handle_cpuid_virtual(vcpu, a, c);
+    }
     hax_log(HAX_LOGD, "CPUID %08x %08x: %08x %08x %08x %08x\n", a, c,
             state->_eax, state->_ebx, state->_ecx, state->_edx);
     htun->_exit_reason = vmx(vcpu, exit_reason).basic_reason;

@@ -297,4 +297,32 @@ struct hax_debug_t {
     uint64_t dr[8];
 } PACKED;
 
+#define HAX_CPUID_FLAG_SIGNIFCANT_INDEX		(1 << 0)
+
+struct hax_cpuid_entry {
+    uint32_t function;
+    uint32_t index;
+    uint32_t flags;
+    uint32_t eax;
+    uint32_t ebx;
+    uint32_t ecx;
+    uint32_t edx;
+    uint32_t padding[3];
+} PACKED;
+
+struct hax_cpuid {
+    uint32_t nent;
+    uint32_t padding;
+    struct hax_cpuid_entry entries[0];
+} PACKED;
+
+#define HAX_MAX_CPUID_ENTRIES  50
+
+#ifndef HAX_PLATFORM_WINDOWS
+struct hax_cpuid_data {
+    struct hax_cpuid cpuid;
+    struct hax_cpuid_entry entries[HAX_MAX_CPUID_ENTRIES];
+} PACKED;
+#endif
+
 #endif  // HAX_INTERFACE_H_

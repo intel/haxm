@@ -67,6 +67,7 @@
 
 /* API 2.0 */
 #define HAX_VM_IOCTL_NOTIFY_QEMU_VERSION _IOW(0, 0x84, struct hax_qemu_version)
+#define HAX_VM_IOCTL_SET_CPUID _IOW(0, 0x88, struct hax_cpuid)
 
 #define HAX_IOCTL_VCPU_DEBUG _IOW(0, 0xc9, struct hax_debug_t)
 
