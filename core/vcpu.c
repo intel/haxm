@@ -606,6 +606,7 @@ static void vcpu_init(struct vcpu_t *vcpu)
     state->_dr6 = DR6_SETBITS;
     state->_dr7 = DR7_SETBITS;
     vcpu->dr_dirty = 1;
+    vcpu->check_pae_pdpt = 0;
 
     // Initialize guest MSR state, i.e. a list of MSRs and their initial values.
     // Note that all zeros is not a valid state (see below). At the first VM
@@ -3674,6 +3675,7 @@ static int handle_msr_write(struct vcpu_t *vcpu, uint32_t msr, uint64_t val,
             } else {
                 vmwrite_efer(vcpu);
             }
+            vcpu->check_pae_pdpt = 1;
             break;
         }
         case IA32_STAR:
@@ -4120,6 +4122,7 @@ int vcpu_set_regs(struct vcpu_t *vcpu, struct vcpu_state_t *ustate)
         hax_panic_log(vcpu);
     }
 
+    vcpu->check_pae_pdpt = 1;
     return 0;
 }
 
@@ -4508,4 +4511,32 @@ static bool vcpu_is_bsp(struct vcpu_t *vcpu)
 {
     // TODO: add an API to set bootstrap processor
     return (vcpu->vm->bsp_vcpu_id == vcpu->vcpu_id);
+}
+int vcpu_check_pae_pdpte(struct vcpu_t *vcpu)
+{
+    struct vcpu_state_t *state = vcpu->state;
+    if ((state->_cr0 & CR0_PG) && (state->_cr4 & CR4_PAE) &&
+        !(state->_efer & IA32_EFER_LME) && !vtlb_active(vcpu) ) {
+        // The vCPU is either about to enter PAE paging mode (see IASDM
+        // Vol. 3A 4.1.2, Figure 4-1) and needs to load its PDPTE
+        // registers, or already in PAE mode and needs to reload those
+        // registers
+        int ret = vcpu_prepare_pae_pdpt(vcpu);
+        if (ret) {
+            vcpu_set_panic(vcpu);
+            hax_log(HAX_LOGPANIC, "vCPU #%u failed to (re)load PDPT for"
+                    " EPT+PAE mode: ret=%d\n", vcpu->vcpu_id, ret);
+            dump_vmcs(vcpu);
+            return 0;
+        }
+
+        if (vcpu->pae_pdpt_dirty) {
+            vmwrite(vcpu, GUEST_PDPTE0, vcpu->pae_pdptes[0]);
+            vmwrite(vcpu, GUEST_PDPTE1, vcpu->pae_pdptes[1]);
+            vmwrite(vcpu, GUEST_PDPTE2, vcpu->pae_pdptes[2]);
+            vmwrite(vcpu, GUEST_PDPTE3, vcpu->pae_pdptes[3]);
+            vcpu->pae_pdpt_dirty = 0;
+        }
+    }
+    return 1;
 }
