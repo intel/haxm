@@ -565,7 +565,10 @@ int hax_module_init(void)
         hax_clear_page(hax_cpu_data[cpu_id]->hstate.hfxpage);
         hax_cpu_data[cpu_id]->cpu_id = cpu_id;
     }
-    cpu_init_feature_cache();
+
+    cpuid_host_init();
+    cpuid_init_supported_features();
+
     if (hax_vmx_init() < 0)
         goto out_2;
 

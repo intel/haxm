@@ -40,10 +40,6 @@
 #include "include/intr.h"
 #include "include/ept.h"
 
-static cpuid_cache_t cache = {
-    .initialized = 0
-};
-
 static void cpu_vmentry_failed(struct vcpu_t *vcpu, vmx_result_t result);
 static int cpu_vmexit_handler(struct vcpu_t *vcpu, exit_reason_t exit_reason,
                               struct hax_tunnel *htun);
@@ -66,15 +62,7 @@ static int cpu_nx_enable(void)
 
 bool cpu_has_feature(uint32_t feature)
 {
-    if (!cache.initialized) {
-        cpuid_host_init(&cache);
-    }
-    return cpuid_host_has_feature(&cache, feature);
-}
-
-void cpu_init_feature_cache(void)
-{
-    cpuid_host_init(&cache);
+    return cpuid_host_has_feature(feature);
 }
 
 void cpu_init_vmx(void *arg)

@@ -123,6 +123,10 @@ static void vcpu_enter_fpu_state(struct vcpu_t *vcpu);
 static int vcpu_set_apic_base(struct vcpu_t *vcpu, uint64_t val);
 static bool vcpu_is_bsp(struct vcpu_t *vcpu);
 
+static void vcpu_init_cpuid(struct vcpu_t *vcpu);
+static int vcpu_alloc_cpuid(struct vcpu_t *vcpu);
+static void vcpu_free_cpuid(struct vcpu_t *vcpu);
+
 static uint32_t get_seg_present(uint32_t seg)
 {
     mword ldtr_base;
@@ -457,8 +461,11 @@ struct vcpu_t *vcpu_create(struct vm_t *vm, void *vm_host, int vcpu_id)
     if (!vcpu_vtlb_alloc(vcpu))
         goto fail_6;
 
-    if (hax_vcpu_create_host(vcpu, vm_host, vm->vm_id, vcpu_id))
+    if (!vcpu_alloc_cpuid(vcpu))
         goto fail_7;
+
+    if (hax_vcpu_create_host(vcpu, vm_host, vm->vm_id, vcpu_id))
+        goto fail_8;
 
     vcpu->prev_cpu_id = (uint32_t)(~0ULL);
     vcpu->cpu_id = hax_cpu_id();
@@ -488,6 +495,8 @@ struct vcpu_t *vcpu_create(struct vm_t *vm, void *vm_host, int vcpu_id)
 
     hax_log(HAX_LOGD, "vcpu %d is created.\n", vcpu->vcpu_id);
     return vcpu;
+fail_8:
+    vcpu_free_cpuid(vcpu);
 fail_7:
     vcpu_vtlb_free(vcpu);
 fail_6:
@@ -542,6 +551,7 @@ static int _vcpu_teardown(struct vcpu_t *vcpu)
     hax_vfree(vcpu->state, sizeof(struct vcpu_state_t));
     vcpu_vtlb_free(vcpu);
     hax_mutex_free(vcpu->tmutex);
+    vcpu_free_cpuid(vcpu);
     hax_vfree(vcpu, sizeof(struct vcpu_t));
 
     hax_log(HAX_LOGI, "vcpu %d is teardown.\n", vcpu_id);
@@ -574,7 +584,6 @@ static void vcpu_init(struct vcpu_t *vcpu)
 
     // TODO: mtrr ?
     vcpu->cr_pat = 0x0007040600070406ULL;
-    vcpu->cpuid_features_flag_mask = 0xffffffffffffffffULL;
     vcpu->cur_state = GS_VALID;
     vmx(vcpu, entry_exception_vector) = ~0u;
     vmx(vcpu, cr0_mask) = 0;
@@ -629,6 +638,9 @@ static void vcpu_init(struct vcpu_t *vcpu)
     if (vcpu_is_bsp(vcpu)) {
         vcpu->gstate.apic_base |= APIC_BASE_BSP;
     }
+
+    // Initialize guest CPUID
+    vcpu_init_cpuid(vcpu);
 
     hax_mutex_unlock(vcpu->tmutex);
 }
@@ -2536,50 +2548,16 @@ static void handle_cpuid_virtual(struct vcpu_t *vcpu, uint32_t a, uint32_t c)
     uint32_t hw_family;
     uint32_t hw_model;
     uint8_t physical_address_size;
+    uint32_t cpuid_1_features_ecx, cpuid_1_features_edx,
+             cpuid_8000_0001_features_ecx, cpuid_8000_0001_features_edx;
 
-    static uint32_t cpuid_1_features_edx =
-            FEATURE(PAT)        |
-            FEATURE(FPU)        |
-            FEATURE(VME)        |
-            FEATURE(DE)         |
-            FEATURE(TSC)        |
-            FEATURE(MSR)        |
-            FEATURE(PAE)        |
-            FEATURE(MCE)        |
-            FEATURE(CX8)        |
-            FEATURE(APIC)       |
-            FEATURE(SEP)        |
-            FEATURE(MTRR)       |
-            FEATURE(PGE)        |
-            FEATURE(MCA)        |
-            FEATURE(CMOV)       |
-            FEATURE(CLFSH)      |
-            FEATURE(MMX)        |
-            FEATURE(FXSR)       |
-            FEATURE(SSE)        |
-            FEATURE(SSE2)       |
-            FEATURE(SS)         |
-            FEATURE(PSE)        |
-            FEATURE(HTT);
-
-    static uint32_t cpuid_1_features_ecx =
-            FEATURE(SSE3)       |
-            FEATURE(SSSE3)      |
-            FEATURE(SSE41)      |
-            FEATURE(SSE42)      |
-            FEATURE(CMPXCHG16B) |
-            FEATURE(MOVBE)      |
-            FEATURE(AESNI)      |
-            FEATURE(PCLMULQDQ)  |
-            FEATURE(POPCNT);
-
-    static uint32_t cpuid_8000_0001_features_edx =
-            FEATURE(NX)         |
-            FEATURE(SYSCALL)    |
-            FEATURE(RDTSCP)     |
-            FEATURE(EM64T);
-
-    static uint32_t cpuid_8000_0001_features_ecx = 0;
+    // To fully support CPUID instructions (opcode = 0F A2) by software, it is
+    // recommended to add opcode_table_0FA2[] in core/emulate.c to emulate
+    // (Refer to Intel SDM Vol. 2A 3.2 CPUID).
+    cpuid_get_guest_features(vcpu->guest_cpuid, &cpuid_1_features_ecx,
+                             &cpuid_1_features_edx,
+                             &cpuid_8000_0001_features_ecx,
+                             &cpuid_8000_0001_features_edx);
 
     switch (a) {
         case 0: {                       // Maximum Basic Information
@@ -3454,7 +3432,7 @@ static int handle_msr_read(struct vcpu_t *vcpu, uint32_t msr, uint64_t *val)
             break;
         }
         case IA32_CPUID_FEATURE_MASK: {
-            *val = vcpu->cpuid_features_flag_mask;
+            cpuid_get_features_mask(vcpu->guest_cpuid, val);
             break;
         }
         case IA32_EBC_FREQUENCY_ID: {
@@ -3606,7 +3584,7 @@ static int handle_msr_write(struct vcpu_t *vcpu, uint32_t msr, uint64_t val,
             break;
         }
         case IA32_CPUID_FEATURE_MASK: {
-            vcpu->cpuid_features_flag_mask = val;
+            cpuid_set_features_mask(vcpu->guest_cpuid, val);
             break;
         }
         case IA32_EFER: {
@@ -4177,6 +4155,28 @@ int vcpu_set_msr(struct vcpu_t *vcpu, uint64_t entry, uint64_t val)
     return handle_msr_write(vcpu, entry, val, true);
 }
 
+int vcpu_set_cpuid(struct vcpu_t *vcpu, hax_cpuid *cpuid_info)
+{
+    hax_log(HAX_LOGI, "%s: vCPU #%u is setting guest CPUID.\n", __func__,
+            vcpu->vcpu_id);
+
+    if (cpuid_info->total == 0 || cpuid_info->total > HAX_MAX_CPUID_ENTRIES) {
+        hax_log(HAX_LOGW, "%s: No entry or exceeds maximum: total = %lu.\n",
+                __func__, cpuid_info->total);
+        return -EINVAL;
+    }
+
+    if (vcpu->is_running) {
+        hax_log(HAX_LOGW, "%s: Cannot set CPUID: vcpu->is_running = %llu.\n",
+                __func__, vcpu->is_running);
+        return -EFAULT;
+    }
+
+    cpuid_set_guest_features(vcpu->guest_cpuid, cpuid_info);
+
+    return 0;
+}
+
 void vcpu_debug(struct vcpu_t *vcpu, struct hax_debug_t *debug)
 {
     bool hbreak_enabled = false;
@@ -4495,4 +4495,57 @@ static bool vcpu_is_bsp(struct vcpu_t *vcpu)
 {
     // TODO: add an API to set bootstrap processor
     return (vcpu->vm->bsp_vcpu_id == vcpu->vcpu_id);
+}
+
+static void vcpu_init_cpuid(struct vcpu_t *vcpu)
+{
+    struct vcpu_t *vcpu_0;
+
+    if (vcpu->vcpu_id != 0) {
+        vcpu_0 = hax_get_vcpu(vcpu->vm->vm_id, 0, 0);
+        hax_assert(vcpu_0 != NULL);
+        vcpu->guest_cpuid = vcpu_0->guest_cpuid;
+        hax_log(HAX_LOGI, "%s: referenced vcpu[%u].guest_cpuid to vcpu[%u].\n",
+                __func__, vcpu->vcpu_id, vcpu_0->vcpu_id);
+        return;
+    }
+
+    cpuid_guest_init(vcpu->guest_cpuid);
+    hax_log(HAX_LOGI, "%s: initialized vcpu[%u].guest_cpuid with default "
+            "feature set.\n", __func__, vcpu->vcpu_id);
+}
+
+static int vcpu_alloc_cpuid(struct vcpu_t *vcpu)
+{
+    // Only the first vCPU will allocate the CPUID memory, and other vCPUs will
+    // share this memory.
+    if (vcpu->vcpu_id != 0)
+        return 1;
+
+    vcpu->guest_cpuid = hax_vmalloc(sizeof(cpuid_t), HAX_MEM_NONPAGE);
+    if (vcpu->guest_cpuid == NULL)
+        return 0;
+
+    return 1;
+}
+
+static void vcpu_free_cpuid(struct vcpu_t *vcpu)
+{
+    if (vcpu->vcpu_id != 0) {
+        vcpu->guest_cpuid = NULL;
+        hax_log(HAX_LOGI, "%s: dereferenced vcpu[%u].guest_cpuid from vcpu[0]."
+                "\n", __func__, vcpu->vcpu_id);
+        return;
+    }
+
+    if (vcpu->guest_cpuid == NULL) {
+        hax_log(HAX_LOGW, "%s: already freed vcpu[%u].guest_cpuid.\n",
+                __func__, vcpu->vcpu_id);
+        return;
+    }
+
+    hax_vfree(vcpu->guest_cpuid, sizeof(cpuid_t));
+    vcpu->guest_cpuid = NULL;
+    hax_log(HAX_LOGI, "%s: freed vcpu[%u].guest_cpuid.\n", __func__,
+            vcpu->vcpu_id);
 }
