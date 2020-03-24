@@ -214,6 +214,33 @@ int hax_vm_ioctl(dev_t self __unused, u_long cmd, void *data, int flag,
         ret = hax_vm_set_qemuversion(cvm, info);
         break;
     }
+    case HAX_VM_IOCTL_SET_CPUID: {
+        struct hax_cpuid_data info;
+        uint32_t size;
+
+        if (copyin(&info, data, sizeof(struct hax_cpuid))) {
+            ret = -EFAULT;
+            break;
+        }
+
+        if (info.cpuid.nent > HAX_MAX_CPUID_ENTRIES) {
+            ret = -E2BIG;
+            break;
+        }
+
+        size = sizeof(struct hax_cpuid) +
+               sizeof(struct hax_cpuid_entry) * info.cpuid.nent;
+
+        if (copyin(&info, data, size)) {
+            ret = -EFAULT;
+            break;
+        }
+
+        if (hax_vm_set_cpuid(cvm, &info)) {
+            ret = EFAULT;
+        }
+        break;
+    }
     default:
         // TODO: Print information about the process that sent the ioctl.
         hax_log(HAX_LOGE, "Unknown VM IOCTL %#lx, pid=%d ('%s')\n", cmd,

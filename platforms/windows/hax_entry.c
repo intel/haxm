@@ -613,6 +613,30 @@ NTSTATUS HaxVmControl(PDEVICE_OBJECT DeviceObject, struct hax_vm_windows *ext,
             hax_vm_set_qemuversion(cvm, info);
             break;
         }
+        case HAX_VM_IOCTL_SET_CPUID: {
+            struct hax_cpuid *info;
+            uint32_t size;
+
+            if (inBufLength < sizeof(struct hax_cpuid)) {
+                ret = STATUS_INVALID_PARAMETER;
+                goto done;
+            }
+
+            info = (struct hax_cpuid *)inBuf;
+            size = sizeof(struct hax_cpuid) +
+                   sizeof(struct hax_cpuid_entry) * info->nent;
+
+            if (inBufLength < size || info->nent > HAX_MAX_CPUID_ENTRIES) {
+                ret = -E2BIG;
+                goto done;
+            }
+
+            if (hax_vm_set_cpuid(cvm, info)) {
+                ret = STATUS_UNSUCCESSFUL;
+                goto done;
+            }
+            break;
+        }
         default:
             ret = STATUS_INVALID_PARAMETER;
             break;

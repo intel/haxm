@@ -455,6 +455,33 @@ static int hax_vm_ioctl(dev_t dev, ulong cmd, caddr_t data, int flag,
             ret = hax_vm_set_qemuversion(cvm, info);
             break;
         }
+        case HAX_VM_IOCTL_SET_CPUID: {
+            struct hax_cpuid_data info;
+            uint32_t size;
+
+            if (copyin(&info, data, sizeof(struct hax_cpuid))) {
+                ret = -EFAULT;
+                break;
+            }
+
+            if (info.cpuid.nent > HAX_MAX_CPUID_ENTRIES) {
+                ret = -E2BIG;
+                break;
+            }
+
+            size = sizeof(struct hax_cpuid) +
+                   sizeof(struct hax_cpuid_entry) * info.cpuid.nent;
+
+            if (copyin(&info, data, size)) {
+                ret = -EFAULT;
+                break;
+            }
+
+            if (hax_vm_set_cpuid(cvm, &(info.cpuid))) {
+                ret = EFAULT;
+            }
+            break;
+        }
         default: {
             handle_unknown_ioctl(dev, cmd, p);
             ret = -ENOSYS;

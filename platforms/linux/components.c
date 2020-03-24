@@ -608,6 +608,33 @@ static long hax_vm_ioctl(struct file *filp, unsigned int cmd,
         ret = hax_vm_set_qemuversion(cvm, &info);
         break;
     }
+    case HAX_VM_IOCTL_SET_CPUID: {
+        struct hax_cpuid_data info;
+        uint32_t size;
+
+        if (copy_from_user(&info, argp, sizeof(struct hax_cpuid))) {
+            ret = -EFAULT;
+            break;
+        }
+
+        if (info.cpuid.nent > HAX_MAX_CPUID_ENTRIES) {
+            ret = -E2BIG;
+            break;
+        }
+
+        size = sizeof(struct hax_cpuid) +
+               sizeof(struct hax_cpuid_entry) * info.cpuid.nent;
+
+        if (copy_from_user(&info, argp, size)) {
+            ret = -EFAULT;
+            break;
+        }
+
+        if (hax_vm_set_cpuid(cvm, &info)) {
+            ret = EFAULT;
+        }
+        break;
+    }
     default:
         // TODO: Print information about the process that sent the ioctl.
         hax_log(HAX_LOGE, "Unknown VM IOCTL 0x%lx\n", cmd);
