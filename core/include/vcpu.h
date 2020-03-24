@@ -171,7 +171,6 @@ struct vcpu_t {
     struct vm_t *vm;
     struct hax_mmu *mmu;
     struct vcpu_state_t *state;
-    uint64_t _cr8;
     struct hax_tunnel *tunnel;
     uint8_t *io_buf;
     struct hax_page *vmcs_page;
@@ -259,7 +258,6 @@ int vcpu_get_fpu(struct vcpu_t *vcpu, struct fx_layout *fl);
 int vcpu_put_fpu(struct vcpu_t *vcpu, struct fx_layout *fl);
 int vcpu_get_msr(struct vcpu_t *vcpu, uint64_t entry, uint64_t *val);
 int vcpu_put_msr(struct vcpu_t *vcpu, uint64_t entry, uint64_t val);
-int vcpu_get_state_size(struct vcpu_t *vcpu);
 void vcpu_debug(struct vcpu_t *vcpu, struct hax_debug_t *debug);
 
 /* The declaration for OS wrapper code */

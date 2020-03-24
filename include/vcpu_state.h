@@ -188,8 +188,6 @@ struct vcpu_state_t {
     uint32_t _activity_state;
     uint32_t pad;
     interruptibility_state_t _interruptibility_state;
-
-    uint64_t _cr8;
 } PACKED;
 
 void dump(void);

@@ -39,7 +39,7 @@
 // declaration
 struct vcpu_t;
 
-#define HAX_CUR_VERSION    0x0005
+#define HAX_CUR_VERSION    0x0004
 #define HAX_COMPAT_VERSION 0x0001
 
 /* TBD */
