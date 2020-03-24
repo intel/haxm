@@ -73,9 +73,6 @@ int hax_vm_set_qemuversion(struct vm_t *vm, struct hax_qemu_version *ver)
         vm->features |= VM_FEATURES_FASTMMIO_BASIC;
         if (ver->cur_version >= 0x4) {
             vm->features |= VM_FEATURES_FASTMMIO_EXTRA;
-            if (ver->cur_version >= 0x5) {
-                vm->features |= VM_FEATURES_CR8;
-            }
         }
     }
     return 0;
