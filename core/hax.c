@@ -373,6 +373,7 @@ int hax_get_capability(void *buf, int bufLeng, int *outLength)
         cap->winfo |= HAX_CAP_TUNNEL_PAGE;
         cap->winfo |= HAX_CAP_RAM_PROTECTION;
         cap->winfo |= HAX_CAP_DEBUG;
+        cap->winfo |= HAX_CAP_CPUID;
         if (cpu_data->vmx_info._ept_cap) {
             cap->winfo |= HAX_CAP_EPT;
         }
@@ -565,7 +566,10 @@ int hax_module_init(void)
         hax_clear_page(hax_cpu_data[cpu_id]->hstate.hfxpage);
         hax_cpu_data[cpu_id]->cpu_id = cpu_id;
     }
-    cpu_init_feature_cache();
+
+    cpuid_host_init();
+    cpuid_init_supported_features();
+
     if (hax_vmx_init() < 0)
         goto out_2;
 

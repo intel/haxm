@@ -431,6 +431,19 @@ NTSTATUS HaxVcpuControl(PDEVICE_OBJECT DeviceObject,
             vcpu_debug(cvcpu, (struct hax_debug_t*)inBuf);
             break;
         }
+        case HAX_VCPU_IOCTL_SET_CPUID: {
+            hax_cpuid *cpuid = (hax_cpuid *)inBuf;
+            if (inBufLength < sizeof(hax_cpuid) || inBufLength <
+                    sizeof(hax_cpuid) + cpuid->total *
+                    sizeof(hax_cpuid_entry)) {
+                ret = STATUS_INVALID_PARAMETER;
+                goto done;
+            }
+            if (vcpu_set_cpuid(cvcpu, cpuid)) {
+                ret = STATUS_UNSUCCESSFUL;
+            }
+            break;
+        }
         default:
             hax_log(HAX_LOGE, "Unknow vcpu ioctl %lx\n",
                     irpSp->Parameters.DeviceIoControl.IoControlCode);

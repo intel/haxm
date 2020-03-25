@@ -31,6 +31,7 @@
 #ifndef HAX_CORE_VCPU_H_
 #define HAX_CORE_VCPU_H_
 
+#include "cpuid.h"
 #include "emulate.h"
 #include "vmx.h"
 #include "mtrr.h"
@@ -216,7 +217,6 @@ struct vcpu_t {
     uint64_t pae_pdptes[4];
 
     uint64_t cr_pat;
-    uint64_t cpuid_features_flag_mask;
 
     /* Debugging */
     uint32_t debug_control;
@@ -233,6 +233,14 @@ struct vcpu_t {
     struct em_context_t emulate_ctxt;
     struct vcpu_post_mmio post_mmio;
     struct mmio_fetch_cache mmio_fetch;
+
+    // Guest CPUID feature set
+    // * The CPUID feature set is always same for each vCPU. A CPUID instruction
+    //   executed on any core will get the same result.
+    // * All vCPUs share the unique memory, which is actually allocated by the
+    //   first vCPU created by VM. If any vCPU sets features in this field, all
+    //   vCPUs will change accordingly.
+    cpuid_t *guest_cpuid;
 };
 
 #define vmx(v, field) v->vmx.field
@@ -258,6 +266,7 @@ int vcpu_get_fpu(struct vcpu_t *vcpu, struct fx_layout *fl);
 int vcpu_put_fpu(struct vcpu_t *vcpu, struct fx_layout *fl);
 int vcpu_get_msr(struct vcpu_t *vcpu, uint64_t entry, uint64_t *val);
 int vcpu_put_msr(struct vcpu_t *vcpu, uint64_t entry, uint64_t val);
+int vcpu_set_cpuid(struct vcpu_t *vcpu, hax_cpuid *cpuid_info);
 void vcpu_debug(struct vcpu_t *vcpu, struct hax_debug_t *debug);
 
 /* The declaration for OS wrapper code */

@@ -31,19 +31,13 @@
 #ifndef HAX_CORE_CPUID_H_
 #define HAX_CORE_CPUID_H_
 
+#include "../../include/hax.h"
 #include "../../include/hax_types.h"
-
-#define CPUID_CACHE_SIZE 6
 
 #define CPUID_REG_EAX 0
 #define CPUID_REG_ECX 1
 #define CPUID_REG_EDX 2
 #define CPUID_REG_EBX 3
-
-typedef struct cpuid_cache_t {
-    uint32_t data[CPUID_CACHE_SIZE];
-    bool initialized;
-} cpuid_cache_t;
 
 typedef union cpuid_args_t {
     struct {
@@ -54,6 +48,14 @@ typedef union cpuid_args_t {
     };
     uint32_t regs[4];
 } cpuid_args_t;
+
+typedef struct cpuid_t {
+    uint64_t features_mask;
+    uint32_t feature_1_ecx;
+    uint32_t feature_1_edx;
+    uint32_t feature_8000_0001_ecx;
+    uint32_t feature_8000_0001_edx;
+} cpuid_t;
 
 /*
  * X86 Features
@@ -254,8 +256,18 @@ enum {
 void cpuid_query_leaf(cpuid_args_t *args, uint32_t leaf);
 void cpuid_query_subleaf(cpuid_args_t *args, uint32_t leaf, uint32_t subleaf);
 
-void cpuid_host_init(cpuid_cache_t *cache);
-bool cpuid_host_has_feature(cpuid_cache_t *cache, uint32_t feature_key);
+void cpuid_host_init(void);
+bool cpuid_host_has_feature(uint32_t feature_key);
 bool cpuid_host_has_feature_uncached(uint32_t feature_key);
+
+void cpuid_init_supported_features(void);
+void cpuid_guest_init(cpuid_t *cpuid);
+void cpuid_get_features_mask(cpuid_t *cpuid, uint64_t *features_mask);
+void cpuid_set_features_mask(cpuid_t *cpuid, uint64_t features_mask);
+void cpuid_get_guest_features(cpuid_t *cpuid, uint32_t *cpuid_1_features_ecx,
+                              uint32_t *cpuid_1_features_edx,
+                              uint32_t *cpuid_8000_0001_features_ecx,
+                              uint32_t *cpuid_8000_0001_features_edx);
+void cpuid_set_guest_features(cpuid_t *cpuid, hax_cpuid *cpuid_info);
 
 #endif /* HAX_CORE_CPUID_H_ */

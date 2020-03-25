@@ -70,6 +70,11 @@
 
 #define HAX_IOCTL_VCPU_DEBUG _IOW(0, 0xc9, struct hax_debug_t)
 
+// `hax_cpuid *` is specified as the size of data buffer because `hax_cpuid` is
+// a variable-length type. When ioctl() is invoked, the argument of user data
+// should pass the address of the pointer to `hax_cpuid`.
+#define HAX_VCPU_IOCTL_SET_CPUID _IOW(0, 0xca, struct hax_cpuid *)
+
 #define HAX_KERNEL64_CS 0x80
 #define HAX_KERNEL32_CS 0x08
 #ifdef __i386__

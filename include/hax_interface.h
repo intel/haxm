@@ -194,6 +194,7 @@ struct hax_module_version {
 #define HAX_CAP_RAM_PROTECTION     (1 << 6)
 #define HAX_CAP_DEBUG              (1 << 7)
 #define HAX_CAP_IMPLICIT_RAMBLOCK  (1 << 8)
+#define HAX_CAP_CPUID              (1 << 9)
 
 struct hax_capabilityinfo {
     /*
@@ -296,5 +297,29 @@ struct hax_debug_t {
     uint32_t reserved;
     uint64_t dr[8];
 } PACKED;
+
+#define HAX_MAX_CPUID_ENTRIES 0x40
+
+typedef struct hax_cpuid_entry {
+    uint32_t function;
+    uint32_t index;
+    uint32_t flags;
+    uint32_t eax;
+    uint32_t ebx;
+    uint32_t ecx;
+    uint32_t edx;
+    uint32_t pad[3];
+} hax_cpuid_entry;
+
+// `hax_cpuid` is a variable-length type. The size of `hax_cpuid` itself is only
+// 8 bytes. `entries` is just a body placeholder, which will not actually occupy
+// memory. The accessible memory of `entries` is decided by the allocation from
+// user space, and the array length is specified by `total`.
+
+typedef struct hax_cpuid {
+    uint32_t total;
+    uint32_t pad;
+    hax_cpuid_entry entries[0];
+} hax_cpuid;
 
 #endif  // HAX_INTERFACE_H_
