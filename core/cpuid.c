@@ -35,10 +35,10 @@
 #define CPUID_CACHE_SIZE 6
 
 typedef struct cpuid_cache_t {
-    uint32_t data[CPUID_CACHE_SIZE];  // Host cached features
-    cpuid_t  host_supported;          // Physical CPU supported features
-    cpuid_t  hax_supported;           // Hypervisor supported features
-    bool     initialized;
+    uint32_t     data[CPUID_CACHE_SIZE];  // Host cached features
+    hax_cpuid_t  host_supported;          // Physical CPU supported features
+    hax_cpuid_t  hax_supported;           // Hypervisor supported features
+    bool         initialized;
 } cpuid_cache_t;
 
 typedef union cpuid_feature_t {
@@ -59,9 +59,9 @@ static cpuid_cache_t cache = {0};
 
 static hax_cpuid_entry * find_cpuid_entry(hax_cpuid *cpuid_info,
                                           uint32_t function, uint32_t index);
-static void cpuid_set_0000_0001(cpuid_t *cpuid, hax_cpuid *cpuid_info);
-static void cpuid_set_8000_0001(cpuid_t *cpuid, hax_cpuid *cpuid_info);
-static void cpuid_set_fixed_features(cpuid_t *cpuid);
+static void cpuid_set_0000_0001(hax_cpuid_t *cpuid, hax_cpuid *cpuid_info);
+static void cpuid_set_8000_0001(hax_cpuid_t *cpuid, hax_cpuid *cpuid_info);
+static void cpuid_set_fixed_features(hax_cpuid_t *cpuid);
 
 void cpuid_query_leaf(cpuid_args_t *args, uint32_t leaf)
 {
@@ -168,7 +168,7 @@ void cpuid_init_supported_features(void)
             cache.host_supported.feature_8000_0001_edx);
 
     // Initialize HAXM supported features
-    cache.hax_supported = (cpuid_t){
+    cache.hax_supported = (hax_cpuid_t){
         .feature_1_ecx =
             FEATURE(SSE3)       |
             FEATURE(SSSE3)      |
@@ -221,23 +221,24 @@ void cpuid_init_supported_features(void)
             cache.hax_supported.feature_8000_0001_edx);
 }
 
-void cpuid_guest_init(cpuid_t *cpuid)
+void cpuid_guest_init(hax_cpuid_t *cpuid)
 {
     *cpuid = cache.hax_supported;
     cpuid->features_mask = ~0ULL;
 }
 
-void cpuid_get_features_mask(cpuid_t *cpuid, uint64_t *features_mask)
+void cpuid_get_features_mask(hax_cpuid_t *cpuid, uint64_t *features_mask)
 {
     *features_mask = cpuid->features_mask;
 }
 
-void cpuid_set_features_mask(cpuid_t *cpuid, uint64_t features_mask)
+void cpuid_set_features_mask(hax_cpuid_t *cpuid, uint64_t features_mask)
 {
     cpuid->features_mask = features_mask;
 }
 
-void cpuid_get_guest_features(cpuid_t *cpuid, uint32_t *cpuid_1_features_ecx,
+void cpuid_get_guest_features(hax_cpuid_t *cpuid,
+                              uint32_t *cpuid_1_features_ecx,
                               uint32_t *cpuid_1_features_edx,
                               uint32_t *cpuid_8000_0001_features_ecx,
                               uint32_t *cpuid_8000_0001_features_edx)
@@ -248,9 +249,9 @@ void cpuid_get_guest_features(cpuid_t *cpuid, uint32_t *cpuid_1_features_ecx,
     *cpuid_8000_0001_features_edx = cpuid->feature_8000_0001_edx;
 }
 
-void cpuid_set_guest_features(cpuid_t *cpuid, hax_cpuid *cpuid_info)
+void cpuid_set_guest_features(hax_cpuid_t *cpuid, hax_cpuid *cpuid_info)
 {
-    static void (*cpuid_set_guest_feature[])(cpuid_t *, hax_cpuid *) = {
+    static void (*cpuid_set_guest_feature[])(hax_cpuid_t *, hax_cpuid *) = {
         cpuid_set_0000_0001,
         cpuid_set_8000_0001
     };
@@ -292,7 +293,7 @@ static hax_cpuid_entry * find_cpuid_entry(hax_cpuid *cpuid_info,
     return found;
 }
 
-static void cpuid_set_0000_0001(cpuid_t *cpuid, hax_cpuid *cpuid_info)
+static void cpuid_set_0000_0001(hax_cpuid_t *cpuid, hax_cpuid *cpuid_info)
 {
     const uint32_t kFunction = 0x01;
     hax_cpuid_entry *entry;
@@ -326,7 +327,7 @@ static void cpuid_set_0000_0001(cpuid_t *cpuid, hax_cpuid *cpuid_info)
     }
 }
 
-static void cpuid_set_8000_0001(cpuid_t *cpuid, hax_cpuid *cpuid_info)
+static void cpuid_set_8000_0001(hax_cpuid_t *cpuid, hax_cpuid *cpuid_info)
 {
     const uint32_t kFunction = 0x80000001;
     hax_cpuid_entry *entry;
@@ -353,7 +354,7 @@ static void cpuid_set_8000_0001(cpuid_t *cpuid, hax_cpuid *cpuid_info)
     }
 }
 
-static void cpuid_set_fixed_features(cpuid_t *cpuid)
+static void cpuid_set_fixed_features(hax_cpuid_t *cpuid)
 {
     const uint32_t kFixedFeatures =
         FEATURE(MCE)  |

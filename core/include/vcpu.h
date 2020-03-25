@@ -240,7 +240,7 @@ struct vcpu_t {
     // * All vCPUs share the unique memory, which is actually allocated by the
     //   first vCPU created by VM. If any vCPU sets features in this field, all
     //   vCPUs will change accordingly.
-    cpuid_t *guest_cpuid;
+    hax_cpuid_t *guest_cpuid;
 };
 
 #define vmx(v, field) v->vmx.field

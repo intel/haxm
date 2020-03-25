@@ -4522,7 +4522,7 @@ static int vcpu_alloc_cpuid(struct vcpu_t *vcpu)
     if (vcpu->vcpu_id != 0)
         return 1;
 
-    vcpu->guest_cpuid = hax_vmalloc(sizeof(cpuid_t), HAX_MEM_NONPAGE);
+    vcpu->guest_cpuid = hax_vmalloc(sizeof(hax_cpuid_t), HAX_MEM_NONPAGE);
     if (vcpu->guest_cpuid == NULL)
         return 0;
 
@@ -4544,7 +4544,7 @@ static void vcpu_free_cpuid(struct vcpu_t *vcpu)
         return;
     }
 
-    hax_vfree(vcpu->guest_cpuid, sizeof(cpuid_t));
+    hax_vfree(vcpu->guest_cpuid, sizeof(hax_cpuid_t));
     vcpu->guest_cpuid = NULL;
     hax_log(HAX_LOGI, "%s: freed vcpu[%u].guest_cpuid.\n", __func__,
             vcpu->vcpu_id);
