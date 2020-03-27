@@ -4503,7 +4503,11 @@ static void vcpu_init_cpuid(struct vcpu_t *vcpu)
 
     if (vcpu->vcpu_id != 0) {
         vcpu_0 = hax_get_vcpu(vcpu->vm->vm_id, 0, 0);
-        hax_assert(vcpu_0 != NULL);
+        if (vcpu_0 == NULL) {
+            hax_log(HAX_LOGE, "%s: initializing vCPU #%u with exception as "
+                    "vCPU #0 is absent.\n", __func__, vcpu->vcpu_id);
+            return;
+        }
         vcpu->guest_cpuid = vcpu_0->guest_cpuid;
         hax_log(HAX_LOGI, "%s: referenced vcpu[%u].guest_cpuid to vcpu[%u].\n",
                 __func__, vcpu->vcpu_id, vcpu_0->vcpu_id);
