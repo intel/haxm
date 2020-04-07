@@ -29,6 +29,7 @@
  */
 
 #include "com_intel_hax.h"
+#include "../../core/include/config.h"
 
 #include <libkern/version.h>
 #include <sys/proc.h>
@@ -596,7 +597,10 @@ static int hax_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
             *((uint32_t *)data) = vm_id;
             break;
         }
-
+        case HAX_IOCTL_CAP_MAX_VCPU: {
+            *((uint32_t *)data) = HAX_MAX_VCPUS;
+            break;
+        }
         default: {
             handle_unknown_ioctl(dev, cmd, p);
             ret = -ENOSYS;

@@ -45,6 +45,7 @@
 #define HAX_IOCTL_DESTROY_VM _IOW(0, 0x22, uint32_t)
 #define HAX_IOCTL_CAPABILITY _IOR(0, 0x23, struct hax_capabilityinfo)
 #define HAX_IOCTL_SET_MEMLIMIT _IOWR(0, 0x24, struct hax_set_memlimit)
+#define HAX_IOCTL_CAP_MAX_VCPU _IOR(0, 0x25, uint32_t)
 
 // Only for backward compatibility with old Qemu.
 #define HAX_VM_IOCTL_VCPU_CREATE_ORIG _IOR(0, 0x80, int)
