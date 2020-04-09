@@ -232,6 +232,7 @@ enum {
 #define FEAT(bit) \
     FEATURE_KEY_LEAF(4, 0x80000001, CPUID_REG_ECX, bit)
     X86_FEATURE_LAHF          = FEAT(0),  /* 0x00000001  LAHF/SAHF Instructions */
+    X86_FEATURE_LZCNT         = FEAT(5),  /* 0x00000020  LZCNT Instruction */
     X86_FEATURE_PREFETCHW     = FEAT(8),  /* 0x00000100  PREFETCH/PREFETCHW instructions */
 #undef FEAT
 

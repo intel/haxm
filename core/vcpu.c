@@ -448,7 +448,7 @@ struct vcpu_t *vcpu_create(struct vm_t *vm, void *vm_host, int vcpu_id)
             sizeof(struct vcpu_state_t), HAX_MEM_NONPAGE);
     if (!vcpu->state)
         goto fail_4;
-    memset(vcpu->state, 0, sizeof(struct vcpu_state_t));
+    memset(vcpu->state, 0, sizeof(struct vcpu_state_t)); //cr8 = 0
 
     vcpu->tmutex = hax_mutex_alloc_init();
     if (!vcpu->tmutex)
@@ -2579,7 +2579,10 @@ static void handle_cpuid_virtual(struct vcpu_t *vcpu, uint32_t a, uint32_t c)
             FEATURE(RDTSCP)     |
             FEATURE(EM64T);
 
-    static uint32_t cpuid_8000_0001_features_ecx = 0;
+    static uint32_t cpuid_8000_0001_features_ecx =
+            FEATURE(LAHF)       |
+            FEATURE(LZCNT)      |
+            FEATURE(PREFETCHW);
 
     switch (a) {
         case 0: {                       // Maximum Basic Information
@@ -2630,6 +2633,8 @@ static void handle_cpuid_virtual(struct vcpu_t *vcpu, uint32_t a, uint32_t c)
                               (VIRT_STEPPING & 0xF);
             }
 
+            state->_eax = 0x10673; //Penryn
+
             /* Report all threads in one package XXXXX vapic currently, we
              * hardcode it to the maximal number of vcpus, but we should see
              * the code in QEMU to vapic initialization.
@@ -2674,7 +2679,7 @@ static void handle_cpuid_virtual(struct vcpu_t *vcpu, uint32_t a, uint32_t c)
         }
         case 4: {                       // Deterministic Cache Parameters
             // [31:26] cores per package - 1
-            // Use host cache values.
+            state->_eax = state->_ebx = state->_ecx = state->_edx = 0;
             return;
         }
         case 5:                         // MONITOR/MWAIT
@@ -2859,8 +2864,27 @@ static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
             uint64_t old_val = 0;
 
             if (cr == 8) {
-                // TODO: Redirect CR8 write to user space (emulated APIC.TPR)
-                hax_log(HAX_LOGW, "Ignored guest CR8 write, val=0x%llx\n", val);
+                if (vcpu->gstate.apic_base & APIC_BASE_ENABLE) {
+                    // The APIC must be enabled for CR8 to function as the TPR. Writes to CR8 are 
+                    // reflected into the APIC Task Priority Register.
+                    // Redirect CR8 write to user space (emulated APIC.TPR)
+                    struct hax_tunnel *htun = vcpu->tunnel;
+                    struct hax_fastmmio *hft = (struct hax_fastmmio *)vcpu->io_buf;
+                    htun->_exit_status = HAX_EXIT_FAST_MMIO;
+                    hft->gpa = APIC_BASE_DEFAULT_ADDR + 0x80; //APIC base cannot be relocated in haxm
+                    hft->size = 1; // register size is 4 bytes but only the first byte is modified by the write to TPR.
+
+                    //APIC.TPR[bits 7:4] = CR8[bits 3:0], APIC.TPR[bits 3:0] = 0.
+                    hft->value = ( val << 4 ) & 0xF0;
+                    hft->direction = 1;
+                    state->_cr8 = val;
+
+                    advance_rip(vcpu);
+
+                    return HAX_EXIT;
+                }
+                else
+                    hax_log(HAX_LOGW, "Ignored guest CR8 write since APIC is disabled, val=0x%llx\n", val);
                 break;
             }
 
@@ -2968,8 +2992,10 @@ static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 
             hax_log(HAX_LOGI, "cr_access R CR%d\n", cr);
 
-            val = vcpu_read_cr(state, cr);
-            // TODO: Redirect CR8 read to user space (emulated APIC.TPR)
+            if (cr == 8)
+                val = state->_cr8;
+            else
+                val = vcpu_read_cr(state, cr);
             state->_regs[vmx(vcpu, exit_qualification).cr.gpr] = val;
             break;
         }
@@ -3262,6 +3288,7 @@ static int exit_msr_read(struct vcpu_t *vcpu, struct hax_tunnel *htun)
         state->_rax = val & 0xffffffff;
         state->_rdx = (val >> 32) & 0xffffffff;
     } else {
+        hax_log(HAX_LOGW, "  MSR read 0x%x - GP\n", msr);
         hax_inject_exception(vcpu, VECTOR_GP, 0);
         return HAX_RESUME;
     }
@@ -3279,6 +3306,7 @@ static int exit_msr_write(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     htun->_exit_reason = vmx(vcpu, exit_reason).basic_reason;
 
     if (handle_msr_write(vcpu, msr, val, false)) {
+        hax_log(HAX_LOGW, "  MSR write 0x%x - GP\n", msr);
         hax_inject_exception(vcpu, VECTOR_GP, 0);
         return HAX_RESUME;
     }
@@ -3308,6 +3336,10 @@ static int misc_msr_read(struct vcpu_t *vcpu, uint32_t msr, uint64_t *val)
         return 0;
     } else if ((msr >= IA32_MC0_CTL2 && msr <= IA32_MC8_CTL2) ||
                (msr >= 0x300 && msr <= 0x3ff)) {
+        *val = 0;
+        return 0;
+    } else if (msr >= IA32_MCG_R8 && msr <= IA32_MCG_R15) {
+        //R8-R15 registers at last error.
         *val = 0;
         return 0;
     }
@@ -3437,7 +3469,7 @@ static int handle_msr_read(struct vcpu_t *vcpu, uint32_t msr, uint64_t *val)
             break;
         }
         case IA32_FSB_FREQ: {
-            *val = 4;
+            *val = 4; //333 MHz
             break;
         }
         case IA32_TEMP_TARGET: {
@@ -3505,6 +3537,36 @@ static int handle_msr_read(struct vcpu_t *vcpu, uint32_t msr, uint64_t *val)
                    : 0;
             hax_log(HAX_LOGI, "handle_msr_read: IA32_PERFEVTSEL%u "
                     "value=0x%llx\n", msr - IA32_PERFEVTSEL0, *val);
+            break;
+        }
+        case IA32_CORE_THREAD_COUNT: {
+            //Bits 15:0 are the core count and bits 31:16 are the thread count
+            struct vm_t *vm = vcpu->vm;
+            hax_list_head *list;
+            int count = 0;
+
+            hax_mutex_lock(vm->vm_lock);
+            hax_list_for_each(list, (hax_list_head *)(&vm->vcpu_list)) {
+                count++;
+            }
+            hax_mutex_unlock(vm->vm_lock);
+
+            *val = (((uint64_t)count) << 16) | count;
+            break;
+        }
+        case IA32_PLATFORM_INFO: {
+            *val = 0x8080838f1011e00;
+            break;
+        }
+        case IA32_PERF_STATUS: {
+            //Current cpuid returns features and version between Nehalem and Penryn
+            //CPUs. These define only the lower 16 bits of this MSR. But MacOS uses
+            //bits 44-40. This can be the maximum bus ratio on Intel Core CPUs.
+            *val = 0x400000003e8;
+            break;
+        }
+        case IA32_PERF_CTL: {
+            *val = 0;
             break;
         }
         default: {
