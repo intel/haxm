@@ -2588,6 +2588,16 @@ static void handle_cpuid_virtual(struct vcpu_t *vcpu, uint32_t a, uint32_t c)
                     uint32_t reserved2     : 4;
                 };
             } cpuid_eax;
+            struct vm_t *vm = vcpu->vm;
+            hax_list_head *list;
+            int vcpu_count = 0;
+
+            hax_mutex_lock(vm->vm_lock);
+            hax_list_for_each(list, (hax_list_head *)(&vm->vcpu_list)) {
+                vcpu_count++;
+            }
+            hax_mutex_unlock(vm->vm_lock);
+
             cpuid_eax.raw = state->_eax;
 
             if (0xF != cpuid_eax.familyID)
@@ -2629,6 +2639,9 @@ static void handle_cpuid_virtual(struct vcpu_t *vcpu, uint32_t a, uint32_t c)
                     // (see IA SDM Vol. 3A 3.2, Table 3-14)
                     0x00;
 
+            if (vcpu_count > 1)
+                state->_ebx |= (vcpu_count) << 16;
+
             // Report only the features specified, excluding any features not
             // supported by the host CPU, but including "hypervisor", which is
             // desirable for VMMs.
@@ -2651,8 +2664,23 @@ static void handle_cpuid_virtual(struct vcpu_t *vcpu, uint32_t a, uint32_t c)
             return;
         }
         case 4: {                       // Deterministic Cache Parameters
-            // [31:26] cores per package - 1
-            // Use host cache values.
+            // Use host cache values, but change maximum number of addresable
+            // IDs according to the number of virtual CPUs (bits [31:26]).
+            state->_eax &= ~0xFC000000;
+            if (state->_eax & 31) {
+                struct vm_t *vm = vcpu->vm;
+                hax_list_head *list;
+                int vcpu_count = 0;
+
+                hax_mutex_lock(vm->vm_lock);
+                hax_list_for_each(list, (hax_list_head *)(&vm->vcpu_list)) {
+                    vcpu_count++;
+                }
+                hax_mutex_unlock(vm->vm_lock);
+
+                if (vcpu_count > 1)
+                    state->_eax |= (vcpu_count - 1) << 26;
+            }
             return;
         }
         case 5:                         // MONITOR/MWAIT
@@ -2750,6 +2778,16 @@ static void handle_cpuid_virtual(struct vcpu_t *vcpu, uint32_t a, uint32_t c)
             return;
         }
         case 0x80000008: {              // Virtual/Physical Address Size
+            struct vm_t *vm = vcpu->vm;
+            hax_list_head *list;
+            int vcpu_count = 0;
+
+            hax_mutex_lock(vm->vm_lock);
+            hax_list_for_each(list, (hax_list_head *)(&vm->vcpu_list)) {
+                vcpu_count++;
+            }
+            hax_mutex_unlock(vm->vm_lock);
+
             // Bit mask to identify the reserved bits in paging structure high
             // order address field
             physical_address_size = (uint8_t)state->_eax & 0xff;
@@ -2757,6 +2795,9 @@ static void handle_cpuid_virtual(struct vcpu_t *vcpu, uint32_t a, uint32_t c)
                     ~((1 << (physical_address_size - 32)) - 1);
 
             state->_ebx = state->_ecx = state->_edx = 0;
+
+            if (vcpu_count > 1)
+                state->_ecx |= vcpu_count - 1;
             return;
         }
     }
