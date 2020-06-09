@@ -108,11 +108,6 @@ uint64_t hax_get_pfn_user(hax_memdesc_user *memdesc, uint64_t uva_offset)
     }
 
     ppfn = MmGetMdlPfnArray(pmdl);
-    if (NULL == ppfn) {
-        hax_log(HAX_LOGE, "Get MDL pfn array failed. uva_offset: 0x%llx.\n",
-                uva_offset);
-        return INVALID_PFN;
-    }
 
     return (uint64_t)ppfn[uva_offset >> PG_ORDER_4K];
 }
@@ -261,10 +256,7 @@ uint64_t hax_get_pfn_phys(hax_memdesc_phys *memdesc)
     }
 
     pfns = MmGetMdlPfnArray(memdesc->pmdl);
-    if (!pfns) {
-        hax_log(HAX_LOGE, "%s: MmGetMdlPfnArray() failed\n", __func__);
-        return INVALID_PFN;
-    }
+
     return pfns[0];
 }
 
