@@ -73,12 +73,13 @@ int hax_clear_vcpumem(struct hax_vcpu_mem *mem)
 int hax_valid_uva(uint64_t uva, uint64_t size)
 {
     return 1;
-    try {
-        ProbeForRead(&uva, size, PAGE_SIZE);
-    } except (EXCEPTION_EXECUTE_HANDLER) {
-        return 0;
-    }
-    return 1;
+// FIXME: Is it still available to verify the address?
+//    try {
+//        ProbeForRead(&uva, size, PAGE_SIZE);
+//    } except (EXCEPTION_EXECUTE_HANDLER) {
+//        return 0;
+//    }
+//    return 1;
 }
 
 int hax_setup_vcpumem(struct hax_vcpu_mem *mem, uint64_t uva, uint32_t size,
