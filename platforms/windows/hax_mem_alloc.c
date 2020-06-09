@@ -97,7 +97,7 @@ struct hax_page * hax_alloc_pages(int order, uint32_t flags, bool vmap)
 {
     struct hax_page *ppage = NULL;
     PMDL pmdl = NULL;
-    uint64_t length = (1 << order) * PAGE_SIZE;
+    uint64_t length = (1ULL << order) * PAGE_SIZE;
     PHYSICAL_ADDRESS high_addr, low_addr, skip_bytes;
 #ifdef MDL_HAX_PAGE
     ULONG options;
