@@ -59,18 +59,21 @@ matrix:
         - choco install -y nuget.commandline
         - choco install -y windowsdriverkit10
         - choco install -y windows-sdk-10.1
+        - choco install visualstudio2019buildtools --package-parameters "--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
       script:
         - cd platforms/windows
         - nuget restore
         - export PATH="$PATH:/c/Program Files (x86)/Microsoft Visual Studio/Installer/"
         - export MSVC=$(vswhere -latest -products "*" -requires Microsoft.Component.MSBuild -property installationPath)
         - export MSVC=$(echo /$MSVC | sed -e 's/\\/\//g' -e 's/://')
-        - export PATH="$PATH:$MSVC/MSBuild/15.0/Bin/"
+        - export PATH="$MSVC/MSBuild/Current/Bin:$PATH:$MSVC/MSBuild/15.0/Bin/"
         # TODO: Remove the following hack when no longer needed.
         # NOTE: Officially WDK does not support VS Build Tools, only regular VS/EWDK installations,
         #       but since those are not supported by TravisCI, we need to install targets manually.
+        - find "$MSVC" -type d
         - unzip "/c/Program Files (x86)/Windows Kits/10/Vsix/WDK.vsix" -d wdk
-        - cp -R wdk/\$VCTargets/* "$MSVC/Common7/IDE/VC/VCTargets"
+        - cp -R wdk/\$VCTargets/* "$MSVC/MSBuild/Microsoft/VC/v160"
+        - find "/c/Program Files (x86)/Microsoft Visual Studio/2017/BuildTools/Common7/IDE/VC/VCTargets" -type d
         - export PROPS="//p:SpectreMitigation=false"
         - MSBuild.exe haxm.sln $PROPS //p:Configuration="Debug" //p:Platform="Win32"
         - MSBuild.exe haxm.sln $PROPS //p:Configuration="Debug" //p:Platform="x64"
