@@ -2548,16 +2548,13 @@ static void handle_cpuid_virtual(struct vcpu_t *vcpu, uint32_t a, uint32_t c)
     uint32_t hw_family;
     uint32_t hw_model;
     uint8_t physical_address_size;
-    uint32_t cpuid_1_features_ecx, cpuid_1_features_edx,
-             cpuid_8000_0001_features_ecx, cpuid_8000_0001_features_edx;
+    hax_cpuid_entry cpuid_features = {0};
 
     // To fully support CPUID instructions (opcode = 0F A2) by software, it is
     // recommended to add opcode_table_0FA2[] in core/emulate.c to emulate
     // (Refer to Intel SDM Vol. 2A 3.2 CPUID).
-    cpuid_get_guest_features(vcpu->guest_cpuid, &cpuid_1_features_ecx,
-                             &cpuid_1_features_edx,
-                             &cpuid_8000_0001_features_ecx,
-                             &cpuid_8000_0001_features_edx);
+    cpuid_features.function = a;
+    cpuid_get_guest_features(vcpu->guest_cpuid, &cpuid_features);
 
     switch (a) {
         case 0: {                       // Maximum Basic Information
@@ -2633,8 +2630,9 @@ static void handle_cpuid_virtual(struct vcpu_t *vcpu, uint32_t a, uint32_t c)
             // supported by the host CPU, but including "hypervisor", which is
             // desirable for VMMs.
             // TBD: This will need to be changed to emulate new features.
-            state->_ecx = (cpuid_1_features_ecx & state->_ecx) | FEATURE(HYPERVISOR);
-            state->_edx = cpuid_1_features_edx & state->_edx;
+            state->_ecx = (cpuid_features.ecx & state->_ecx) |
+                          FEATURE(HYPERVISOR);
+            state->_edx = cpuid_features.edx & state->_edx;
             return;
         }
         case 2: {                       // Cache and TLB Information
@@ -2701,8 +2699,8 @@ static void handle_cpuid_virtual(struct vcpu_t *vcpu, uint32_t a, uint32_t c)
             state->_eax = state->_ebx = 0;
             // Report only the features specified but turn off any features
             // this processor doesn't support.
-            state->_ecx = cpuid_8000_0001_features_ecx & state->_ecx;
-            state->_edx = cpuid_8000_0001_features_edx & state->_edx;
+            state->_ecx = cpuid_features.ecx & state->_ecx;
+            state->_edx = cpuid_features.edx & state->_edx;
             return;
         }
         /*
