@@ -58,14 +58,18 @@ extern "C" void * hax_vmalloc(uint32_t size, uint32_t flags)
     if (size == 0)
         return NULL;
 
-    if (flags & HAX_MEM_PAGABLE)
+    if (flags & HAX_MEM_PAGABLE) {
         buf = IOMallocPageable(size, HAX_CACHE_ALIGNMENT);
-
-    if (flags & HAX_MEM_NONPAGE)
+    } else if (flags & HAX_MEM_NONPAGE) {
         buf = IOMalloc(size);
+    } else {
+        return NULL;
+    }
 
-    if (buf)
-        memset(buf, 0, size);
+    if (buf == NULL)
+        return NULL;
+
+    memset(buf, 0, size);
 
     return buf;
 }
@@ -76,14 +80,18 @@ extern "C" void * hax_vmalloc_aligned(uint32_t size, uint32_t flags,
     void *buf = NULL;
     HAX_ALLOC_CHECK
 
-    if (flags & HAX_MEM_PAGABLE)
+    if (flags & HAX_MEM_PAGABLE) {
         buf = IOMallocPageable(size, alignment);
-
-    if (flags & HAX_MEM_NONPAGE)
+    } else if (flags & HAX_MEM_NONPAGE) {
         buf = IOMallocAligned(size, alignment);
+    } else {
+        return NULL;
+    }
 
-    if (buf)
-        memset(buf, 0, size);
+    if (buf == NULL)
+        return NULL;
+
+    memset(buf, 0, size);
 
     return buf;
 }
