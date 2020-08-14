@@ -55,13 +55,32 @@ typedef union cpuid_feature_t {
     uint32_t value;
 } cpuid_feature_t;
 
+typedef void (*set_feature_t)(hax_cpuid_entry *, hax_cpuid *, uint32_t);
+
+typedef struct cpuid_set_t {
+    uint32_t       function;
+    set_feature_t  set_feature;
+} cpuid_set_t;
+
 static cpuid_cache_t cache = {0};
 
-static hax_cpuid_entry * find_cpuid_entry(hax_cpuid *cpuid_info,
-                                          uint32_t function, uint32_t index);
-static void cpuid_set_0000_0001(hax_cpuid_t *cpuid, hax_cpuid *cpuid_info);
-static void cpuid_set_8000_0001(hax_cpuid_t *cpuid, hax_cpuid *cpuid_info);
-static void cpuid_set_fixed_features(hax_cpuid_t *cpuid);
+static hax_cpuid_entry * find_cpuid_entry(hax_cpuid_entry *features,
+                                          uint32_t size, uint32_t function,
+                                          uint32_t index);
+static void set_feature(hax_cpuid_entry *features, hax_cpuid *cpuid_info,
+                        uint32_t function);
+static void set_feature_0000_0001(hax_cpuid_entry *features,
+                                  hax_cpuid *cpuid_info, uint32_t function);
+static void cpuid_set_fixed_features(hax_cpuid_entry *features,
+                                     uint32_t function);
+static void dump_features(hax_cpuid_entry *features, uint32_t size);
+static uint32_t get_feature_key_leaf(uint32_t function, uint32_t reg,
+                                     uint32_t bit);
+
+static const cpuid_set_t kCpuidSet[CPUID_FEATURE_SET_SIZE] = {
+    {0x00000001, set_feature_0000_0001},
+    {0x80000001, set_feature}
+};
 
 void cpuid_query_leaf(cpuid_args_t *args, uint32_t leaf)
 {
@@ -134,42 +153,41 @@ bool cpuid_host_has_feature_uncached(uint32_t feature_key)
 
 void cpuid_init_supported_features(void)
 {
-    uint32_t bit, flag, function, x86_feature;
+    uint32_t i, bit, flag, function, x86_feature;
+    hax_cpuid_entry *host_supported, *hax_supported;
 
     // Initialize host supported features
-    for (bit = 0; bit < sizeof(uint32_t) * 8; ++bit) {
-        flag = 1 << bit;
+    host_supported = cache.host_supported.features;
 
-        function = 0x01;
-        x86_feature = FEATURE_KEY_LEAF(0, function, CPUID_REG_ECX, bit);
-        if (cpuid_host_has_feature(x86_feature)) {
-            cache.host_supported.feature_1_ecx |= flag;
-        }
+    for (i = 0; i < CPUID_FEATURE_SET_SIZE; ++i) {
+        function = kCpuidSet[i].function;
+        host_supported[i].function = function;
 
-        x86_feature = FEATURE_KEY_LEAF(1, function, CPUID_REG_EDX, bit);
-        if (cpuid_host_has_feature(x86_feature)) {
-            cache.host_supported.feature_1_edx |= flag;
-        }
+        for (bit = 0; bit < sizeof(uint32_t) * 8; ++bit) {
+            flag = 1 << bit;
 
-        function = 0x80000001;
-        x86_feature = FEATURE_KEY_LEAF(5, function, CPUID_REG_EDX, bit);
-        if (cpuid_host_has_feature(x86_feature)) {
-            cache.host_supported.feature_8000_0001_edx |= flag;
+#define SET_FEATURE_FLAG(r, n)                                       \
+            x86_feature = get_feature_key_leaf(function, (n), bit);  \
+            if (cpuid_host_has_feature(x86_feature)) {               \
+                host_supported[i].r |= flag;                         \
+            }
+
+            SET_FEATURE_FLAG(eax, CPUID_REG_EAX);
+            SET_FEATURE_FLAG(ebx, CPUID_REG_EBX);
+            SET_FEATURE_FLAG(ecx, CPUID_REG_ECX);
+            SET_FEATURE_FLAG(edx, CPUID_REG_EDX);
+#undef SET_FEATURE_FLAG
         }
     }
 
     hax_log(HAX_LOGI, "%s: host supported features:\n", __func__);
-    hax_log(HAX_LOGI, "feature_1_ecx: %08lx, feature_1_edx: %08lx\n",
-            cache.host_supported.feature_1_ecx,
-            cache.host_supported.feature_1_edx);
-    hax_log(HAX_LOGI, "feature_8000_0001_ecx: %08lx, "
-            "feature_8000_0001_edx: %08lx\n",
-            cache.host_supported.feature_8000_0001_ecx,
-            cache.host_supported.feature_8000_0001_edx);
+    dump_features(host_supported, CPUID_FEATURE_SET_SIZE);
 
     // Initialize HAXM supported features
-    cache.hax_supported = (hax_cpuid_t){
-        .feature_1_ecx =
+    hax_supported = cache.hax_supported.features;
+    hax_supported[0] = (hax_cpuid_entry){
+        .function = 0x01,
+        .ecx =
             FEATURE(SSE3)       |
             FEATURE(SSSE3)      |
             FEATURE(SSE41)      |
@@ -179,7 +197,7 @@ void cpuid_init_supported_features(void)
             FEATURE(AESNI)      |
             FEATURE(PCLMULQDQ)  |
             FEATURE(POPCNT),
-        .feature_1_edx =
+        .edx =
             FEATURE(PAT)        |
             FEATURE(FPU)        |
             FEATURE(VME)        |
@@ -202,9 +220,11 @@ void cpuid_init_supported_features(void)
             FEATURE(SSE2)       |
             FEATURE(SS)         |
             FEATURE(PSE)        |
-            FEATURE(HTT),
-        .feature_8000_0001_ecx = 0,
-        .feature_8000_0001_edx =
+            FEATURE(HTT)
+    };
+    hax_supported[1] = (hax_cpuid_entry){
+        .function = 0x80000001,
+        .edx =
             FEATURE(NX)         |
             FEATURE(SYSCALL)    |
             FEATURE(RDTSCP)     |
@@ -212,13 +232,7 @@ void cpuid_init_supported_features(void)
     };
 
     hax_log(HAX_LOGI, "%s: HAXM supported features:\n", __func__);
-    hax_log(HAX_LOGI, "feature_1_ecx: %08lx, feature_1_edx: %08lx\n",
-            cache.hax_supported.feature_1_ecx,
-            cache.hax_supported.feature_1_edx);
-    hax_log(HAX_LOGI, "feature_8000_0001_ecx: %08lx, "
-            "feature_8000_0001_edx: %08lx\n",
-            cache.hax_supported.feature_8000_0001_ecx,
-            cache.hax_supported.feature_8000_0001_edx);
+    dump_features(hax_supported, CPUID_FEATURE_SET_SIZE);
 }
 
 void cpuid_guest_init(hax_cpuid_t *cpuid)
@@ -237,130 +251,170 @@ void cpuid_set_features_mask(hax_cpuid_t *cpuid, uint64_t features_mask)
     cpuid->features_mask = features_mask;
 }
 
-void cpuid_get_guest_features(hax_cpuid_t *cpuid,
-                              uint32_t *cpuid_1_features_ecx,
-                              uint32_t *cpuid_1_features_edx,
-                              uint32_t *cpuid_8000_0001_features_ecx,
-                              uint32_t *cpuid_8000_0001_features_edx)
+void cpuid_get_guest_features(hax_cpuid_t *cpuid, hax_cpuid_entry *features)
 {
-    *cpuid_1_features_ecx         = cpuid->feature_1_ecx;
-    *cpuid_1_features_edx         = cpuid->feature_1_edx;
-    *cpuid_8000_0001_features_ecx = cpuid->feature_8000_0001_ecx;
-    *cpuid_8000_0001_features_edx = cpuid->feature_8000_0001_edx;
+    hax_cpuid_entry *entry;
+
+    if (cpuid == NULL || features == NULL)
+        return;
+
+    entry = find_cpuid_entry(cpuid->features, CPUID_FEATURE_SET_SIZE,
+                             features->function, 0);
+    if (entry == NULL)
+        return;
+
+    *features = *entry;
 }
 
 void cpuid_set_guest_features(hax_cpuid_t *cpuid, hax_cpuid *cpuid_info)
 {
-    static void (*cpuid_set_guest_feature[])(hax_cpuid_t *, hax_cpuid *) = {
-        cpuid_set_0000_0001,
-        cpuid_set_8000_0001
-    };
-    static size_t count = sizeof(cpuid_set_guest_feature) /
-                          sizeof(cpuid_set_guest_feature[0]);
     int i;
+    const cpuid_set_t *kItem;
+
+    if (cpuid == NULL || cpuid_info == NULL)
+        return;
+
+    hax_log(HAX_LOGI, "%s: user setting:\n", __func__);
+    dump_features(cpuid_info->entries, cpuid_info->total);
 
     hax_log(HAX_LOGI, "%s: before:\n", __func__);
-    hax_log(HAX_LOGI, "feature_1_ecx: %08lx, feature_1_edx: %08lx\n",
-            cpuid->feature_1_ecx, cpuid->feature_1_edx);
-    hax_log(HAX_LOGI, "feature_8000_0001_ecx: %08lx, feature_8000_0001_edx: %08lx"
-            "\n", cpuid->feature_8000_0001_ecx, cpuid->feature_8000_0001_edx);
+    dump_features(cpuid->features, CPUID_FEATURE_SET_SIZE);
 
-    for (i = 0; i < count; ++i) {
-        cpuid_set_guest_feature[i](cpuid, cpuid_info);
+    for (i = 0; i < CPUID_FEATURE_SET_SIZE; ++i) {
+        kItem = &kCpuidSet[i];
+        kItem->set_feature(cpuid->features, cpuid_info, kItem->function);
     }
 
     hax_log(HAX_LOGI, "%s: after:\n", __func__);
-    hax_log(HAX_LOGI, "feature_1_ecx: %08lx, feature_1_edx: %08lx\n",
-            cpuid->feature_1_ecx, cpuid->feature_1_edx);
-    hax_log(HAX_LOGI, "feature_8000_0001_ecx: %08lx, feature_8000_0001_edx: %08lx"
-            "\n", cpuid->feature_8000_0001_ecx, cpuid->feature_8000_0001_edx);
+    dump_features(cpuid->features, CPUID_FEATURE_SET_SIZE);
 }
 
-static hax_cpuid_entry * find_cpuid_entry(hax_cpuid *cpuid_info,
-                                          uint32_t function, uint32_t index)
+static hax_cpuid_entry * find_cpuid_entry(hax_cpuid_entry *features,
+                                          uint32_t size, uint32_t function,
+                                          uint32_t index)
 {
     int i;
-    hax_cpuid_entry *entry, *found = NULL;
-
-    for (i = 0; i < cpuid_info->total; ++i) {
-        entry = &cpuid_info->entries[i];
-        if (entry->function == function && entry->index == index) {
-            found = entry;
-            break;
-        }
-    }
-
-    return found;
-}
-
-static void cpuid_set_0000_0001(hax_cpuid_t *cpuid, hax_cpuid *cpuid_info)
-{
-    const uint32_t kFunction = 0x01;
     hax_cpuid_entry *entry;
 
-    entry = find_cpuid_entry(cpuid_info, kFunction, 0);
-    if (entry == NULL)
+    if (features == NULL)
+        return NULL;
+
+    for (i = 0; i < size; ++i) {
+        entry = &features[i];
+        if (entry->function == function && entry->index == index)
+            return entry;
+    }
+
+    return NULL;
+}
+
+static void set_feature(hax_cpuid_entry *features, hax_cpuid *cpuid_info,
+                        uint32_t function)
+{
+    hax_cpuid_entry *dest, *src, *host_supported, *hax_supported;
+
+    if (features == NULL || cpuid_info == NULL)
         return;
 
-    hax_log(HAX_LOGI, "%s: function: %08lx, index: %lu, flags: %08lx\n",
-            __func__, entry->function, entry->index, entry->flags);
-    hax_log(HAX_LOGI, "%s: eax: %08lx, ebx: %08lx, ecx: %08lx, edx: %08lx\n",
-            __func__, entry->eax, entry->ebx, entry->ecx, entry->edx);
+    dest = find_cpuid_entry(features, CPUID_FEATURE_SET_SIZE, function, 0);
+    if (dest == NULL)
+        return;
 
-    cpuid->feature_1_ecx = entry->ecx;
-    cpuid->feature_1_edx = entry->edx;
+    src = find_cpuid_entry(cpuid_info->entries, cpuid_info->total, function, 0);
+    if (src == NULL)
+        return;
 
-    // Filter the unsupported features
-    cpuid->feature_1_ecx &= cache.host_supported.feature_1_ecx &
-                            cache.hax_supported.feature_1_ecx;
-    cpuid->feature_1_edx &= cache.host_supported.feature_1_edx &
-                            cache.hax_supported.feature_1_edx;
+    host_supported = find_cpuid_entry(cache.host_supported.features,
+                                      CPUID_FEATURE_SET_SIZE, function, 0);
+    hax_supported = find_cpuid_entry(cache.hax_supported.features,
+                                     CPUID_FEATURE_SET_SIZE, function, 0);
 
+    if (host_supported == NULL || hax_supported == NULL)
+        return;
+
+    *dest = *src;
+    dest->eax &= host_supported->eax & hax_supported->eax;
+    dest->ebx &= host_supported->ebx & hax_supported->ebx;
+    dest->ecx &= host_supported->ecx & hax_supported->ecx;
+    dest->edx &= host_supported->edx & hax_supported->edx;
+
+    if (src->eax == dest->eax && src->ebx == dest->ebx &&
+        src->ecx == dest->ecx && src->edx == dest->edx)
+        return;
+
+    hax_log(HAX_LOGW, "%s: filtered or unchanged flags:\n", __func__);
+    hax_log(HAX_LOGW, "function: %08lx, eax: %08lx, ebx: %08lx, ecx: %08lx, "
+            "edx: %08lx\n", function, src->eax ^ dest->eax,
+            src->ebx ^ dest->ebx, src->ecx ^ dest->ecx, src->edx ^ dest->edx);
+}
+
+static void set_feature_0000_0001(hax_cpuid_entry *features,
+                                  hax_cpuid *cpuid_info, uint32_t function)
+{
+    if (features == NULL || cpuid_info == NULL)
+        return;
+
+    set_feature(features, cpuid_info, function);
     // Set fixed supported features
-    cpuid_set_fixed_features(cpuid);
-
-    if (entry->ecx != cpuid->feature_1_ecx ||
-        entry->edx != cpuid->feature_1_edx) {
-        hax_log(HAX_LOGW, "%s: filtered or unchanged flags: ecx: %08lx, "
-                "edx: %08lx\n", __func__, entry->ecx ^ cpuid->feature_1_ecx,
-                entry->edx ^ cpuid->feature_1_edx);
-    }
+    cpuid_set_fixed_features(features, function);
 }
 
-static void cpuid_set_8000_0001(hax_cpuid_t *cpuid, hax_cpuid *cpuid_info)
-{
-    const uint32_t kFunction = 0x80000001;
-    hax_cpuid_entry *entry;
-
-    entry = find_cpuid_entry(cpuid_info, kFunction, 0);
-    if (entry == NULL)
-        return;
-
-    hax_log(HAX_LOGI, "%s: function: %08lx, index: %lu, flags: %08lx\n",
-            __func__, entry->function, entry->index, entry->flags);
-    hax_log(HAX_LOGI, "%s: eax: %08lx, ebx: %08lx, ecx: %08lx, edx: %08lx\n",
-            __func__, entry->eax, entry->ebx, entry->ecx, entry->edx);
-
-    cpuid->feature_8000_0001_edx = entry->edx;
-
-    // Filter the unsupported features
-    cpuid->feature_8000_0001_edx &=
-        cache.host_supported.feature_8000_0001_edx &
-        cache.hax_supported.feature_8000_0001_edx;
-
-    if (entry->edx != cpuid->feature_8000_0001_edx) {
-        hax_log(HAX_LOGW, "%s: filtered or unchanged flags: edx: %08lx\n",
-                __func__, entry->edx ^ cpuid->feature_8000_0001_edx);
-    }
-}
-
-static void cpuid_set_fixed_features(hax_cpuid_t *cpuid)
+static void cpuid_set_fixed_features(hax_cpuid_entry *features,
+                                     uint32_t function)
 {
     const uint32_t kFixedFeatures =
         FEATURE(MCE)  |
         FEATURE(APIC) |
         FEATURE(MTRR) |
         FEATURE(PAT);
+    hax_cpuid_entry *entry;
 
-    cpuid->feature_1_edx |= kFixedFeatures;
+    if (features == NULL)
+        return;
+
+    entry = find_cpuid_entry(features, CPUID_FEATURE_SET_SIZE, function, 0);
+    if (entry == NULL)
+        return;
+
+    entry->edx |= kFixedFeatures;
+}
+
+static void dump_features(hax_cpuid_entry *features, uint32_t size)
+{
+    int i;
+    hax_cpuid_entry *entry;
+
+    if (features == NULL)
+        return;
+
+    for (i = 0; i < size; ++i) {
+        entry = &features[i];
+        hax_log(HAX_LOGI, "function: %08lx, index: %lu, flags: %08lx\n",
+                entry->function, entry->index, entry->flags);
+        hax_log(HAX_LOGI, "eax: %08lx, ebx: %08lx, ecx: %08lx, edx: %08lx\n",
+                entry->eax, entry->ebx, entry->ecx, entry->edx);
+    }
+}
+
+static uint32_t get_feature_key_leaf(uint32_t function, uint32_t reg,
+                                     uint32_t bit)
+{
+    if (function == 0x01) {
+        if (reg == CPUID_REG_ECX)
+            return FEATURE_KEY_LEAF(0, function, reg, bit);
+
+        if (reg == CPUID_REG_EDX)
+            return FEATURE_KEY_LEAF(1, function, reg, bit);
+
+        return -1;
+    }
+
+    if (function == 0x80000001) {
+        if (reg == CPUID_REG_EDX)
+            return FEATURE_KEY_LEAF(5, function, reg, bit);
+
+        return -1;
+    }
+
+    return -1;
 }
