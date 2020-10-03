@@ -40,6 +40,6 @@ to this [code of conduct](CODE_OF_CONDUCT.md).
 [intel-vt]: https://www.intel.com/content/www/us/en/virtualization/virtualization-technology/intel-virtualization-technology.html
 [android-studio]: https://developer.android.com/studio/index.html
 [qemu]: https://www.qemu.org/
-[github-haxm-latest-release]: https://github.com/intel/haxm/releases/latest
+[github-haxm-latest-release]: https://github.com/intel/haxm/releases/
 [github-haxm-issues]: https://github.com/intel/haxm/issues
 [intel-security-email]: mailto:secure@intel.com
