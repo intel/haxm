@@ -30,10 +30,13 @@
  */
 
 #include "include/cpuid.h"
+#include "include/hax_driver.h"
 
-#include "include/ia32.h"
+#define CPUID_CACHE_SIZE        6
+#define MAX_BASIC_CPUID         0x0a
+#define MAX_EXTENDED_CPUID      0x80000008
 
-#define CPUID_CACHE_SIZE 6
+extern uint32_t pw_reserved_bits_high_mask;
 
 typedef struct cpuid_cache_t {
     // Host cached features
@@ -59,7 +62,13 @@ typedef union cpuid_feature_t {
     uint32_t value;
 } cpuid_feature_t;
 
+typedef void (*execute_t)(hax_cpuid_entry *, cpuid_args_t *);
 typedef void (*set_leaf_t)(hax_cpuid_entry *, hax_cpuid_entry *);
+
+typedef struct cpuid_manager_t {
+    uint32_t   leaf;
+    execute_t  execute;
+} cpuid_manager_t;
 
 typedef struct cpuid_controller_t {
     uint32_t    leaf;
@@ -74,10 +83,61 @@ static hax_cpuid_entry * find_cpuid_entry(hax_cpuid_entry *features,
 static void dump_features(hax_cpuid_entry *features, uint32_t size);
 static void filter_features(hax_cpuid_entry *entry);
 
+static void execute_0000_0000(hax_cpuid_entry *entry, cpuid_args_t *args);
+static void execute_0000_0001(hax_cpuid_entry *entry, cpuid_args_t *args);
+static void execute_0000_0002(hax_cpuid_entry *entry, cpuid_args_t *args);
+static void execute_0000_000a(hax_cpuid_entry *entry, cpuid_args_t *args);
+static void execute_4000_0000(hax_cpuid_entry *entry, cpuid_args_t *args);
+static void execute_8000_0000(hax_cpuid_entry *entry, cpuid_args_t *args);
+static void execute_8000_0001(hax_cpuid_entry *entry, cpuid_args_t *args);
+static void execute_8000_0002(hax_cpuid_entry *entry, cpuid_args_t *args);
+static void execute_8000_0003(hax_cpuid_entry *entry, cpuid_args_t *args);
+static void execute_8000_0006(hax_cpuid_entry *entry, cpuid_args_t *args);
+static void execute_8000_0008(hax_cpuid_entry *entry, cpuid_args_t *args);
+static void get_unsupported_leaf(cpuid_args_t *args);
+
 static void set_feature(hax_cpuid_entry *features, hax_cpuid *cpuid_info,
                         const cpuid_controller_t *cpuid_controller);
 static void set_leaf_0000_0001(hax_cpuid_entry *dest, hax_cpuid_entry *src);
 static void set_leaf_8000_0001(hax_cpuid_entry *dest, hax_cpuid_entry *src);
+
+// To fully support CPUID instructions (opcode = 0F A2) by software, it is
+// recommended to add opcode_table_0FA2[] in core/emulate.c to emulate
+// (Refer to Intel SDM Vol. 2A 3.2 CPUID).
+
+static const cpuid_manager_t kCpuidManager[] = {
+    // Basic CPUID Information
+    {0x00000000, execute_0000_0000},  // Maximum Basic Information
+    {0x00000001, execute_0000_0001},  // Version Information and Features
+    {0x00000002, execute_0000_0002},  // Cache and TLB Information
+    {0x0000000a, execute_0000_000a},  // Architectural Performance Monitoring
+
+    // Unimplemented CPUID Leaf Functions
+    {0x40000000, execute_4000_0000},  // Unimplemented by real Intel CPUs
+
+    // Extended Function CPUID Information
+    {0x80000000, execute_8000_0000},  // Maximum Extended Information
+    {0x80000001, execute_8000_0001},  // Extended Signature and Features
+    {0x80000002, execute_8000_0002},  // Processor Brand String - part 1
+    {0x80000003, execute_8000_0003},  // Processor Brand String - part 2
+    {0x80000004, execute_8000_0003},  // Processor Brand String - part 3
+    {0x80000006, execute_8000_0006},
+    {0x80000008, execute_8000_0008}   // Virtual/Physical Address Size
+};
+// ________
+// 03H        Reserved
+// 04H        Deterministic Cache Parameters
+//            [31:26] cores per package - 1
+// 05H        MONITOR/MWAIT
+//            Unsupported because feat_monitor is not set
+// 06H        Thermal and Power Management
+// 07H        Structured Extended Feature Flags
+//            Cannot use host values, i.e., 'execute' cannot be NULL.
+// 08H        Undefined
+// 09H        Direct Cache Access Information
+// 80000005H  Reserved
+
+#define CPUID_TOTAL_LEAVES sizeof(kCpuidManager)/sizeof(kCpuidManager[0])
 
 static const cpuid_controller_t kCpuidController[] = {
     {0x00000001, set_leaf_0000_0001},
@@ -239,6 +299,51 @@ void cpuid_guest_init(hax_cpuid_t *cpuid)
     }
 }
 
+void cpuid_execute(hax_cpuid_t *cpuid, cpuid_args_t *args)
+{
+    int i;
+    uint32_t leaf, subleaf;
+    hax_cpuid_entry *entry;
+    const cpuid_manager_t *cpuid_manager;
+
+    if (cpuid == NULL || args == NULL)
+        return;
+
+    leaf = args->eax;
+    subleaf = args->ecx;
+
+    entry = find_cpuid_entry(cpuid->features, CPUID_TOTAL_CONTROLS, leaf, 0);
+    if (entry == NULL) {
+        // 'entry' can be NULL, which means that 'entry' will not be used to
+        // adjust the guest CPUID values.
+        hax_log(HAX_LOGI, "%s: HAXM has not enabled guest to control "
+                "CPUID.%02xH", __func__, leaf);
+    }
+
+    for (i = 0; i < CPUID_TOTAL_LEAVES; ++i) {
+        cpuid_manager = &kCpuidManager[i];
+        if (cpuid_manager->leaf == leaf) {
+            if (cpuid_manager->execute != NULL) {
+                cpuid_manager->execute(entry, args);
+            } else {
+                asm_cpuid(args);
+            }
+            break;
+        }
+    }
+
+    if (i >= CPUID_TOTAL_LEAVES) {
+        // If the CPUID leaf cannot be found, i.e., out of the kCpuidManager
+        // list, the processing is undecided:
+        // * Call get_unsupported_leaf() to return all zeroes;
+        // * Call asm_cpuid() to return host values.
+        get_unsupported_leaf(args);
+    }
+
+    hax_log(HAX_LOGD, "CPUID %08x %08x: %08x %08x %08x %08x\n", leaf, subleaf,
+            args->eax, args->ebx, args->ecx, args->edx);
+}
+
 void cpuid_get_features_mask(hax_cpuid_t *cpuid, uint64_t *features_mask)
 {
     *features_mask = cpuid->features_mask;
@@ -337,6 +442,229 @@ static void filter_features(hax_cpuid_entry *entry)
     entry->ebx &= host_supported->ebx & hax_supported->ebx;
     entry->ecx &= host_supported->ecx & hax_supported->ecx;
     entry->edx &= host_supported->edx & hax_supported->edx;
+}
+
+static void execute_0000_0000(hax_cpuid_entry *entry, cpuid_args_t *args)
+{
+    if (args == NULL)
+        return;
+
+    asm_cpuid(args);
+    args->eax = (args->eax < MAX_BASIC_CPUID) ? args->eax : MAX_BASIC_CPUID;
+}
+
+static void execute_0000_0001(hax_cpuid_entry *entry, cpuid_args_t *args)
+{
+#define VIRT_FAMILY    0x06
+#define VIRT_MODEL     0x1f
+#define VIRT_STEPPING  0x01
+    uint32_t hw_family;
+    uint32_t hw_model;
+    // In order to avoid the initialization of unnecessary extended features in
+    // the Kernel for emulator (such as the snbep performance monitoring feature
+    // in Xeon E5 series system, and the initialization of this feature crashes
+    // the emulator), when the hardware family ID is equal to 6 and hardware
+    // model ID is greater than 0x1f, we virtualize the returned eax to 0x106f1,
+    // that is an old i7 system, so the emulator can still utilize the enough
+    // extended features of the hardware, but doesn't crash.
+    union cpuid_01h_eax {
+        uint32_t raw;
+        struct {
+            uint32_t stepping_id     : 4;
+            uint32_t model           : 4;
+            uint32_t family_id       : 4;
+            uint32_t processor_type  : 2;
+            uint32_t reserved        : 2;
+            uint32_t ext_model_id    : 4;
+            uint32_t ext_family_id   : 8;
+            uint32_t reserved2       : 4;
+        };
+    } eax;
+
+    if (entry == NULL) {
+        hax_log(HAX_LOGE, "%s: 'entry' should be copied from hax_supported[0].",
+                __func__);
+        return;
+    }
+
+    if (args == NULL)
+        return;
+
+    asm_cpuid(args);
+
+    eax.raw = args->eax;
+
+    hw_family = (eax.family_id != 0xf) ? eax.family_id
+                : eax.family_id + (eax.ext_family_id << 4);
+    hw_model = (eax.family_id == 0x6 || eax.family_id == 0xf)
+               ? (eax.ext_model_id << 4) + eax.model : eax.model;
+
+    if (hw_family == VIRT_FAMILY && hw_model > VIRT_MODEL) {
+        args->eax = ((VIRT_FAMILY & 0xff0) << 16) | ((VIRT_FAMILY & 0xf) << 8) |
+                    ((VIRT_MODEL & 0xf0) << 12) | ((VIRT_MODEL & 0xf) << 4) |
+                    (VIRT_STEPPING & 0xf);
+    }
+
+    // Report all threads in one package XXXXX vapic currently, we hardcode it
+    // to the maximal number of vcpus, but we should see the code in QEMU to
+    // vapic initialization.
+    args->ebx =
+        // Bits 31..16 are hard-coded, with the original author's reasoning
+        // given in the above comment. However, these values are not suitable
+        // for SMP guests.
+        // TODO: Use QEMU's values instead
+        // EBX[31..24]: Initial APIC ID
+        // EBX[23..16]: Maximum number of addressable IDs for logical processors
+        // in this physical package
+        (0x01 << 16) |
+        // EBX[15..8]: CLFLUSH line size
+        // Report a 64-byte CLFLUSH line size as QEMU does
+        (0x08 << 8) |
+        // EBX[7..0]: Brand index
+        // 0 indicates that brand identification is not supported
+        // (see IA SDM Vol. 3A 3.2, Table 3-14)
+        0x00;
+
+    // Report only the features specified, excluding any features not supported
+    // by the host CPU, but including "hypervisor", which is desirable for VMMs.
+    // TBD: This will need to be changed to emulate new features.
+    args->ecx = (args->ecx & entry->ecx) | FEATURE(HYPERVISOR);
+    args->edx &= entry->edx;
+}
+
+static void execute_0000_0002(hax_cpuid_entry *entry, cpuid_args_t *args)
+{
+    if (args == NULL)
+        return;
+
+    // These hard-coded values are questionable
+    // TODO: Use QEMU's values instead
+    args->eax = 0x03020101;
+    args->ebx = 0;
+    args->ecx = 0;
+    args->edx = 0x0c040844;
+}
+
+static void execute_0000_000a(hax_cpuid_entry *entry, cpuid_args_t *args)
+{
+    struct cpu_pmu_info *pmu_info = &hax->apm_cpuid_0xa;
+
+    if (args == NULL)
+        return;
+
+    args->eax = pmu_info->cpuid_eax;
+    args->ebx = pmu_info->cpuid_ebx;
+    args->ecx = 0;
+    args->edx = pmu_info->cpuid_edx;
+}
+
+static void execute_4000_0000(hax_cpuid_entry *entry, cpuid_args_t *args)
+{
+    if (args == NULL)
+        return;
+
+    // Most VMMs, including KVM, Xen, VMware and Hyper-V, use this unofficial
+    // CPUID leaf, in conjunction with the "hypervisor" feature flag (c.f. case
+    // 1 above), to identify themselves to the guest OS, in a similar manner to
+    // CPUID leaf 0 for the CPU vendor ID. HAXM should return its own VMM vendor
+    // ID, even though no guest OS recognizes it, because it may be running as a
+    // guest VMM on top of another VMM such as KVM or Hyper-V, in which case
+    // EBX, ECX and EDX represent the underlying VMM's vendor ID and should be
+    // overridden.
+    static const char kSignature[13] = "HAXMHAXMHAXM";
+    const uint32_t *kVendorId = (const uint32_t *)kSignature;
+    // Some VMMs use EAX to indicate the maximum CPUID leaf valid for the range
+    // of [0x40000000, 0x4fffffff]
+    args->eax = 0x40000000;
+    args->ebx = kVendorId[0];
+    args->ecx = kVendorId[1];
+    args->edx = kVendorId[2];
+}
+
+static void execute_8000_0000(hax_cpuid_entry *entry, cpuid_args_t *args)
+{
+    if (args == NULL)
+        return;
+
+    args->eax = MAX_EXTENDED_CPUID;
+    args->ebx = args->ecx = args->edx = 0;
+}
+
+static void execute_8000_0001(hax_cpuid_entry *entry, cpuid_args_t *args)
+{
+    if (entry == NULL) {
+        hax_log(HAX_LOGE, "%s: 'entry' should be copied from hax_supported[1].",
+                __func__);
+        return;
+    }
+
+    if (args == NULL)
+        return;
+
+    asm_cpuid(args);
+
+    args->eax = args->ebx = 0;
+    // Report only the features specified but turn off any features this
+    // processor doesn't support.
+    args->ecx &= entry->ecx;
+    args->edx &= entry->edx;
+}
+
+// Hard-coded following two Processor Brand String functions (0x80000002 and
+// 0x80000003*) to report "Virtual CPU" at the middle of the CPU info string in
+// the Kernel to indicate that the system is virtualized to run the emulator.
+// * 0x80000004 shares 0x80000003 as they are same.
+
+static void execute_8000_0002(hax_cpuid_entry *entry, cpuid_args_t *args)
+{
+    if (args == NULL)
+        return;
+
+    args->eax = 0x74726956;
+    args->ebx = 0x206c6175;
+    args->ecx = 0x20555043;
+    args->edx = 0x00000000;
+}
+
+static void execute_8000_0003(hax_cpuid_entry *entry, cpuid_args_t *args)
+{
+    if (args == NULL)
+        return;
+
+    args->eax = args->ebx = args->ecx = args->edx = 0;
+}
+
+static void execute_8000_0006(hax_cpuid_entry *entry, cpuid_args_t *args)
+{
+    if (args == NULL)
+        return;
+
+    args->eax = args->ebx = args->edx = 0;
+    args->ecx = 0x04008040;
+}
+
+static void execute_8000_0008(hax_cpuid_entry *entry, cpuid_args_t *args)
+{
+    uint8_t physical_address_size;
+
+    if (args == NULL)
+        return;
+
+    asm_cpuid(args);
+    // Bit mask to identify the reserved bits in paging structure high order
+    // address field
+    physical_address_size = (uint8_t)args->eax & 0xff;
+    pw_reserved_bits_high_mask = ~((1 << (physical_address_size - 32)) - 1);
+
+    args->ebx = args->ecx = args->edx = 0;
+}
+
+static void get_unsupported_leaf(cpuid_args_t *args)
+{
+    if (args == NULL)
+        return;
+
+    args->eax = args->ebx = args->ecx = args->edx = 0;
 }
 
 static void set_feature(hax_cpuid_entry *features, hax_cpuid *cpuid_info,
