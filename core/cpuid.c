@@ -33,6 +33,7 @@
 #include "include/hax_driver.h"
 
 #define CPUID_CACHE_SIZE        6
+#define CPUID_FEATURE_SET_SIZE  2
 #define MAX_BASIC_CPUID         0x0a
 #define MAX_EXTENDED_CPUID      0x80000008
 
@@ -62,7 +63,7 @@ typedef union cpuid_feature_t {
     uint32_t value;
 } cpuid_feature_t;
 
-typedef void (*execute_t)(hax_cpuid_entry *, cpuid_args_t *);
+typedef void (*execute_t)(cpuid_args_t *);
 typedef void (*set_leaf_t)(hax_cpuid_entry *, hax_cpuid_entry *);
 
 typedef struct cpuid_manager_t {
@@ -81,20 +82,21 @@ static hax_cpuid_entry * find_cpuid_entry(hax_cpuid_entry *features,
                                           uint32_t size, uint32_t function,
                                           uint32_t index);
 static void dump_features(hax_cpuid_entry *features, uint32_t size);
-static void filter_features(hax_cpuid_entry *entry);
 
-static void execute_0000_0000(hax_cpuid_entry *entry, cpuid_args_t *args);
-static void execute_0000_0001(hax_cpuid_entry *entry, cpuid_args_t *args);
-static void execute_0000_0002(hax_cpuid_entry *entry, cpuid_args_t *args);
-static void execute_0000_000a(hax_cpuid_entry *entry, cpuid_args_t *args);
-static void execute_4000_0000(hax_cpuid_entry *entry, cpuid_args_t *args);
-static void execute_8000_0000(hax_cpuid_entry *entry, cpuid_args_t *args);
-static void execute_8000_0001(hax_cpuid_entry *entry, cpuid_args_t *args);
-static void execute_8000_0002(hax_cpuid_entry *entry, cpuid_args_t *args);
-static void execute_8000_0003(hax_cpuid_entry *entry, cpuid_args_t *args);
-static void execute_8000_0006(hax_cpuid_entry *entry, cpuid_args_t *args);
-static void execute_8000_0008(hax_cpuid_entry *entry, cpuid_args_t *args);
-static void get_unsupported_leaf(cpuid_args_t *args);
+static void get_guest_cache(cpuid_args_t *args, hax_cpuid_entry *entry);
+static void adjust_0000_0001(cpuid_args_t *args);
+static void adjust_8000_0001(cpuid_args_t *args);
+static void execute_0000_0000(cpuid_args_t *args);
+static void execute_0000_0001(cpuid_args_t *args);
+static void execute_0000_0002(cpuid_args_t *args);
+static void execute_0000_000a(cpuid_args_t *args);
+static void execute_4000_0000(cpuid_args_t *args);
+static void execute_8000_0000(cpuid_args_t *args);
+static void execute_8000_0001(cpuid_args_t *args);
+static void execute_8000_0002(cpuid_args_t *args);
+static void execute_8000_0003(cpuid_args_t *args);
+static void execute_8000_0006(cpuid_args_t *args);
+static void execute_8000_0008(cpuid_args_t *args);
 
 static void set_feature(hax_cpuid_entry *features, hax_cpuid *cpuid_info,
                         const cpuid_controller_t *cpuid_controller);
@@ -288,23 +290,56 @@ void cpuid_init_supported_features(void)
     dump_features(hax_supported, CPUID_FEATURE_SET_SIZE);
 }
 
+uint32_t cpuid_guest_get_size(void)
+{
+    return sizeof(uint32_t) + CPUID_TOTAL_LEAVES * sizeof(hax_cpuid_entry);
+}
+
 void cpuid_guest_init(hax_cpuid_t *cpuid)
 {
     int i;
+    const cpuid_manager_t *cpuid_manager;
+    cpuid_args_t args;
+    hax_cpuid_entry *entry;
 
     cpuid->features_mask = ~0ULL;
 
-    for (i = 0; i < CPUID_FEATURE_SET_SIZE; ++i) {
-        cpuid->features[i] = cache.hax_supported[i];
+    // Cache the supported CPUIDs in the 'vcpu->guest_cpuid' buffer. These
+    // cached values will be returned directly when CPUID instructions are
+    // issued from the guest OS.
+    for (i = 0; i < CPUID_TOTAL_LEAVES; ++i) {
+        cpuid_manager = &kCpuidManager[i];
+
+        args.eax = cpuid_manager->leaf;
+        args.ecx = 0;
+
+        if (cpuid_manager->execute != NULL) {
+            // Guest values or processed host values
+            cpuid_manager->execute(&args);
+        } else {
+            // Host values
+            asm_cpuid(&args);
+        }
+
+        entry = &cpuid->features[i];
+
+        entry->function = cpuid_manager->leaf;
+        entry->index    = 0;
+        entry->flags    = 0;
+        entry->eax      = args.eax;
+        entry->ebx      = args.ebx;
+        entry->ecx      = args.ecx;
+        entry->edx      = args.edx;
     }
+
+    dump_features(cpuid->features, CPUID_TOTAL_LEAVES);
 }
 
 void cpuid_execute(hax_cpuid_t *cpuid, cpuid_args_t *args)
 {
     int i;
     uint32_t leaf, subleaf;
-    hax_cpuid_entry *entry;
-    const cpuid_manager_t *cpuid_manager;
+    hax_cpuid_entry *entry, *supported = NULL;
 
     if (cpuid == NULL || args == NULL)
         return;
@@ -312,33 +347,20 @@ void cpuid_execute(hax_cpuid_t *cpuid, cpuid_args_t *args)
     leaf = args->eax;
     subleaf = args->ecx;
 
-    entry = find_cpuid_entry(cpuid->features, CPUID_TOTAL_CONTROLS, leaf, 0);
-    if (entry == NULL) {
-        // 'entry' can be NULL, which means that 'entry' will not be used to
-        // adjust the guest CPUID values.
-        hax_log(HAX_LOGI, "%s: HAXM has not enabled guest to control "
-                "CPUID.%02xH", __func__, leaf);
-    }
-
     for (i = 0; i < CPUID_TOTAL_LEAVES; ++i) {
-        cpuid_manager = &kCpuidManager[i];
-        if (cpuid_manager->leaf == leaf) {
-            if (cpuid_manager->execute != NULL) {
-                cpuid_manager->execute(entry, args);
-            } else {
-                asm_cpuid(args);
-            }
+        entry = &cpuid->features[i];
+        if (entry->function == leaf) {
+            supported = entry;
             break;
         }
     }
 
-    if (i >= CPUID_TOTAL_LEAVES) {
-        // If the CPUID leaf cannot be found, i.e., out of the kCpuidManager
-        // list, the processing is undecided:
-        // * Call get_unsupported_leaf() to return all zeroes;
-        // * Call asm_cpuid() to return host values.
-        get_unsupported_leaf(args);
-    }
+    // Return guest values cached during the initialization phase. If the CPUID
+    // leaf cannot be found, i.e., out of the kCpuidManager list, the processing
+    // is undecided:
+    // * Call get_guest_cache() with NULL to return all zeroes;
+    // * Call asm_cpuid() to return host values.
+    get_guest_cache(args, supported);
 
     hax_log(HAX_LOGD, "CPUID %08x %08x: %08x %08x %08x %08x\n", leaf, subleaf,
             args->eax, args->ebx, args->ecx, args->edx);
@@ -361,7 +383,7 @@ void cpuid_get_guest_features(hax_cpuid_t *cpuid, hax_cpuid_entry *features)
     if (cpuid == NULL || features == NULL)
         return;
 
-    entry = find_cpuid_entry(cpuid->features, CPUID_FEATURE_SET_SIZE,
+    entry = find_cpuid_entry(cpuid->features, CPUID_TOTAL_LEAVES,
                              features->function, 0);
     if (entry == NULL)
         return;
@@ -380,14 +402,14 @@ void cpuid_set_guest_features(hax_cpuid_t *cpuid, hax_cpuid *cpuid_info)
     dump_features(cpuid_info->entries, cpuid_info->total);
 
     hax_log(HAX_LOGI, "%s: before:\n", __func__);
-    dump_features(cpuid->features, CPUID_FEATURE_SET_SIZE);
+    dump_features(cpuid->features, CPUID_TOTAL_LEAVES);
 
     for (i = 0; i < CPUID_TOTAL_CONTROLS; ++i) {
         set_feature(cpuid->features, cpuid_info, &kCpuidController[i]);
     }
 
     hax_log(HAX_LOGI, "%s: after:\n", __func__);
-    dump_features(cpuid->features, CPUID_FEATURE_SET_SIZE);
+    dump_features(cpuid->features, CPUID_TOTAL_LEAVES);
 }
 
 static hax_cpuid_entry * find_cpuid_entry(hax_cpuid_entry *features,
@@ -426,38 +448,28 @@ static void dump_features(hax_cpuid_entry *features, uint32_t size)
     }
 }
 
-static void filter_features(hax_cpuid_entry *entry)
-{
-    hax_cpuid_entry *host_supported, *hax_supported;
-
-    host_supported = find_cpuid_entry(cache.host_supported,
-            CPUID_FEATURE_SET_SIZE, entry->function, 0);
-    hax_supported = find_cpuid_entry(cache.hax_supported,
-            CPUID_FEATURE_SET_SIZE, entry->function, 0);
-
-    if (host_supported == NULL || hax_supported == NULL)
-        return;
-
-    entry->eax &= host_supported->eax & hax_supported->eax;
-    entry->ebx &= host_supported->ebx & hax_supported->ebx;
-    entry->ecx &= host_supported->ecx & hax_supported->ecx;
-    entry->edx &= host_supported->edx & hax_supported->edx;
-}
-
-static void execute_0000_0000(hax_cpuid_entry *entry, cpuid_args_t *args)
+static void get_guest_cache(cpuid_args_t *args, hax_cpuid_entry *entry)
 {
     if (args == NULL)
         return;
 
-    asm_cpuid(args);
-    args->eax = (args->eax < MAX_BASIC_CPUID) ? args->eax : MAX_BASIC_CPUID;
+    if (entry == NULL) {
+        args->eax = args->ebx = args->ecx = args->edx = 0;
+        return;
+    }
+
+    args->eax = entry->eax;
+    args->ebx = entry->ebx;
+    args->ecx = entry->ecx;
+    args->edx = entry->edx;
 }
 
-static void execute_0000_0001(hax_cpuid_entry *entry, cpuid_args_t *args)
+static void adjust_0000_0001(cpuid_args_t *args)
 {
 #define VIRT_FAMILY    0x06
 #define VIRT_MODEL     0x1f
 #define VIRT_STEPPING  0x01
+    hax_cpuid_entry *hax_supported;
     uint32_t hw_family;
     uint32_t hw_model;
     // In order to avoid the initialization of unnecessary extended features in
@@ -481,16 +493,10 @@ static void execute_0000_0001(hax_cpuid_entry *entry, cpuid_args_t *args)
         };
     } eax;
 
-    if (entry == NULL) {
-        hax_log(HAX_LOGE, "%s: 'entry' should be copied from hax_supported[0].",
-                __func__);
-        return;
-    }
-
     if (args == NULL)
         return;
 
-    asm_cpuid(args);
+    hax_supported = &cache.hax_supported[0];
 
     eax.raw = args->eax;
 
@@ -528,11 +534,45 @@ static void execute_0000_0001(hax_cpuid_entry *entry, cpuid_args_t *args)
     // Report only the features specified, excluding any features not supported
     // by the host CPU, but including "hypervisor", which is desirable for VMMs.
     // TBD: This will need to be changed to emulate new features.
-    args->ecx = (args->ecx & entry->ecx) | FEATURE(HYPERVISOR);
-    args->edx &= entry->edx;
+    args->ecx = (args->ecx & hax_supported->ecx) | FEATURE(HYPERVISOR);
+    args->edx &= hax_supported->edx;
 }
 
-static void execute_0000_0002(hax_cpuid_entry *entry, cpuid_args_t *args)
+static void adjust_8000_0001(cpuid_args_t *args)
+{
+    hax_cpuid_entry *hax_supported;
+
+    if (args == NULL)
+        return;
+
+    hax_supported = &cache.hax_supported[1];
+
+    args->eax = args->ebx = 0;
+    // Report only the features specified but turn off any features this
+    // processor doesn't support.
+    args->ecx &= hax_supported->ecx;
+    args->edx &= hax_supported->edx;
+}
+
+static void execute_0000_0000(cpuid_args_t *args)
+{
+    if (args == NULL)
+        return;
+
+    asm_cpuid(args);
+    args->eax = (args->eax < MAX_BASIC_CPUID) ? args->eax : MAX_BASIC_CPUID;
+}
+
+static void execute_0000_0001(cpuid_args_t *args)
+{
+    if (args == NULL)
+        return;
+
+    asm_cpuid(args);
+    adjust_0000_0001(args);
+}
+
+static void execute_0000_0002(cpuid_args_t *args)
 {
     if (args == NULL)
         return;
@@ -545,7 +585,7 @@ static void execute_0000_0002(hax_cpuid_entry *entry, cpuid_args_t *args)
     args->edx = 0x0c040844;
 }
 
-static void execute_0000_000a(hax_cpuid_entry *entry, cpuid_args_t *args)
+static void execute_0000_000a(cpuid_args_t *args)
 {
     struct cpu_pmu_info *pmu_info = &hax->apm_cpuid_0xa;
 
@@ -558,7 +598,7 @@ static void execute_0000_000a(hax_cpuid_entry *entry, cpuid_args_t *args)
     args->edx = pmu_info->cpuid_edx;
 }
 
-static void execute_4000_0000(hax_cpuid_entry *entry, cpuid_args_t *args)
+static void execute_4000_0000(cpuid_args_t *args)
 {
     if (args == NULL)
         return;
@@ -581,7 +621,7 @@ static void execute_4000_0000(hax_cpuid_entry *entry, cpuid_args_t *args)
     args->edx = kVendorId[2];
 }
 
-static void execute_8000_0000(hax_cpuid_entry *entry, cpuid_args_t *args)
+static void execute_8000_0000(cpuid_args_t *args)
 {
     if (args == NULL)
         return;
@@ -590,24 +630,13 @@ static void execute_8000_0000(hax_cpuid_entry *entry, cpuid_args_t *args)
     args->ebx = args->ecx = args->edx = 0;
 }
 
-static void execute_8000_0001(hax_cpuid_entry *entry, cpuid_args_t *args)
+static void execute_8000_0001(cpuid_args_t *args)
 {
-    if (entry == NULL) {
-        hax_log(HAX_LOGE, "%s: 'entry' should be copied from hax_supported[1].",
-                __func__);
-        return;
-    }
-
     if (args == NULL)
         return;
 
     asm_cpuid(args);
-
-    args->eax = args->ebx = 0;
-    // Report only the features specified but turn off any features this
-    // processor doesn't support.
-    args->ecx &= entry->ecx;
-    args->edx &= entry->edx;
+    adjust_8000_0001(args);
 }
 
 // Hard-coded following two Processor Brand String functions (0x80000002 and
@@ -615,7 +644,7 @@ static void execute_8000_0001(hax_cpuid_entry *entry, cpuid_args_t *args)
 // the Kernel to indicate that the system is virtualized to run the emulator.
 // * 0x80000004 shares 0x80000003 as they are same.
 
-static void execute_8000_0002(hax_cpuid_entry *entry, cpuid_args_t *args)
+static void execute_8000_0002(cpuid_args_t *args)
 {
     if (args == NULL)
         return;
@@ -626,7 +655,7 @@ static void execute_8000_0002(hax_cpuid_entry *entry, cpuid_args_t *args)
     args->edx = 0x00000000;
 }
 
-static void execute_8000_0003(hax_cpuid_entry *entry, cpuid_args_t *args)
+static void execute_8000_0003(cpuid_args_t *args)
 {
     if (args == NULL)
         return;
@@ -634,7 +663,7 @@ static void execute_8000_0003(hax_cpuid_entry *entry, cpuid_args_t *args)
     args->eax = args->ebx = args->ecx = args->edx = 0;
 }
 
-static void execute_8000_0006(hax_cpuid_entry *entry, cpuid_args_t *args)
+static void execute_8000_0006(cpuid_args_t *args)
 {
     if (args == NULL)
         return;
@@ -643,7 +672,7 @@ static void execute_8000_0006(hax_cpuid_entry *entry, cpuid_args_t *args)
     args->ecx = 0x04008040;
 }
 
-static void execute_8000_0008(hax_cpuid_entry *entry, cpuid_args_t *args)
+static void execute_8000_0008(cpuid_args_t *args)
 {
     uint8_t physical_address_size;
 
@@ -659,14 +688,6 @@ static void execute_8000_0008(hax_cpuid_entry *entry, cpuid_args_t *args)
     args->ebx = args->ecx = args->edx = 0;
 }
 
-static void get_unsupported_leaf(cpuid_args_t *args)
-{
-    if (args == NULL)
-        return;
-
-    args->eax = args->ebx = args->ecx = args->edx = 0;
-}
-
 static void set_feature(hax_cpuid_entry *features, hax_cpuid *cpuid_info,
                         const cpuid_controller_t *cpuid_controller)
 {
@@ -678,7 +699,7 @@ static void set_feature(hax_cpuid_entry *features, hax_cpuid *cpuid_info,
 
     leaf = cpuid_controller->leaf;
 
-    dest = find_cpuid_entry(features, CPUID_FEATURE_SET_SIZE, leaf, 0);
+    dest = find_cpuid_entry(features, CPUID_TOTAL_LEAVES, leaf, 0);
     if (dest == NULL)
         return;
 
@@ -704,6 +725,7 @@ static void set_feature(hax_cpuid_entry *features, hax_cpuid *cpuid_info,
 
 static void set_leaf_0000_0001(hax_cpuid_entry *dest, hax_cpuid_entry *src)
 {
+    cpuid_args_t args;
     const uint32_t kFixedFeatures =
         FEATURE(MCE)  |
         FEATURE(APIC) |
@@ -713,17 +735,35 @@ static void set_leaf_0000_0001(hax_cpuid_entry *dest, hax_cpuid_entry *src)
     if (dest == NULL || src == NULL)
         return;
 
-    *dest = *src;
-    filter_features(dest);
-    // Set fixed supported features
-    dest->edx |= kFixedFeatures;
+    args.eax = src->eax;
+    args.ebx = src->ebx;
+    args.ecx = src->ecx;
+    args.edx = src->edx;
+
+    adjust_0000_0001(&args);
+
+    dest->eax = args.eax;
+    dest->ebx = args.ebx;
+    dest->ecx = args.ecx;
+    dest->edx = args.edx | kFixedFeatures;
 }
 
 static void set_leaf_8000_0001(hax_cpuid_entry *dest, hax_cpuid_entry *src)
 {
+    cpuid_args_t args;
+
     if (dest == NULL || src == NULL)
         return;
 
-    *dest = *src;
-    filter_features(dest);
+    args.eax = src->eax;
+    args.ebx = src->ebx;
+    args.ecx = src->ecx;
+    args.edx = src->edx;
+
+    adjust_8000_0001(&args);
+
+    dest->eax = args.eax;
+    dest->ebx = args.ebx;
+    dest->ecx = args.ecx;
+    dest->edx = args.edx;
 }
