@@ -34,7 +34,7 @@
 
 #define CPUID_CACHE_SIZE        6
 #define CPUID_FEATURE_SET_SIZE  2
-#define MAX_BASIC_CPUID         0x0a
+#define MAX_BASIC_CPUID         0x16
 #define MAX_EXTENDED_CPUID      0x80000008
 
 extern uint32_t pw_reserved_bits_high_mask;
@@ -101,6 +101,8 @@ static void execute_8000_0008(cpuid_args_t *args);
 static void set_feature(hax_cpuid_entry *features, hax_cpuid *cpuid_info,
                         const cpuid_controller_t *cpuid_controller);
 static void set_leaf_0000_0001(hax_cpuid_entry *dest, hax_cpuid_entry *src);
+static void set_leaf_0000_0015(hax_cpuid_entry *dest, hax_cpuid_entry *src);
+static void set_leaf_0000_0016(hax_cpuid_entry *dest, hax_cpuid_entry *src);
 static void set_leaf_8000_0001(hax_cpuid_entry *dest, hax_cpuid_entry *src);
 
 // To fully support CPUID instructions (opcode = 0F A2) by software, it is
@@ -113,6 +115,9 @@ static const cpuid_manager_t kCpuidManager[] = {
     {0x00000001, execute_0000_0001},  // Version Information and Features
     {0x00000002, execute_0000_0002},  // Cache and TLB Information
     {0x0000000a, execute_0000_000a},  // Architectural Performance Monitoring
+    {0x00000015, NULL},               // Time Stamp Counter and Nominal Core
+                                      // Crystal Clock Information
+    {0x00000016, NULL},               // Processor Frequency Information
 
     // Unimplemented CPUID Leaf Functions
     {0x40000000, execute_4000_0000},  // Unimplemented by real Intel CPUs
@@ -137,12 +142,18 @@ static const cpuid_manager_t kCpuidManager[] = {
 //            Cannot use host values, i.e., 'execute' cannot be NULL.
 // 08H        Undefined
 // 09H        Direct Cache Access Information
+// 0bH        Extended Topology Enumeration Leaf
+// 0dH        Processor Extended State Enumeration
+// 14H        Intel Processor Trace Enumeration
+// 15H        'NULL' means to use host values by default
 // 80000005H  Reserved
 
 #define CPUID_TOTAL_LEAVES sizeof(kCpuidManager)/sizeof(kCpuidManager[0])
 
 static const cpuid_controller_t kCpuidController[] = {
     {0x00000001, set_leaf_0000_0001},
+    {0x00000015, set_leaf_0000_0015},
+    {0x00000016, set_leaf_0000_0016},
     {0x80000001, set_leaf_8000_0001}
 };
 
@@ -746,6 +757,40 @@ static void set_leaf_0000_0001(hax_cpuid_entry *dest, hax_cpuid_entry *src)
     dest->ebx = args.ebx;
     dest->ecx = args.ecx;
     dest->edx = args.edx | kFixedFeatures;
+}
+
+static void set_leaf_0000_0015(hax_cpuid_entry *dest, hax_cpuid_entry *src)
+{
+    if (dest == NULL || src == NULL)
+        return;
+
+    if (src->eax == 0 || src->ebx == 0) {
+        hax_log(HAX_LOGE, "%s: invalid values for CPUID.15H.\n", __func__);
+        return;
+    }
+
+    *dest = *src;
+}
+
+static void set_leaf_0000_0016(hax_cpuid_entry *dest, hax_cpuid_entry *src)
+{
+    if (dest == NULL || src == NULL)
+        return;
+
+    if (src->eax == 0 || src->ebx == 0 || src->ecx == 0) {
+        hax_log(HAX_LOGE, "%s: invalid values for CPUID.16H.\n", __func__);
+        return;
+    }
+
+    // Processor Base Frequency (in MHz)
+    dest->eax = src->eax & 0xffff;
+    // Maximum Frequency (in MHz)
+    dest->ebx = src->ebx & 0xffff;
+    // Bus (Reference) Frequency (in MHz)
+    dest->ecx = src->ecx & 0xffff;
+    // Reserved
+    dest->edx = 0;
+    // (see Intel SDM Vol. 2A 3.2, Table 3-8).
 }
 
 static void set_leaf_8000_0001(hax_cpuid_entry *dest, hax_cpuid_entry *src)
