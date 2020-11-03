@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018 Alexandro Sanchez Bach <alexandro@phi.nz>
+ * Copyright (c) 2020 Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -55,32 +56,35 @@ typedef union cpuid_feature_t {
     uint32_t value;
 } cpuid_feature_t;
 
-typedef void (*set_feature_t)(hax_cpuid_entry *, hax_cpuid *, uint32_t);
+typedef void (*set_leaf_t)(hax_cpuid_entry *, hax_cpuid_entry *);
 
-typedef struct cpuid_set_t {
-    uint32_t       function;
-    set_feature_t  set_feature;
-} cpuid_set_t;
+typedef struct cpuid_controller_t {
+    uint32_t    leaf;
+    set_leaf_t  set_leaf;
+} cpuid_controller_t;
 
 static cpuid_cache_t cache = {0};
 
 static hax_cpuid_entry * find_cpuid_entry(hax_cpuid_entry *features,
                                           uint32_t size, uint32_t function,
                                           uint32_t index);
-static void set_feature(hax_cpuid_entry *features, hax_cpuid *cpuid_info,
-                        uint32_t function);
-static void set_feature_0000_0001(hax_cpuid_entry *features,
-                                  hax_cpuid *cpuid_info, uint32_t function);
-static void cpuid_set_fixed_features(hax_cpuid_entry *features,
-                                     uint32_t function);
 static void dump_features(hax_cpuid_entry *features, uint32_t size);
+static void filter_features(hax_cpuid_entry *entry);
 static uint32_t get_feature_key_leaf(uint32_t function, uint32_t reg,
                                      uint32_t bit);
 
-static const cpuid_set_t kCpuidSet[CPUID_FEATURE_SET_SIZE] = {
-    {0x00000001, set_feature_0000_0001},
-    {0x80000001, set_feature}
+static void set_feature(hax_cpuid_entry *features, hax_cpuid *cpuid_info,
+                        const cpuid_controller_t *cpuid_controller);
+static void set_leaf_0000_0001(hax_cpuid_entry *dest, hax_cpuid_entry *src);
+static void set_leaf_8000_0001(hax_cpuid_entry *dest, hax_cpuid_entry *src);
+
+static const cpuid_controller_t kCpuidController[] = {
+    {0x00000001, set_leaf_0000_0001},
+    {0x80000001, set_leaf_8000_0001}
 };
+
+#define CPUID_TOTAL_CONTROLS \
+        sizeof(kCpuidController)/sizeof(kCpuidController[0])
 
 void cpuid_query_leaf(cpuid_args_t *args, uint32_t leaf)
 {
@@ -160,7 +164,7 @@ void cpuid_init_supported_features(void)
     host_supported = cache.host_supported.features;
 
     for (i = 0; i < CPUID_FEATURE_SET_SIZE; ++i) {
-        function = kCpuidSet[i].function;
+        function = kCpuidController[i].leaf;
         host_supported[i].function = function;
 
         for (bit = 0; bit < sizeof(uint32_t) * 8; ++bit) {
@@ -269,7 +273,6 @@ void cpuid_get_guest_features(hax_cpuid_t *cpuid, hax_cpuid_entry *features)
 void cpuid_set_guest_features(hax_cpuid_t *cpuid, hax_cpuid *cpuid_info)
 {
     int i;
-    const cpuid_set_t *kItem;
 
     if (cpuid == NULL || cpuid_info == NULL)
         return;
@@ -280,9 +283,8 @@ void cpuid_set_guest_features(hax_cpuid_t *cpuid, hax_cpuid *cpuid_info)
     hax_log(HAX_LOGI, "%s: before:\n", __func__);
     dump_features(cpuid->features, CPUID_FEATURE_SET_SIZE);
 
-    for (i = 0; i < CPUID_FEATURE_SET_SIZE; ++i) {
-        kItem = &kCpuidSet[i];
-        kItem->set_feature(cpuid->features, cpuid_info, kItem->function);
+    for (i = 0; i < CPUID_TOTAL_CONTROLS; ++i) {
+        set_feature(cpuid->features, cpuid_info, &kCpuidController[i]);
     }
 
     hax_log(HAX_LOGI, "%s: after:\n", __func__);
@@ -308,77 +310,6 @@ static hax_cpuid_entry * find_cpuid_entry(hax_cpuid_entry *features,
     return NULL;
 }
 
-static void set_feature(hax_cpuid_entry *features, hax_cpuid *cpuid_info,
-                        uint32_t function)
-{
-    hax_cpuid_entry *dest, *src, *host_supported, *hax_supported;
-
-    if (features == NULL || cpuid_info == NULL)
-        return;
-
-    dest = find_cpuid_entry(features, CPUID_FEATURE_SET_SIZE, function, 0);
-    if (dest == NULL)
-        return;
-
-    src = find_cpuid_entry(cpuid_info->entries, cpuid_info->total, function, 0);
-    if (src == NULL)
-        return;
-
-    host_supported = find_cpuid_entry(cache.host_supported.features,
-                                      CPUID_FEATURE_SET_SIZE, function, 0);
-    hax_supported = find_cpuid_entry(cache.hax_supported.features,
-                                     CPUID_FEATURE_SET_SIZE, function, 0);
-
-    if (host_supported == NULL || hax_supported == NULL)
-        return;
-
-    *dest = *src;
-    dest->eax &= host_supported->eax & hax_supported->eax;
-    dest->ebx &= host_supported->ebx & hax_supported->ebx;
-    dest->ecx &= host_supported->ecx & hax_supported->ecx;
-    dest->edx &= host_supported->edx & hax_supported->edx;
-
-    if (src->eax == dest->eax && src->ebx == dest->ebx &&
-        src->ecx == dest->ecx && src->edx == dest->edx)
-        return;
-
-    hax_log(HAX_LOGW, "%s: filtered or unchanged flags:\n", __func__);
-    hax_log(HAX_LOGW, "function: %08lx, eax: %08lx, ebx: %08lx, ecx: %08lx, "
-            "edx: %08lx\n", function, src->eax ^ dest->eax,
-            src->ebx ^ dest->ebx, src->ecx ^ dest->ecx, src->edx ^ dest->edx);
-}
-
-static void set_feature_0000_0001(hax_cpuid_entry *features,
-                                  hax_cpuid *cpuid_info, uint32_t function)
-{
-    if (features == NULL || cpuid_info == NULL)
-        return;
-
-    set_feature(features, cpuid_info, function);
-    // Set fixed supported features
-    cpuid_set_fixed_features(features, function);
-}
-
-static void cpuid_set_fixed_features(hax_cpuid_entry *features,
-                                     uint32_t function)
-{
-    const uint32_t kFixedFeatures =
-        FEATURE(MCE)  |
-        FEATURE(APIC) |
-        FEATURE(MTRR) |
-        FEATURE(PAT);
-    hax_cpuid_entry *entry;
-
-    if (features == NULL)
-        return;
-
-    entry = find_cpuid_entry(features, CPUID_FEATURE_SET_SIZE, function, 0);
-    if (entry == NULL)
-        return;
-
-    entry->edx |= kFixedFeatures;
-}
-
 static void dump_features(hax_cpuid_entry *features, uint32_t size)
 {
     int i;
@@ -394,6 +325,24 @@ static void dump_features(hax_cpuid_entry *features, uint32_t size)
         hax_log(HAX_LOGI, "eax: %08lx, ebx: %08lx, ecx: %08lx, edx: %08lx\n",
                 entry->eax, entry->ebx, entry->ecx, entry->edx);
     }
+}
+
+static void filter_features(hax_cpuid_entry *entry)
+{
+    hax_cpuid_entry *host_supported, *hax_supported;
+
+    host_supported = find_cpuid_entry(cache.host_supported.features,
+            CPUID_FEATURE_SET_SIZE, entry->function, 0);
+    hax_supported = find_cpuid_entry(cache.hax_supported.features,
+            CPUID_FEATURE_SET_SIZE, entry->function, 0);
+
+    if (host_supported == NULL || hax_supported == NULL)
+        return;
+
+    entry->eax &= host_supported->eax & hax_supported->eax;
+    entry->ebx &= host_supported->ebx & hax_supported->ebx;
+    entry->ecx &= host_supported->ecx & hax_supported->ecx;
+    entry->edx &= host_supported->edx & hax_supported->edx;
 }
 
 static uint32_t get_feature_key_leaf(uint32_t function, uint32_t reg,
@@ -417,4 +366,65 @@ static uint32_t get_feature_key_leaf(uint32_t function, uint32_t reg,
     }
 
     return -1;
+}
+
+static void set_feature(hax_cpuid_entry *features, hax_cpuid *cpuid_info,
+                        const cpuid_controller_t *cpuid_controller)
+{
+    hax_cpuid_entry *dest, *src;
+    uint32_t leaf;
+
+    if (features == NULL || cpuid_info == NULL)
+        return;
+
+    leaf = cpuid_controller->leaf;
+
+    dest = find_cpuid_entry(features, CPUID_FEATURE_SET_SIZE, leaf, 0);
+    if (dest == NULL)
+        return;
+
+    src = find_cpuid_entry(cpuid_info->entries, cpuid_info->total, leaf, 0);
+    if (src == NULL)
+        return;
+
+    if (cpuid_controller->set_leaf != NULL) {
+        cpuid_controller->set_leaf(dest, src);
+    } else {
+        *dest = *src;
+    }
+
+    if (src->eax == dest->eax && src->ebx == dest->ebx &&
+        src->ecx == dest->ecx && src->edx == dest->edx)
+        return;
+
+    hax_log(HAX_LOGW, "%s: filtered or unchanged flags:\n", __func__);
+    hax_log(HAX_LOGW, "leaf: %08lx, eax: %08lx, ebx: %08lx, ecx: %08lx, "
+            "edx: %08lx\n", leaf, src->eax ^ dest->eax, src->ebx ^ dest->ebx,
+            src->ecx ^ dest->ecx, src->edx ^ dest->edx);
+}
+
+static void set_leaf_0000_0001(hax_cpuid_entry *dest, hax_cpuid_entry *src)
+{
+    const uint32_t kFixedFeatures =
+        FEATURE(MCE)  |
+        FEATURE(APIC) |
+        FEATURE(MTRR) |
+        FEATURE(PAT);
+
+    if (dest == NULL || src == NULL)
+        return;
+
+    *dest = *src;
+    filter_features(dest);
+    // Set fixed supported features
+    dest->edx |= kFixedFeatures;
+}
+
+static void set_leaf_8000_0001(hax_cpuid_entry *dest, hax_cpuid_entry *src)
+{
+    if (dest == NULL || src == NULL)
+        return;
+
+    *dest = *src;
+    filter_features(dest);
 }
