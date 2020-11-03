@@ -36,10 +36,13 @@
 #define CPUID_CACHE_SIZE 6
 
 typedef struct cpuid_cache_t {
-    uint32_t     data[CPUID_CACHE_SIZE];  // Host cached features
-    hax_cpuid_t  host_supported;          // Physical CPU supported features
-    hax_cpuid_t  hax_supported;           // Hypervisor supported features
-    bool         initialized;
+    // Host cached features
+    uint32_t         data[CPUID_CACHE_SIZE];
+    // Physical CPU supported features
+    hax_cpuid_entry  host_supported[CPUID_FEATURE_SET_SIZE];
+    // Hypervisor supported features
+    hax_cpuid_entry  hax_supported[CPUID_FEATURE_SET_SIZE];
+    bool             initialized;
 } cpuid_cache_t;
 
 typedef union cpuid_feature_t {
@@ -70,8 +73,6 @@ static hax_cpuid_entry * find_cpuid_entry(hax_cpuid_entry *features,
                                           uint32_t index);
 static void dump_features(hax_cpuid_entry *features, uint32_t size);
 static void filter_features(hax_cpuid_entry *entry);
-static uint32_t get_feature_key_leaf(uint32_t function, uint32_t reg,
-                                     uint32_t bit);
 
 static void set_feature(hax_cpuid_entry *features, hax_cpuid *cpuid_info,
                         const cpuid_controller_t *cpuid_controller);
@@ -157,38 +158,26 @@ bool cpuid_host_has_feature_uncached(uint32_t feature_key)
 
 void cpuid_init_supported_features(void)
 {
-    uint32_t i, bit, flag, function, x86_feature;
     hax_cpuid_entry *host_supported, *hax_supported;
 
     // Initialize host supported features
-    host_supported = cache.host_supported.features;
-
-    for (i = 0; i < CPUID_FEATURE_SET_SIZE; ++i) {
-        function = kCpuidController[i].leaf;
-        host_supported[i].function = function;
-
-        for (bit = 0; bit < sizeof(uint32_t) * 8; ++bit) {
-            flag = 1 << bit;
-
-#define SET_FEATURE_FLAG(r, n)                                       \
-            x86_feature = get_feature_key_leaf(function, (n), bit);  \
-            if (cpuid_host_has_feature(x86_feature)) {               \
-                host_supported[i].r |= flag;                         \
-            }
-
-            SET_FEATURE_FLAG(eax, CPUID_REG_EAX);
-            SET_FEATURE_FLAG(ebx, CPUID_REG_EBX);
-            SET_FEATURE_FLAG(ecx, CPUID_REG_ECX);
-            SET_FEATURE_FLAG(edx, CPUID_REG_EDX);
-#undef SET_FEATURE_FLAG
-        }
-    }
+    host_supported = cache.host_supported;
+    host_supported[0] = (hax_cpuid_entry){
+        .function = 0x01,
+        .ecx = cache.data[0],
+        .edx = cache.data[1]
+    };
+    host_supported[1] = (hax_cpuid_entry){
+        .function = 0x80000001,
+        .ecx = cache.data[4],
+        .edx = cache.data[5]
+    };
 
     hax_log(HAX_LOGI, "%s: host supported features:\n", __func__);
     dump_features(host_supported, CPUID_FEATURE_SET_SIZE);
 
     // Initialize HAXM supported features
-    hax_supported = cache.hax_supported.features;
+    hax_supported = cache.hax_supported;
     hax_supported[0] = (hax_cpuid_entry){
         .function = 0x01,
         .ecx =
@@ -241,8 +230,13 @@ void cpuid_init_supported_features(void)
 
 void cpuid_guest_init(hax_cpuid_t *cpuid)
 {
-    *cpuid = cache.hax_supported;
+    int i;
+
     cpuid->features_mask = ~0ULL;
+
+    for (i = 0; i < CPUID_FEATURE_SET_SIZE; ++i) {
+        cpuid->features[i] = cache.hax_supported[i];
+    }
 }
 
 void cpuid_get_features_mask(hax_cpuid_t *cpuid, uint64_t *features_mask)
@@ -331,9 +325,9 @@ static void filter_features(hax_cpuid_entry *entry)
 {
     hax_cpuid_entry *host_supported, *hax_supported;
 
-    host_supported = find_cpuid_entry(cache.host_supported.features,
+    host_supported = find_cpuid_entry(cache.host_supported,
             CPUID_FEATURE_SET_SIZE, entry->function, 0);
-    hax_supported = find_cpuid_entry(cache.hax_supported.features,
+    hax_supported = find_cpuid_entry(cache.hax_supported,
             CPUID_FEATURE_SET_SIZE, entry->function, 0);
 
     if (host_supported == NULL || hax_supported == NULL)
@@ -343,29 +337,6 @@ static void filter_features(hax_cpuid_entry *entry)
     entry->ebx &= host_supported->ebx & hax_supported->ebx;
     entry->ecx &= host_supported->ecx & hax_supported->ecx;
     entry->edx &= host_supported->edx & hax_supported->edx;
-}
-
-static uint32_t get_feature_key_leaf(uint32_t function, uint32_t reg,
-                                     uint32_t bit)
-{
-    if (function == 0x01) {
-        if (reg == CPUID_REG_ECX)
-            return FEATURE_KEY_LEAF(0, function, reg, bit);
-
-        if (reg == CPUID_REG_EDX)
-            return FEATURE_KEY_LEAF(1, function, reg, bit);
-
-        return -1;
-    }
-
-    if (function == 0x80000001) {
-        if (reg == CPUID_REG_EDX)
-            return FEATURE_KEY_LEAF(5, function, reg, bit);
-
-        return -1;
-    }
-
-    return -1;
 }
 
 static void set_feature(hax_cpuid_entry *features, hax_cpuid *cpuid_info,
