@@ -72,8 +72,6 @@ uint64_t emt64_msr[NR_EMT64MSR] = {
     IA32_KERNEL_GS_BASE
 };
 
-extern uint32_t pw_reserved_bits_high_mask;
-
 static void vcpu_init(struct vcpu_t *vcpu);
 static void vcpu_prepare(struct vcpu_t *vcpu);
 static void vcpu_init_emulator(struct vcpu_t *vcpu);
@@ -107,7 +105,6 @@ static int null_handler(struct vcpu_t *vcpu, struct hax_tunnel *hun);
 static void advance_rip(struct vcpu_t *vcpu);
 static void handle_machine_check(struct vcpu_t *vcpu);
 
-static void handle_cpuid_virtual(struct vcpu_t *vcpu, uint32_t eax, uint32_t ecx);
 static void handle_mem_fault(struct vcpu_t *vcpu, struct hax_tunnel *htun);
 static void check_flush(struct vcpu_t *vcpu, uint32_t bits);
 static void vmwrite_efer(struct vcpu_t *vcpu);
@@ -115,7 +112,6 @@ static void vmwrite_efer(struct vcpu_t *vcpu);
 static int handle_msr_read(struct vcpu_t *vcpu, uint32_t msr, uint64_t *val);
 static int handle_msr_write(struct vcpu_t *vcpu, uint32_t msr, uint64_t val,
                             bool by_host);
-static void handle_cpuid(struct vcpu_t *vcpu, struct hax_tunnel *htun);
 static void vcpu_dump(struct vcpu_t *vcpu, uint32_t mask, const char *caption);
 static void vcpu_state_dump(struct vcpu_t *vcpu);
 static void vcpu_enter_fpu_state(struct vcpu_t *vcpu);
@@ -2512,249 +2508,24 @@ static int exit_interrupt_window(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 
 static int exit_cpuid(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
-    handle_cpuid(vcpu, htun);
-    advance_rip(vcpu);
-    hax_log(HAX_LOGD, "...........exit_cpuid\n");
-    return HAX_RESUME;
-}
-
-static void handle_cpuid(struct vcpu_t *vcpu, struct hax_tunnel *htun)
-{
     struct vcpu_state_t *state = vcpu->state;
-    uint32_t a = state->_eax, c = state->_ecx;
     cpuid_args_t args;
 
     args.eax = state->_eax;
     args.ecx = state->_ecx;
-    asm_cpuid(&args);
+
+    cpuid_execute(vcpu->guest_cpuid, &args);
+
     state->_eax = args.eax;
+    state->_ebx = args.ebx;
     state->_ecx = args.ecx;
     state->_edx = args.edx;
-    state->_ebx = args.ebx;
 
-    handle_cpuid_virtual(vcpu, a, c);
-
-    hax_log(HAX_LOGD, "CPUID %08x %08x: %08x %08x %08x %08x\n", a, c,
-            state->_eax, state->_ebx, state->_ecx, state->_edx);
     htun->_exit_reason = vmx(vcpu, exit_reason).basic_reason;
-}
+    advance_rip(vcpu);
+    hax_log(HAX_LOGD, "%s: exit_reason = %u\n", __func__, htun->_exit_reason);
 
-static void handle_cpuid_virtual(struct vcpu_t *vcpu, uint32_t a, uint32_t c)
-{
-#define VIRT_FAMILY     0x6
-#define VIRT_MODEL      0x1F
-#define VIRT_STEPPING   0x1
-    struct vcpu_state_t *state = vcpu->state;
-    uint32_t hw_family;
-    uint32_t hw_model;
-    uint8_t physical_address_size;
-    hax_cpuid_entry cpuid_features = {0};
-
-    // To fully support CPUID instructions (opcode = 0F A2) by software, it is
-    // recommended to add opcode_table_0FA2[] in core/emulate.c to emulate
-    // (Refer to Intel SDM Vol. 2A 3.2 CPUID).
-    cpuid_features.function = a;
-    cpuid_get_guest_features(vcpu->guest_cpuid, &cpuid_features);
-
-    switch (a) {
-        case 0: {                       // Maximum Basic Information
-            state->_eax = 0xa;
-            return;
-        }
-        case 1: {                       // Version Information and Features
-            /*
-             * In order to avoid the initialization of unnecessary extended
-             * features in the Kernel for emulator (such as the snbep
-             * performance monitoring feature in Xeon E5 series system,
-             * and the initialization of this feature crashes the emulator),
-             * when the hardware family id is equal to 6 and hardware model id
-             * is greater than 0x1f, we virtualize the returned eax to 0x106F1,
-             * that is an old i7 system, so the emulator can still utilize the
-             * enough extended features of the hardware, but doesn't crash.
-             */
-            union cpuid_1_eax {
-                uint32_t raw;
-                struct {
-                    uint32_t steppingID    : 4;
-                    uint32_t model         : 4;
-                    uint32_t familyID      : 4;
-                    uint32_t processorType : 2;
-                    uint32_t reserved      : 2;
-                    uint32_t extModelID    : 4;
-                    uint32_t extFamilyID   : 8;
-                    uint32_t reserved2     : 4;
-                };
-            } cpuid_eax;
-            cpuid_eax.raw = state->_eax;
-
-            if (0xF != cpuid_eax.familyID)
-                hw_family = cpuid_eax.familyID;
-            else
-                hw_family = cpuid_eax.familyID + (cpuid_eax.extFamilyID << 4);
-
-            if (0x6 == cpuid_eax.familyID || 0xF == cpuid_eax.familyID)
-                hw_model = (cpuid_eax.extModelID << 4) + cpuid_eax.model;
-            else
-                hw_model = cpuid_eax.model;
-
-            if (hw_family == VIRT_FAMILY && hw_model > VIRT_MODEL) {
-                state->_eax = ((VIRT_FAMILY & 0xFF0) << 16) |
-                              ((VIRT_FAMILY & 0xF) << 8) |
-                              ((VIRT_MODEL & 0xF0) << 12) |
-                              ((VIRT_MODEL & 0xF) << 4) |
-                              (VIRT_STEPPING & 0xF);
-            }
-
-            /* Report all threads in one package XXXXX vapic currently, we
-             * hardcode it to the maximal number of vcpus, but we should see
-             * the code in QEMU to vapic initialization.
-             */
-            state->_ebx =
-                    // Bits 31..16 are hard-coded, with the original author's
-                    // reasoning given in the above comment. However, these
-                    // values are not suitable for SMP guests.
-                    // TODO: Use QEMU's values instead
-                    // EBX[31..24]: Initial APIC ID
-                    // EBX[23..16]: Maximum number of addressable IDs for
-                    //              logical processors in this physical package
-                    (0x01 << 16) |
-                    // EBX[15..8]: CLFLUSH line size
-                    // Report a 64-byte CLFLUSH line size as QEMU does
-                    (0x08 << 8) |
-                    // EBX[7..0]: Brand index
-                    // 0 indicates that brand identification is not supported
-                    // (see IA SDM Vol. 3A 3.2, Table 3-14)
-                    0x00;
-
-            // Report only the features specified, excluding any features not
-            // supported by the host CPU, but including "hypervisor", which is
-            // desirable for VMMs.
-            // TBD: This will need to be changed to emulate new features.
-            state->_ecx = (cpuid_features.ecx & state->_ecx) |
-                          FEATURE(HYPERVISOR);
-            state->_edx = cpuid_features.edx & state->_edx;
-            return;
-        }
-        case 2: {                       // Cache and TLB Information
-            // These hard-coded values are questionable
-            // TODO: Use QEMU's values instead
-            state->_eax = 0x03020101;
-            state->_ebx = 0;
-            state->_ecx = 0;
-            state->_edx = 0x0c040844;
-            return;
-        }
-        case 3:                         // Reserved
-        case 4: {                       // Deterministic Cache Parameters
-            // [31:26] cores per package - 1
-            state->_eax = state->_ebx = state->_ecx = state->_edx = 0;
-            return;
-        }
-        case 5:                         // MONITOR/MWAIT
-            // Unsupported because feat_monitor is not set
-        case 6:                         // Thermal and Power Management
-            // Unsupported
-        case 7:                         // Structured Extended Feature Flags
-            // Unsupported
-            // Leaf 8 is undefined
-        case 9: {                       // Direct Cache Access Information
-            // Unsupported
-            state->_eax = state->_ebx = state->_ecx = state->_edx = 0;
-            return;
-        }
-        case 0xa: {                     // Architectural Performance Monitoring
-            struct cpu_pmu_info *pmu_info = &hax->apm_cpuid_0xa;
-            state->_eax = pmu_info->cpuid_eax;
-            state->_ebx = pmu_info->cpuid_ebx;
-            state->_ecx = 0;
-            state->_edx = pmu_info->cpuid_edx;
-            return;
-        }
-        case 0x40000000: {              // Unimplemented by real Intel CPUs
-            // Most VMMs, including KVM, Xen, VMware and Hyper-V, use this
-            // unofficial CPUID leaf, in conjunction with the "hypervisor"
-            // feature flag (c.f. case 1 above), to identify themselves to the
-            // guest OS, in a similar manner to CPUID leaf 0 for the CPU vendor
-            // ID. HAXM should return its own VMM vendor ID, even though no
-            // guest OS recognizes it, because it may be running as a guest VMM
-            // on top of another VMM such as KVM or Hyper-V, in which case EBX,
-            // ECX and EDX represent the underlying VMM's vendor ID and should
-            // be overridden.
-            static const char vmm_vendor_id[13] = "HAXMHAXMHAXM";
-            const uint32_t *p = (const uint32_t *)vmm_vendor_id;
-            // Some VMMs use EAX to indicate the maximum CPUID leaf valid for
-            // the range of [0x40000000, 0x4fffffff]
-            state->_eax = 0x40000000;
-            state->_ebx = *p;
-            state->_ecx = *(p + 1);
-            state->_edx = *(p + 2);
-            return;
-        }
-        case 0x80000000: {              // Maximum Extended Information
-            state->_eax = 0x80000008;
-            state->_ebx = state->_ecx = state->_edx = 0;
-            return;
-        }
-        case 0x80000001: {              // Extended Signature and Features
-            state->_eax = state->_ebx = 0;
-            // Report only the features specified but turn off any features
-            // this processor doesn't support.
-            state->_ecx = cpuid_features.ecx & state->_ecx;
-            state->_edx = cpuid_features.edx & state->_edx;
-            return;
-        }
-        /*
-         * Hard-coded following three Processor Brand String functions
-         * (0x80000002, 0x80000003, and 0x80000004) to report "Virtual CPU" at
-         * the middle of the CPU info string in the Kernel to indicate that the
-         * system is virtualized to run the emulator.
-         */
-        case 0x80000002: {              // Processor Brand String - part 1
-            state->_eax = 0x74726956;
-            state->_ebx = 0x206c6175;
-            state->_ecx = 0x20555043;
-            state->_edx = 0x00000000;
-            return;
-        }
-        case 0x80000003: {              // Processor Brand String - part 2
-            state->_eax = 0x00000000;
-            state->_ebx = 0x00000000;
-            state->_ecx = 0x00000000;
-            state->_edx = 0x00000000;
-            return;
-        }
-        case 0x80000004: {              // Processor Brand String - part 3
-            state->_eax = 0x00000000;
-            state->_ebx = 0x00000000;
-            state->_ecx = 0x00000000;
-            state->_edx = 0x00000000;
-            return;
-        }
-        case 0x80000005: {
-            state->_eax = state->_ebx = state->_ecx = state->_edx = 0;
-            return;
-        }
-        case 0x80000006: {
-            state->_eax = state->_ebx = 0;
-            state->_ecx = 0x04008040;
-            state->_edx = 0;
-            return;
-        }
-        case 0x80000007: {
-            state->_eax = state->_ebx = state->_ecx = state->_edx = 0;
-            return;
-        }
-        case 0x80000008: {              // Virtual/Physical Address Size
-            // Bit mask to identify the reserved bits in paging structure high
-            // order address field
-            physical_address_size = (uint8_t)state->_eax & 0xff;
-            pw_reserved_bits_high_mask =
-                    ~((1 << (physical_address_size - 32)) - 1);
-
-            state->_ebx = state->_ecx = state->_edx = 0;
-            return;
-        }
-    }
+    return HAX_RESUME;
 }
 
 static int exit_hlt(struct vcpu_t *vcpu, struct hax_tunnel *htun)
@@ -4521,7 +4292,7 @@ static int vcpu_alloc_cpuid(struct vcpu_t *vcpu)
     if (vcpu->vcpu_id != 0)
         return 1;
 
-    vcpu->guest_cpuid = hax_vmalloc(sizeof(hax_cpuid_t), HAX_MEM_NONPAGE);
+    vcpu->guest_cpuid = hax_vmalloc(cpuid_guest_get_size(), HAX_MEM_NONPAGE);
     if (vcpu->guest_cpuid == NULL)
         return 0;
 
@@ -4543,7 +4314,7 @@ static void vcpu_free_cpuid(struct vcpu_t *vcpu)
         return;
     }
 
-    hax_vfree(vcpu->guest_cpuid, sizeof(hax_cpuid_t));
+    hax_vfree(vcpu->guest_cpuid, cpuid_guest_get_size());
     vcpu->guest_cpuid = NULL;
     hax_log(HAX_LOGI, "%s: freed vcpu[%u].guest_cpuid.\n", __func__,
             vcpu->vcpu_id);
