@@ -586,28 +586,48 @@ static void register_add(struct em_context_t *ctxt,
 
 static uint8_t insn_fetch_u8(struct em_context_t *ctxt)
 {
-    uint8_t result = *(uint8_t *)(&ctxt->insn[ctxt->len]);
+    uint8_t result;
+
+    if (ctxt->len >= INSTR_MAX_LEN)
+        return 0;
+
+    result = *(uint8_t *)(&ctxt->insn[ctxt->len]);
     ctxt->len += 1;
     return result;
 }
 
 static uint16_t insn_fetch_u16(struct em_context_t *ctxt)
 {
-    uint16_t result = *(uint16_t *)(&ctxt->insn[ctxt->len]);
+    uint16_t result;
+
+    if (ctxt->len >= INSTR_MAX_LEN)
+        return 0;
+
+    result = *(uint16_t *)(&ctxt->insn[ctxt->len]);
     ctxt->len += 2;
     return result;
 }
 
 static uint32_t insn_fetch_u32(struct em_context_t *ctxt)
 {
-    uint32_t result = *(uint32_t *)(&ctxt->insn[ctxt->len]);
+    uint32_t result;
+
+    if (ctxt->len >= INSTR_MAX_LEN)
+        return 0;
+
+    result = *(uint32_t *)(&ctxt->insn[ctxt->len]);
     ctxt->len += 4;
     return result;
 }
 
 static uint64_t insn_fetch_u64(struct em_context_t *ctxt)
 {
-    uint64_t result = *(uint64_t *)(&ctxt->insn[ctxt->len]);
+    uint64_t result;
+
+    if (ctxt->len >= INSTR_MAX_LEN)
+        return 0;
+
+    result = *(uint64_t *)(&ctxt->insn[ctxt->len]);
     ctxt->len += 8;
     return result;
 }

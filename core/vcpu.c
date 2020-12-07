@@ -2117,10 +2117,6 @@ static void vcpu_exit_fpu_state(struct vcpu_t *vcpu)
     }
 }
 
-// Instructions are never longer than 15 bytes:
-//   http://wiki.osdev.org/X86-64_Instruction_Encoding
-#define INSTR_MAX_LEN               15
-
 static bool qemu_support_fastmmio(struct vcpu_t *vcpu)
 {
     struct vm_t *vm = vcpu->vm;

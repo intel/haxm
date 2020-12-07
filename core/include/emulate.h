@@ -99,6 +99,10 @@ struct em_operand_t;
 /* Emulator interface flags */
 #define EM_OPS_NO_TRANSLATION  (1 << 0)
 
+// Instructions are never longer than 15 bytes:
+//   http://wiki.osdev.org/X86-64_Instruction_Encoding
+#define INSTR_MAX_LEN          15
+
 typedef struct em_vcpu_ops_t {
     uint64_t (*read_gpr)(void *vcpu, uint32_t reg_index);
     void (*write_gpr)(void *vcpu, uint32_t reg_index, uint64_t value);
