@@ -1172,6 +1172,14 @@ static void load_guest_dr(struct vcpu_t *vcpu)
     if (!(is_guest_dr_dirty(vcpu) || is_host_debug_enabled(vcpu)))
         return;
 
+    // Reset DR7 to zero before setting DR0.
+    // Considering if the host has enabled guest debugging, it could trigger
+    // spurious exceptions in the host by setting a kernel address in DR0.
+    // Spurious exceptions encountered in unexpected conditions (such as with
+    // the user GS loaded, though this particular case does not seem to be
+    // triggerable here) can lead to privilege escalation.
+    set_dr7(0);
+
     set_dr0(state->_dr0);
     set_dr1(state->_dr1);
     set_dr2(state->_dr2);
