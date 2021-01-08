@@ -42,9 +42,18 @@
 
 #define NR_GMSR     5
 #define NR_EMT64MSR 6
+// The number of MSRs to be loaded on VM entries
+// Currently the MSRs list only supports automatic loading of below MSRs, the
+// total count of which is 14.
+// * IA32_PMCx
+// * IA32_PERFEVTSELx
+// * IA32_TSC_AUX
+// * all MSRs defined in gmsr_list[]
+#define NR_GMSR_AUTOLOAD 14
 
 struct gstate {
     struct vmx_msr gmsr[NR_GMSR];
+    vmx_msr_entry gmsr_autoload[NR_GMSR_AUTOLOAD];
     // IA32_PMCx, since APM v1
     uint64_t apm_pmc_msrs[APM_MAX_GENERAL_COUNT];
     // IA32_PERFEVTSELx, since APM v1

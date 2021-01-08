@@ -987,27 +987,35 @@ void load_guest_msr(struct vcpu_t *vcpu)
     int i;
     struct gstate *gstate = &vcpu->gstate;
     bool em64t_support = cpu_has_feature(X86_FEATURE_EM64T);
+    uint32_t count = 0;
 
-    for (i = 0; i < NR_GMSR; i++) {
+    for (i = 0; i < NR_GMSR; ++i) {
         if (em64t_support || !is_emt64_msr(gstate->gmsr[i].entry)) {
-            ia32_wrmsr(gstate->gmsr[i].entry, gstate->gmsr[i].value);
+            gstate->gmsr_autoload[count].index = gstate->gmsr[i].entry;
+            gstate->gmsr_autoload[count++].data = gstate->gmsr[i].value;
         }
     }
 
     if (cpu_has_feature(X86_FEATURE_RDTSCP)) {
-        ia32_wrmsr(IA32_TSC_AUX, gstate->tsc_aux);
+        gstate->gmsr_autoload[count].index = (uint32_t)IA32_TSC_AUX;
+        gstate->gmsr_autoload[count++].data = gstate->tsc_aux;
     }
 
     if (!hax->apm_version)
         return;
 
     // APM v1: restore IA32_PMCx and IA32_PERFEVTSELx
-    for (i = 0; i < (int)hax->apm_general_count; i++) {
-        uint32_t msr = (uint32_t)(IA32_PMC0 + i);
-        ia32_wrmsr(msr, gstate->apm_pmc_msrs[i]);
-        msr = (uint32_t)(IA32_PERFEVTSEL0 + i);
-        ia32_wrmsr(msr, gstate->apm_pes_msrs[i]);
+    for (i = 0; i < (int)hax->apm_general_count; ++i) {
+        gstate->gmsr_autoload[count].index = (uint32_t)(IA32_PMC0 + i);
+        gstate->gmsr_autoload[count++].data = gstate->apm_pmc_msrs[i];
     }
+
+    for (i = 0; i < (int)hax->apm_general_count; ++i) {
+        gstate->gmsr_autoload[count].index = (uint32_t)(IA32_PERFEVTSEL0 + i);
+        gstate->gmsr_autoload[count++].data = gstate->apm_pes_msrs[i];
+    }
+
+    vmwrite(vcpu, VMX_ENTRY_MSR_LOAD_COUNT, count);
 }
 
 static void save_host_msr(struct vcpu_t *vcpu)
@@ -1510,7 +1518,8 @@ static void fill_common_vmcs(struct vcpu_t *vcpu)
     vmwrite(vcpu, VMX_ENTRY_INTERRUPT_INFO, 0);
     // vmwrite(NULL, VMX_ENTRY_EXCEPTION_ERROR_CODE, 0);
     vmwrite(vcpu, VMX_ENTRY_MSR_LOAD_COUNT, 0);
-    vmwrite(vcpu, VMX_ENTRY_MSR_LOAD_ADDRESS, 0);
+    vmwrite(vcpu, VMX_ENTRY_MSR_LOAD_ADDRESS,
+            (uint64_t)hax_pa(vcpu->gstate.gmsr_autoload));
     vmwrite(vcpu, VMX_ENTRY_INSTRUCTION_LENGTH, 0);
 
     // vmwrite(NULL, VMX_TPR_THRESHOLD, 0);
