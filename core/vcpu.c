@@ -1052,13 +1052,26 @@ static void load_host_msr(struct vcpu_t *vcpu)
     int i;
     struct hstate *hstate = &get_cpu_data(vcpu->cpu_id)->hstate;
     bool em64t_support = cpu_has_feature(X86_FEATURE_EM64T);
+    uint32_t count = 0;
 
-    for (i = 0; i < NR_HMSR; i++) {
+    // Load below MSR values manually on VM exits.
+
+    // * IA32_STAR, IA32_LSTAR and IA32_SF_MASK
+    //   Host will crash immediatelly on automatic load. See IA SDM Vol. 3C
+    //   31.10.4.3 (Handling the SYSCALL and SYSRET Instructions).
+    // * IA32_EFER and IA32_CSTAR
+    //   See the same section as above.
+    // * IA32_KERNEL_GS_BASE
+    //   See IA SDM Vol. 3C 31.10.4.4 (Handling the SWAPGS Instruction).
+    for (i = 0; i < NR_HMSR; ++i) {
         if (em64t_support || !is_emt64_msr(hstate->hmsr[i].entry)) {
             ia32_wrmsr(hstate->hmsr[i].entry, hstate->hmsr[i].value);
         }
     }
 
+    // * IA32_TSC_AUX
+    //   BSOD will occur in host after automatic loading for a while, sometimes
+    //   even after VM is shutdown.
     if (cpu_has_feature(X86_FEATURE_RDTSCP)) {
         ia32_wrmsr(IA32_TSC_AUX, hstate->tsc_aux);
     }
@@ -1066,13 +1079,23 @@ static void load_host_msr(struct vcpu_t *vcpu)
     if (!hax->apm_version)
         return;
 
+    // Load below MSR values automatically on VM exits.
+
+    // TODO: It will be implemented to trap IA32_PERFEVTSELx MSRs and
+    // automatically load below host values only when IA32_PERFEVTSELx MSRs are
+    // changed during the guest runtime.
     // APM v1: restore IA32_PMCx and IA32_PERFEVTSELx
-    for (i = 0; i < (int)hax->apm_general_count; i++) {
-        uint32_t msr = (uint32_t)(IA32_PMC0 + i);
-        ia32_wrmsr(msr, hstate->apm_pmc_msrs[i]);
-        msr = (uint32_t)(IA32_PERFEVTSEL0 + i);
-        ia32_wrmsr(msr, hstate->apm_pes_msrs[i]);
+    for (i = 0; i < (int)hax->apm_general_count; ++i) {
+        hstate->hmsr_autoload[count].index = (uint32_t)(IA32_PMC0 + i);
+        hstate->hmsr_autoload[count++].data = hstate->apm_pmc_msrs[i];
     }
+
+    for (i = 0; i < (int)hax->apm_general_count; ++i) {
+        hstate->hmsr_autoload[count].index = (uint32_t)(IA32_PERFEVTSEL0 + i);
+        hstate->hmsr_autoload[count++].data = hstate->apm_pes_msrs[i];
+    }
+
+    vmwrite(vcpu, VMX_EXIT_MSR_LOAD_COUNT, count);
 }
 
 static inline bool is_host_debug_enabled(struct vcpu_t *vcpu)
@@ -1513,7 +1536,8 @@ static void fill_common_vmcs(struct vcpu_t *vcpu)
     vmwrite(vcpu, VMX_EXIT_MSR_STORE_ADDRESS, 0);
 
     vmwrite(vcpu, VMX_EXIT_MSR_LOAD_COUNT, 0);
-    vmwrite(vcpu, VMX_EXIT_MSR_LOAD_ADDRESS, 0);
+    vmwrite(vcpu, VMX_EXIT_MSR_LOAD_ADDRESS,
+            (uint64_t)hax_pa(cpu_data->hstate.hmsr_autoload));
 
     vmwrite(vcpu, VMX_ENTRY_INTERRUPT_INFO, 0);
     // vmwrite(NULL, VMX_ENTRY_EXCEPTION_ERROR_CODE, 0);
