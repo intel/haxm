@@ -47,29 +47,31 @@
 #include "include/hax_core_interface.h"
 #include "include/hax_driver.h"
 
+// Explicit type casting is to prevent the upper 32 bits of the array elements
+// from being filled with 1 due to sign extension of the enum type.
 uint64_t gmsr_list[NR_GMSR] = {
-    IA32_STAR,
-    IA32_LSTAR,
-    IA32_CSTAR,
-    IA32_SF_MASK,
-    IA32_KERNEL_GS_BASE
+    (uint32_t)IA32_STAR,
+    (uint32_t)IA32_LSTAR,
+    (uint32_t)IA32_CSTAR,
+    (uint32_t)IA32_SF_MASK,
+    (uint32_t)IA32_KERNEL_GS_BASE
 };
 
 uint64_t hmsr_list[NR_HMSR] = {
-    IA32_EFER,
-    IA32_STAR,
-    IA32_LSTAR,
-    IA32_CSTAR,
-    IA32_SF_MASK,
-    IA32_KERNEL_GS_BASE
+    (uint32_t)IA32_EFER,
+    (uint32_t)IA32_STAR,
+    (uint32_t)IA32_LSTAR,
+    (uint32_t)IA32_CSTAR,
+    (uint32_t)IA32_SF_MASK,
+    (uint32_t)IA32_KERNEL_GS_BASE
 };
 
 uint64_t emt64_msr[NR_EMT64MSR] = {
-    IA32_STAR,
-    IA32_LSTAR,
-    IA32_CSTAR,
-    IA32_SF_MASK,
-    IA32_KERNEL_GS_BASE
+    (uint32_t)IA32_STAR,
+    (uint32_t)IA32_LSTAR,
+    (uint32_t)IA32_CSTAR,
+    (uint32_t)IA32_SF_MASK,
+    (uint32_t)IA32_KERNEL_GS_BASE
 };
 
 static void vcpu_init(struct vcpu_t *vcpu);
@@ -3096,7 +3098,7 @@ static int handle_msr_read(struct vcpu_t *vcpu, uint32_t msr, uint64_t *val)
         case IA32_SF_MASK:
         case IA32_KERNEL_GS_BASE: {
             for (index = 0; index < NR_GMSR; index++) {
-                if ((uint32_t)gstate->gmsr[index].entry == msr) {
+                if (gstate->gmsr[index].entry == msr) {
                     *val = gstate->gmsr[index].value;
                     break;
                 }
@@ -3430,7 +3432,7 @@ static int handle_msr_write(struct vcpu_t *vcpu, uint32_t msr, uint64_t val,
         case IA32_SF_MASK:
         case IA32_KERNEL_GS_BASE: {
             for (index = 0; index < NR_GMSR; index++) {
-                if ((uint32_t)gmsr_list[index] == msr) {
+                if (gmsr_list[index] == msr) {
                     gstate->gmsr[index].value = val;
                     gstate->gmsr[index].entry = msr;
                     break;
