@@ -1,4 +1,7 @@
 # Intel Hardware Accelerated Execution Manager (HAXM)
+
+<img src="Installer/res/haxm_logo.ico" height="176px" align="right">
+
 HAXM is a cross-platform hardware-assisted virtualization engine (hypervisor),
 widely used as an accelerator for [Android Emulator][android-studio] and
 [QEMU][qemu]. It has always supported running on Windows and macOS, and has been
@@ -11,7 +14,7 @@ namely [Intel Virtualization Technology][intel-vt].
 
 ## Downloads
 The latest HAXM release for Windows and macOS hosts are available
-[here][github-haxm-latest-release].
+[here][github-haxm-releases].
 
 ## Contributing
 Detailed instructions for building and testing HAXM can be found at:
@@ -40,6 +43,6 @@ to this [code of conduct](CODE_OF_CONDUCT.md).
 [intel-vt]: https://www.intel.com/content/www/us/en/virtualization/virtualization-technology/intel-virtualization-technology.html
 [android-studio]: https://developer.android.com/studio/index.html
 [qemu]: https://www.qemu.org/
-[github-haxm-latest-release]: https://github.com/intel/haxm/releases/latest
+[github-haxm-releases]: https://github.com/intel/haxm/releases
 [github-haxm-issues]: https://github.com/intel/haxm/issues
 [intel-security-email]: mailto:secure@intel.com
