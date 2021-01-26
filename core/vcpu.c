@@ -47,29 +47,31 @@
 #include "include/hax_core_interface.h"
 #include "include/hax_driver.h"
 
+// Explicit type casting is to prevent the upper 32 bits of the array elements
+// from being filled with 1 due to sign extension of the enum type.
 uint64_t gmsr_list[NR_GMSR] = {
-    IA32_STAR,
-    IA32_LSTAR,
-    IA32_CSTAR,
-    IA32_SF_MASK,
-    IA32_KERNEL_GS_BASE
+    (uint32_t)IA32_STAR,
+    (uint32_t)IA32_LSTAR,
+    (uint32_t)IA32_CSTAR,
+    (uint32_t)IA32_SF_MASK,
+    (uint32_t)IA32_KERNEL_GS_BASE
 };
 
 uint64_t hmsr_list[NR_HMSR] = {
-    IA32_EFER,
-    IA32_STAR,
-    IA32_LSTAR,
-    IA32_CSTAR,
-    IA32_SF_MASK,
-    IA32_KERNEL_GS_BASE
+    (uint32_t)IA32_EFER,
+    (uint32_t)IA32_STAR,
+    (uint32_t)IA32_LSTAR,
+    (uint32_t)IA32_CSTAR,
+    (uint32_t)IA32_SF_MASK,
+    (uint32_t)IA32_KERNEL_GS_BASE
 };
 
 uint64_t emt64_msr[NR_EMT64MSR] = {
-    IA32_STAR,
-    IA32_LSTAR,
-    IA32_CSTAR,
-    IA32_SF_MASK,
-    IA32_KERNEL_GS_BASE
+    (uint32_t)IA32_STAR,
+    (uint32_t)IA32_LSTAR,
+    (uint32_t)IA32_CSTAR,
+    (uint32_t)IA32_SF_MASK,
+    (uint32_t)IA32_KERNEL_GS_BASE
 };
 
 static void vcpu_init(struct vcpu_t *vcpu);
@@ -985,27 +987,35 @@ void load_guest_msr(struct vcpu_t *vcpu)
     int i;
     struct gstate *gstate = &vcpu->gstate;
     bool em64t_support = cpu_has_feature(X86_FEATURE_EM64T);
+    uint32_t count = 0;
 
-    for (i = 0; i < NR_GMSR; i++) {
+    for (i = 0; i < NR_GMSR; ++i) {
         if (em64t_support || !is_emt64_msr(gstate->gmsr[i].entry)) {
-            ia32_wrmsr(gstate->gmsr[i].entry, gstate->gmsr[i].value);
+            gstate->gmsr_autoload[count].index = gstate->gmsr[i].entry;
+            gstate->gmsr_autoload[count++].data = gstate->gmsr[i].value;
         }
     }
 
     if (cpu_has_feature(X86_FEATURE_RDTSCP)) {
-        ia32_wrmsr(IA32_TSC_AUX, gstate->tsc_aux);
+        gstate->gmsr_autoload[count].index = (uint32_t)IA32_TSC_AUX;
+        gstate->gmsr_autoload[count++].data = gstate->tsc_aux;
     }
 
     if (!hax->apm_version)
         return;
 
     // APM v1: restore IA32_PMCx and IA32_PERFEVTSELx
-    for (i = 0; i < (int)hax->apm_general_count; i++) {
-        uint32_t msr = (uint32_t)(IA32_PMC0 + i);
-        ia32_wrmsr(msr, gstate->apm_pmc_msrs[i]);
-        msr = (uint32_t)(IA32_PERFEVTSEL0 + i);
-        ia32_wrmsr(msr, gstate->apm_pes_msrs[i]);
+    for (i = 0; i < (int)hax->apm_general_count; ++i) {
+        gstate->gmsr_autoload[count].index = (uint32_t)(IA32_PMC0 + i);
+        gstate->gmsr_autoload[count++].data = gstate->apm_pmc_msrs[i];
     }
+
+    for (i = 0; i < (int)hax->apm_general_count; ++i) {
+        gstate->gmsr_autoload[count].index = (uint32_t)(IA32_PERFEVTSEL0 + i);
+        gstate->gmsr_autoload[count++].data = gstate->apm_pes_msrs[i];
+    }
+
+    vmwrite(vcpu, VMX_ENTRY_MSR_LOAD_COUNT, count);
 }
 
 static void save_host_msr(struct vcpu_t *vcpu)
@@ -1042,13 +1052,26 @@ static void load_host_msr(struct vcpu_t *vcpu)
     int i;
     struct hstate *hstate = &get_cpu_data(vcpu->cpu_id)->hstate;
     bool em64t_support = cpu_has_feature(X86_FEATURE_EM64T);
+    uint32_t count = 0;
 
-    for (i = 0; i < NR_HMSR; i++) {
+    // Load below MSR values manually on VM exits.
+
+    // * IA32_STAR, IA32_LSTAR and IA32_SF_MASK
+    //   Host will crash immediatelly on automatic load. See IA SDM Vol. 3C
+    //   31.10.4.3 (Handling the SYSCALL and SYSRET Instructions).
+    // * IA32_EFER and IA32_CSTAR
+    //   See the same section as above.
+    // * IA32_KERNEL_GS_BASE
+    //   See IA SDM Vol. 3C 31.10.4.4 (Handling the SWAPGS Instruction).
+    for (i = 0; i < NR_HMSR; ++i) {
         if (em64t_support || !is_emt64_msr(hstate->hmsr[i].entry)) {
             ia32_wrmsr(hstate->hmsr[i].entry, hstate->hmsr[i].value);
         }
     }
 
+    // * IA32_TSC_AUX
+    //   BSOD will occur in host after automatic loading for a while, sometimes
+    //   even after VM is shutdown.
     if (cpu_has_feature(X86_FEATURE_RDTSCP)) {
         ia32_wrmsr(IA32_TSC_AUX, hstate->tsc_aux);
     }
@@ -1056,13 +1079,23 @@ static void load_host_msr(struct vcpu_t *vcpu)
     if (!hax->apm_version)
         return;
 
+    // Load below MSR values automatically on VM exits.
+
+    // TODO: It will be implemented to trap IA32_PERFEVTSELx MSRs and
+    // automatically load below host values only when IA32_PERFEVTSELx MSRs are
+    // changed during the guest runtime.
     // APM v1: restore IA32_PMCx and IA32_PERFEVTSELx
-    for (i = 0; i < (int)hax->apm_general_count; i++) {
-        uint32_t msr = (uint32_t)(IA32_PMC0 + i);
-        ia32_wrmsr(msr, hstate->apm_pmc_msrs[i]);
-        msr = (uint32_t)(IA32_PERFEVTSEL0 + i);
-        ia32_wrmsr(msr, hstate->apm_pes_msrs[i]);
+    for (i = 0; i < (int)hax->apm_general_count; ++i) {
+        hstate->hmsr_autoload[count].index = (uint32_t)(IA32_PMC0 + i);
+        hstate->hmsr_autoload[count++].data = hstate->apm_pmc_msrs[i];
     }
+
+    for (i = 0; i < (int)hax->apm_general_count; ++i) {
+        hstate->hmsr_autoload[count].index = (uint32_t)(IA32_PERFEVTSEL0 + i);
+        hstate->hmsr_autoload[count++].data = hstate->apm_pes_msrs[i];
+    }
+
+    vmwrite(vcpu, VMX_EXIT_MSR_LOAD_COUNT, count);
 }
 
 static inline bool is_host_debug_enabled(struct vcpu_t *vcpu)
@@ -1171,6 +1204,14 @@ static void load_guest_dr(struct vcpu_t *vcpu)
 
     if (!(is_guest_dr_dirty(vcpu) || is_host_debug_enabled(vcpu)))
         return;
+
+    // Reset DR7 to zero before setting DR0.
+    // Considering if the host has enabled guest debugging, it could trigger
+    // spurious exceptions in the host by setting a kernel address in DR0.
+    // Spurious exceptions encountered in unexpected conditions (such as with
+    // the user GS loaded, though this particular case does not seem to be
+    // triggerable here) can lead to privilege escalation.
+    set_dr7(0);
 
     set_dr0(state->_dr0);
     set_dr1(state->_dr1);
@@ -1495,12 +1536,14 @@ static void fill_common_vmcs(struct vcpu_t *vcpu)
     vmwrite(vcpu, VMX_EXIT_MSR_STORE_ADDRESS, 0);
 
     vmwrite(vcpu, VMX_EXIT_MSR_LOAD_COUNT, 0);
-    vmwrite(vcpu, VMX_EXIT_MSR_LOAD_ADDRESS, 0);
+    vmwrite(vcpu, VMX_EXIT_MSR_LOAD_ADDRESS,
+            (uint64_t)hax_pa(cpu_data->hstate.hmsr_autoload));
 
     vmwrite(vcpu, VMX_ENTRY_INTERRUPT_INFO, 0);
     // vmwrite(NULL, VMX_ENTRY_EXCEPTION_ERROR_CODE, 0);
     vmwrite(vcpu, VMX_ENTRY_MSR_LOAD_COUNT, 0);
-    vmwrite(vcpu, VMX_ENTRY_MSR_LOAD_ADDRESS, 0);
+    vmwrite(vcpu, VMX_ENTRY_MSR_LOAD_ADDRESS,
+            (uint64_t)hax_pa(vcpu->gstate.gmsr_autoload));
     vmwrite(vcpu, VMX_ENTRY_INSTRUCTION_LENGTH, 0);
 
     // vmwrite(NULL, VMX_TPR_THRESHOLD, 0);
@@ -2108,10 +2151,6 @@ static void vcpu_exit_fpu_state(struct vcpu_t *vcpu)
         set_cr0(get_cr0() | CR0_TS);
     }
 }
-
-// Instructions are never longer than 15 bytes:
-//   http://wiki.osdev.org/X86-64_Instruction_Encoding
-#define INSTR_MAX_LEN               15
 
 static bool qemu_support_fastmmio(struct vcpu_t *vcpu)
 {
@@ -3092,7 +3131,7 @@ static int handle_msr_read(struct vcpu_t *vcpu, uint32_t msr, uint64_t *val)
         case IA32_SF_MASK:
         case IA32_KERNEL_GS_BASE: {
             for (index = 0; index < NR_GMSR; index++) {
-                if ((uint32_t)gstate->gmsr[index].entry == msr) {
+                if (gstate->gmsr[index].entry == msr) {
                     *val = gstate->gmsr[index].value;
                     break;
                 }
@@ -3426,7 +3465,7 @@ static int handle_msr_write(struct vcpu_t *vcpu, uint32_t msr, uint64_t val,
         case IA32_SF_MASK:
         case IA32_KERNEL_GS_BASE: {
             for (index = 0; index < NR_GMSR; index++) {
-                if ((uint32_t)gmsr_list[index] == msr) {
+                if (gmsr_list[index] == msr) {
                     gstate->gmsr[index].value = val;
                     gstate->gmsr[index].entry = msr;
                     break;

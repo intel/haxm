@@ -639,6 +639,12 @@ struct invept_desc {
     uint64_t rsvd;
 };
 
+// Intel SDM Vol. 3C: Table 24-12. Format of an MSR Entry
+typedef struct ALIGNED(16) vmx_msr_entry {
+    uint64_t index;
+    uint64_t data;
+} vmx_msr_entry;
+
 struct vcpu_state_t;
 struct vcpu_t;
 

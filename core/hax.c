@@ -267,6 +267,44 @@ static int hax_vmx_enable_check(void)
     return 0;
 }
 
+/*
+ * Allows the guest to read from and/or write to the specified MSRs without
+ * causing a VM exit.
+ * |start| is the start MSR address, |count| the number of MSRs. Together they
+ * specify a range of consecutive MSR addresses.
+ * |read| and |write| determine if each MSR can be read or written freely by the
+ * guest, respectively.
+ */
+static void set_msr_access(uint32_t start, uint32_t count, bool read, bool write)
+{
+    uint32_t end = start + count - 1;
+    uint32_t read_base, write_base, bit;
+    uint8_t *msr_bitmap = hax_page_va(msr_bitmap_page);
+
+    hax_assert(((start ^ (start << 1)) & 0x80000000) == 0);
+    hax_assert((start & 0x3fffe000) == 0);
+    hax_assert(((start ^ end) & 0xffffe000) == 0);
+    hax_assert(msr_bitmap);
+
+    // See IA SDM Vol. 3C 24.6.9 for the layout of the MSR bitmaps page
+    read_base = start & 0x80000000 ? 1024 : 0;
+    write_base = read_base + 2048;
+    for (bit = (start & 0x1fff); bit <= (end & 0x1fff); bit++) {
+        // Bit clear means allowed
+        if (read) {
+            btr(msr_bitmap + read_base, bit);
+        } else {
+            bts(msr_bitmap + read_base, bit);
+        }
+
+        if (write) {
+            btr(msr_bitmap + write_base, bit);
+        } else {
+            bts(msr_bitmap + write_base, bit);
+        }
+    }
+}
+
 static int hax_vmx_init(void)
 {
     int ret = -ENOMEM;
@@ -296,6 +334,15 @@ static int hax_vmx_init(void)
 
     if ((ret = hax_vmx_enable_check()) < 0)
         goto out_5;
+
+    // Set MSRs loaded on VM entries/exits to pass-through
+    // See Intel SDM Vol. 3C 24.6.9 (MSR-Bitmap Address)
+
+    // 4 consecutive MSRs starting from IA32_STAR:
+    // IA32_STAR, IA32_LSTAR, IA32_CSTAR and IA32_SF_MASK
+    set_msr_access(IA32_STAR, 4, true, true);
+    set_msr_access(IA32_KERNEL_GS_BASE, 1, true, true);
+    set_msr_access(IA32_TSC_AUX, 1, true, true);
 
     return 0;
 out_5:
@@ -391,44 +438,6 @@ int hax_get_capability(void *buf, int bufLeng, int *outLength)
         *outLength = sizeof(struct hax_capabilityinfo);
     }
     return 0;
-}
-
-/*
- * Allows the guest to read from and/or write to the specified MSRs without
- * causing a VM exit.
- * |start| is the start MSR address, |count| the number of MSRs. Together they
- * specify a range of consecutive MSR addresses.
- * |read| and |write| determine if each MSR can be read or written freely by the
- * guest, respectively.
- */
-static void set_msr_access(uint32_t start, uint32_t count, bool read, bool write)
-{
-    uint32_t end = start + count - 1;
-    uint32_t read_base, write_base, bit;
-    uint8_t *msr_bitmap = hax_page_va(msr_bitmap_page);
-
-    hax_assert(((start ^ (start << 1)) & 0x80000000) == 0);
-    hax_assert((start & 0x3fffe000) == 0);
-    hax_assert(((start ^ end) & 0xffffe000) == 0);
-    hax_assert(msr_bitmap);
-
-    // See IA SDM Vol. 3C 24.6.9 for the layout of the MSR bitmaps page
-    read_base = start & 0x80000000 ? 1024 : 0;
-    write_base = read_base + 2048;
-    for (bit = (start & 0x1fff); bit <= (end & 0x1fff); bit++) {
-        // Bit clear means allowed
-        if (read) {
-            btr(msr_bitmap + read_base, bit);
-        } else {
-            bts(msr_bitmap + read_base, bit);
-        }
-
-        if (write) {
-            btr(msr_bitmap + write_base, bit);
-        } else {
-            bts(msr_bitmap + write_base, bit);
-        }
-    }
 }
 
 /*
