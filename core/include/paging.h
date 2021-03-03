@@ -363,7 +363,7 @@ static inline void pte64_set_global(pte64_t *entry, uint lvl, bool g)
 static inline void pte64_set_ad(pte64_t *entry, uint lvl, bool d)
 {
     hax_assert(is_leaf(lvl));
-    entry->raw |= (d ? 0x60 : 0x20);
+    entry->raw |= (uint64_t)(d ? 0x60 : 0x20);
 }
 
 static inline void pte64_set_accessed(pte64_t *entry, uint lvl)

@@ -216,7 +216,7 @@ uint64_t vmread(struct vcpu_t *vcpu, component_index_t component)
 
 uint64_t vmread_dump(struct vcpu_t *vcpu, unsigned enc, const char *name)
 {
-    uint64_t val;
+    uint64_t val = 0;
 
     switch ((enc >> 13) & 0x3) {
         case 0:

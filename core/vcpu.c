@@ -100,7 +100,7 @@ static int exit_invalid_guest_state(struct vcpu_t *vcpu,
 static int exit_ept_misconfiguration(struct vcpu_t *vcpu,
                                      struct hax_tunnel *htun);
 static int exit_ept_violation(struct vcpu_t *vcpu, struct hax_tunnel *htun);
-static int exit_unsupported_instruction(struct vcpu_t *vcpu, 
+static int exit_unsupported_instruction(struct vcpu_t *vcpu,
                                         struct hax_tunnel *htun);
 static int null_handler(struct vcpu_t *vcpu, struct hax_tunnel *hun);
 
@@ -2884,7 +2884,7 @@ static int exit_dr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 
             hax_log(HAX_LOGD, "Ignore guest DR%d read due to hw bp enabled.\n",
                     dreg);
-        } else {
+        } else if (dr != NULL) {
             state->_regs[gpr_reg] = *dr;
         }
     } else {
@@ -2892,7 +2892,7 @@ static int exit_dr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
         if (hbreak_enabled) {
             hax_log(HAX_LOGD, "Ignore guest DR%d write due to hw bp enabled.\n",
                     dreg);
-        } else {
+        } else if (dr != NULL) {
             *dr = state->_regs[gpr_reg];
             vcpu->dr_dirty = 1;
         }
@@ -3675,7 +3675,7 @@ static int exit_ept_violation(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     return vcpu_emulate_insn(vcpu);
 }
 
-static int exit_unsupported_instruction(struct vcpu_t *vcpu, 
+static int exit_unsupported_instruction(struct vcpu_t *vcpu,
                                         struct hax_tunnel *htun)
 {
     hax_inject_exception(vcpu, VECTOR_UD, NO_ERROR_CODE);
