@@ -1,4 +1,4 @@
-name: HAXM build on Windows
+name: HAXM build on Windows, macOS
 
 on: [push, pull_request]
 
@@ -27,3 +27,13 @@ jobs:
         msbuild haxm.sln /p:Configuration="Debug" /p:Platform="Win32"
         msbuild haxm.sln /p:Configuration="Debug" /p:Platform="x64"
         ./build/tests/x64/Debug/haxm-tests.exe
+  my_second_job:
+    name: macOS build
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: macOS build
+      run: |
+        brew install nasm
+        cd platforms/darwin
+        xcodebuild -configuration Debug -sdk macosx ARCHS=x86_64
