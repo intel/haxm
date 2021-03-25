@@ -1,4 +1,4 @@
-name: HAXM build on Windows, macOS
+name: HAXM build on Windows, macOS and Linux
 
 on: [push, pull_request]
 
@@ -37,3 +37,16 @@ jobs:
         brew install nasm
         cd platforms/darwin
         xcodebuild -configuration Debug -sdk macosx ARCHS=x86_64
+  my_third_job:
+     name: Linux build
+     runs-on: ubuntu-latest
+     steps:
+     - uses: actions/checkout@v2
+     - name: Linux build on Ubuntu
+       shell: bash
+       run: |
+          wget -P /tmp/downloads http://mirrors.kernel.org/ubuntu/pool/universe/n/nasm/nasm_2.13.02-0.1_amd64.deb
+          sudo apt-get install -y dpkg
+          sudo dpkg -i /tmp/downloads/nasm_2.13.02-0.1_amd64.deb
+          cd platforms/linux
+          make
