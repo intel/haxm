@@ -1,0 +1,52 @@
+name: HAXM build on Windows, macOS and Linux
+
+on: [push, pull_request]
+
+env:
+  # Path to the solution file relative to the root of the project.
+  SOLUTION_FILE_PATH: .
+  BUILD_CONFIGURATION: Release
+
+jobs:
+  my_first_job:
+    name: Windows build
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Add MSBuild to PATH
+      uses: microsoft/setup-msbuild@v1
+    - name: Install related pkg
+      run: |
+        choco install -y nuget.commandline
+        choco install -y windowsdriverkit10
+        choco install -y windows-sdk-8.1
+    - name: Build
+      run: |
+        cd platforms/windows
+        nuget restore
+        msbuild haxm.sln /p:Configuration="Debug" /p:Platform="Win32"
+        msbuild haxm.sln /p:Configuration="Debug" /p:Platform="x64"
+        ./build/tests/x64/Debug/haxm-tests.exe
+  my_second_job:
+    name: macOS build
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: macOS build
+      run: |
+        brew install nasm
+        cd platforms/darwin
+        xcodebuild -configuration Debug -sdk macosx ARCHS=x86_64
+  my_third_job:
+     name: Linux build
+     runs-on: ubuntu-latest
+     steps:
+     - uses: actions/checkout@v2
+     - name: Linux build on Ubuntu
+       shell: bash
+       run: |
+          wget -P /tmp/downloads http://mirrors.kernel.org/ubuntu/pool/universe/n/nasm/nasm_2.13.02-0.1_amd64.deb
+          sudo apt-get install -y dpkg
+          sudo dpkg -i /tmp/downloads/nasm_2.13.02-0.1_amd64.deb
+          cd platforms/linux
+          make
