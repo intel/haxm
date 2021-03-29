@@ -262,7 +262,8 @@ void cpuid_init_supported_features(void)
             FEATURE(MOVBE)      |
             FEATURE(AESNI)      |
             FEATURE(PCLMULQDQ)  |
-            FEATURE(POPCNT),
+            FEATURE(POPCNT)     |
+            FEATURE(F16C),
         .edx =
             FEATURE(PAT)        |
             FEATURE(FPU)        |
