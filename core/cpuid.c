@@ -89,6 +89,7 @@ static void adjust_8000_0001(cpuid_args_t *args);
 static void execute_0000_0000(cpuid_args_t *args);
 static void execute_0000_0001(cpuid_args_t *args);
 static void execute_0000_0002(cpuid_args_t *args);
+static void execute_0000_0007(cpuid_args_t *args);
 static void execute_0000_000a(cpuid_args_t *args);
 static void execute_4000_0000(cpuid_args_t *args);
 static void execute_8000_0000(cpuid_args_t *args);
@@ -114,6 +115,7 @@ static const cpuid_manager_t kCpuidManager[] = {
     {0x00000000, execute_0000_0000},  // Maximum Basic Information
     {0x00000001, execute_0000_0001},  // Version Information and Features
     {0x00000002, execute_0000_0002},  // Cache and TLB Information
+    {0x00000007, execute_0000_0007},  // Structured Extended Feature Flags
     {0x0000000a, execute_0000_000a},  // Architectural Performance Monitoring
     {0x00000015, NULL},               // Time Stamp Counter and Nominal Core
                                       // Crystal Clock Information
@@ -596,6 +598,32 @@ static void execute_0000_0002(cpuid_args_t *args)
     args->ebx = 0;
     args->ecx = 0;
     args->edx = 0x0c040844;
+}
+
+static void execute_0000_0007(cpuid_args_t *args)
+{
+    if (args == NULL)
+        return;
+
+    switch (args->ecx) {
+        case 0: {  // Sub-leaf 0
+            // The maximum input value for supported leaf 7 sub-leaves
+            // Bit 09: Supports Enhanced REP MOVSB/STOSB if 1
+            // TODO: Add sub-leaf in the CPUID manager so that the feature bits
+            // can be specified in cache.hax_supported[] during CPUID
+            // initialization.
+            args->ebx = cache.data[3] & 0x00000200;
+            args->eax = args->ecx = args->edx = 0;
+            break;
+        }
+        case 1: {  // Structured Extended Feature Enumeration Sub-leaf
+            get_guest_cache(args, NULL);
+            break;
+        }
+        default: {
+            break;
+        }
+    }
 }
 
 static void execute_0000_000a(cpuid_args_t *args)
