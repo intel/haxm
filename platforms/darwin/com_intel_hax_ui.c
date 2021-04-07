@@ -104,13 +104,17 @@ static int hax_vcpu_major = 0;
         }                                                                     \
         if (copyin(uaddr, (dest), size)) {                                    \
             hax_log(HAX_LOGE, "%s: argument read error.\n", __func__);        \
-            unload_user_data(dest);                                           \
+            unload_user_data(dest, false);                                    \
             ret = -EFAULT;                                                    \
             break;                                                            \
         }
 
-#define unload_user_data(dest)       \
-        if ((dest) != NULL)          \
+#define unload_user_data(dest, overwrite)                                     \
+        if ((overwrite) && copyout((dest), uaddr, size)) {                    \
+            hax_log(HAX_LOGE, "%s: failed to write data back.\n", __func__);  \
+            ret = -EFAULT;                                                    \
+        }                                                                     \
+        if ((dest) != NULL)                                                   \
             hax_vfree((dest), size);
 
 static void handle_unknown_ioctl(dev_t dev, ulong cmd, struct proc *p);
@@ -282,7 +286,15 @@ static int hax_vcpu_ioctl(dev_t dev, ulong cmd, caddr_t data, int flag,
             load_user_data(cpuid, data, total, HAX_MAX_CPUID_ENTRIES, hax_cpuid,
                            hax_cpuid_entry);
             ret = vcpu_set_cpuid(cvcpu, cpuid);
-            unload_user_data(cpuid);
+            unload_user_data(cpuid, false);
+            break;
+        }
+        case HAX_VCPU_IOCTL_GET_CPUID: {
+            struct hax_cpuid *cpuid;
+            load_user_data(cpuid, data, total, HAX_MAX_CPUID_ENTRIES, hax_cpuid,
+                           hax_cpuid_entry);
+            ret = vcpu_get_cpuid(cvcpu, cpuid);
+            unload_user_data(cpuid, true);
             break;
         }
         default: {
