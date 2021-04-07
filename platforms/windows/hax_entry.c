@@ -258,7 +258,7 @@ NTSTATUS HaxVcpuControl(PDEVICE_OBJECT DeviceObject,
     PCHAR               inBuf, outBuf; // pointer to Input and output buffer
     uint32_t vcpu_id, vm_id;
     struct vcpu_t *cvcpu;
-    int infret = 0;
+    int infret = 0, err;
     struct hax_vcpu_windows *vcpu = ext;
     PIO_STACK_LOCATION  irpSp;// Pointer to current stack location
 
@@ -442,6 +442,26 @@ NTSTATUS HaxVcpuControl(PDEVICE_OBJECT DeviceObject,
             if (vcpu_set_cpuid(cvcpu, cpuid)) {
                 ret = STATUS_UNSUCCESSFUL;
             }
+            break;
+        }
+        case HAX_VCPU_IOCTL_GET_CPUID: {
+            hax_cpuid *cpuid = (hax_cpuid *)outBuf;
+            if (outBufLength < sizeof(hax_cpuid) || outBufLength <
+                    sizeof(hax_cpuid) + cpuid->total *
+                    sizeof(hax_cpuid_entry)) {
+                ret = STATUS_INVALID_PARAMETER;
+                goto done;
+            }
+            err = vcpu_get_cpuid(cvcpu, cpuid);
+            if (err == -EINVAL) {
+                ret = STATUS_UNSUCCESSFUL;
+                break;
+            }
+            if (err == -ENOMEM) {
+                infret = sizeof(hax_cpuid);
+                break;
+            }
+            infret = sizeof(hax_cpuid) + cpuid->total * sizeof(hax_cpuid_entry);
             break;
         }
         default:
