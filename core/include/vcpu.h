@@ -276,6 +276,7 @@ int vcpu_put_fpu(struct vcpu_t *vcpu, struct fx_layout *fl);
 int vcpu_get_msr(struct vcpu_t *vcpu, uint64_t entry, uint64_t *val);
 int vcpu_put_msr(struct vcpu_t *vcpu, uint64_t entry, uint64_t val);
 int vcpu_set_cpuid(struct vcpu_t *vcpu, hax_cpuid *cpuid_info);
+int vcpu_get_cpuid(struct vcpu_t *vcpu, hax_cpuid *cpuid_info);
 void vcpu_debug(struct vcpu_t *vcpu, struct hax_debug_t *debug);
 
 /* The declaration for OS wrapper code */

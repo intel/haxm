@@ -3977,9 +3977,15 @@ int vcpu_set_cpuid(struct vcpu_t *vcpu, hax_cpuid *cpuid_info)
         return -EFAULT;
     }
 
-    cpuid_set_guest_features(vcpu->guest_cpuid, cpuid_info);
+    return cpuid_set_guest_features(vcpu->guest_cpuid, cpuid_info);
+}
 
-    return 0;
+int vcpu_get_cpuid(struct vcpu_t *vcpu, hax_cpuid *cpuid_info)
+{
+    hax_log(HAX_LOGI, "%s: vCPU #%u is getting guest CPUID.\n", __func__,
+            vcpu->vcpu_id);
+
+    return cpuid_get_guest_features(vcpu->guest_cpuid, cpuid_info);
 }
 
 void vcpu_debug(struct vcpu_t *vcpu, struct hax_debug_t *debug)

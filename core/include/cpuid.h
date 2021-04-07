@@ -263,7 +263,7 @@ void cpuid_guest_init(hax_cpuid_t *cpuid);
 void cpuid_execute(hax_cpuid_t *cpuid, cpuid_args_t *args);
 void cpuid_get_features_mask(hax_cpuid_t *cpuid, uint64_t *features_mask);
 void cpuid_set_features_mask(hax_cpuid_t *cpuid, uint64_t features_mask);
-void cpuid_get_guest_features(hax_cpuid_t *cpuid, hax_cpuid_entry *features);
-void cpuid_set_guest_features(hax_cpuid_t *cpuid, hax_cpuid *cpuid_info);
+int cpuid_get_guest_features(hax_cpuid_t *cpuid, hax_cpuid *cpuid_info);
+int cpuid_set_guest_features(hax_cpuid_t *cpuid, hax_cpuid *cpuid_info);
 
 #endif /* HAX_CORE_CPUID_H_ */
