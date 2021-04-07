@@ -101,10 +101,14 @@ static void execute_8000_0008(cpuid_args_t *args);
 
 static void set_feature(hax_cpuid_entry *features, hax_cpuid *cpuid_info,
                         const cpuid_controller_t *cpuid_controller);
+static void set_leaf_0000_0000(hax_cpuid_entry *dest, hax_cpuid_entry *src);
 static void set_leaf_0000_0001(hax_cpuid_entry *dest, hax_cpuid_entry *src);
 static void set_leaf_0000_0015(hax_cpuid_entry *dest, hax_cpuid_entry *src);
 static void set_leaf_0000_0016(hax_cpuid_entry *dest, hax_cpuid_entry *src);
+static void set_leaf_8000_0000(hax_cpuid_entry *dest, hax_cpuid_entry *src);
 static void set_leaf_8000_0001(hax_cpuid_entry *dest, hax_cpuid_entry *src);
+static void set_leaf_8000_0006(hax_cpuid_entry *dest, hax_cpuid_entry *src);
+static void set_leaf_8000_0008(hax_cpuid_entry *dest, hax_cpuid_entry *src);
 
 // To fully support CPUID instructions (opcode = 0F A2) by software, it is
 // recommended to add opcode_table_0FA2[] in core/emulate.c to emulate
@@ -153,10 +157,21 @@ static const cpuid_manager_t kCpuidManager[] = {
 #define CPUID_TOTAL_LEAVES sizeof(kCpuidManager)/sizeof(kCpuidManager[0])
 
 static const cpuid_controller_t kCpuidController[] = {
+    {0x00000000, set_leaf_0000_0000},
     {0x00000001, set_leaf_0000_0001},
+    {0x00000002, NULL},
+    {0x00000007, NULL},
+    {0x0000000a, NULL},
     {0x00000015, set_leaf_0000_0015},
     {0x00000016, set_leaf_0000_0016},
-    {0x80000001, set_leaf_8000_0001}
+    {0x40000000, NULL},
+    {0x80000000, set_leaf_8000_0000},
+    {0x80000001, set_leaf_8000_0001},
+    {0x80000002, NULL},
+    {0x80000003, NULL},
+    {0x80000004, NULL},
+    {0x80000006, set_leaf_8000_0006},
+    {0x80000008, set_leaf_8000_0008}
 };
 
 #define CPUID_TOTAL_CONTROLS \
@@ -576,7 +591,7 @@ static void execute_0000_0000(cpuid_args_t *args)
         return;
 
     asm_cpuid(args);
-    args->eax = (args->eax < MAX_BASIC_CPUID) ? args->eax : MAX_BASIC_CPUID;
+    args->eax = min(args->eax, MAX_BASIC_CPUID);
 }
 
 static void execute_0000_0001(cpuid_args_t *args)
@@ -765,29 +780,26 @@ static void set_feature(hax_cpuid_entry *features, hax_cpuid *cpuid_info,
             src->ecx ^ dest->ecx, src->edx ^ dest->edx);
 }
 
+static void set_leaf_0000_0000(hax_cpuid_entry *dest, hax_cpuid_entry *src)
+{
+    if (dest == NULL || src == NULL)
+        return;
+
+    dest->eax = min(src->eax, MAX_BASIC_CPUID);
+}
+
 static void set_leaf_0000_0001(hax_cpuid_entry *dest, hax_cpuid_entry *src)
 {
-    cpuid_args_t args;
-    const uint32_t kFixedFeatures =
-        FEATURE(MCE)  |
-        FEATURE(APIC) |
-        FEATURE(MTRR) |
-        FEATURE(PAT);
+    const uint32_t kFixedFeatures = FEATURE(APIC);
+    const uint32_t kDisabledFeatures = FEATURE(TSC_DEADLINE);
 
     if (dest == NULL || src == NULL)
         return;
 
-    args.eax = src->eax;
-    args.ebx = src->ebx;
-    args.ecx = src->ecx;
-    args.edx = src->edx;
-
-    adjust_0000_0001(&args);
-
-    dest->eax = args.eax;
-    dest->ebx = args.ebx;
-    dest->ecx = args.ecx;
-    dest->edx = args.edx | kFixedFeatures;
+    dest->eax = src->eax;
+    dest->ebx = src->ebx;
+    dest->ecx = (src->ecx & ~kDisabledFeatures) | FEATURE(HYPERVISOR);
+    dest->edx = src->edx | kFixedFeatures;
 }
 
 static void set_leaf_0000_0015(hax_cpuid_entry *dest, hax_cpuid_entry *src)
@@ -824,22 +836,43 @@ static void set_leaf_0000_0016(hax_cpuid_entry *dest, hax_cpuid_entry *src)
     // (see Intel SDM Vol. 2A 3.2, Table 3-8).
 }
 
-static void set_leaf_8000_0001(hax_cpuid_entry *dest, hax_cpuid_entry *src)
+static void set_leaf_8000_0000(hax_cpuid_entry *dest, hax_cpuid_entry *src)
 {
-    cpuid_args_t args;
-
     if (dest == NULL || src == NULL)
         return;
 
-    args.eax = src->eax;
-    args.ebx = src->ebx;
-    args.ecx = src->ecx;
-    args.edx = src->edx;
+    dest->eax = min(src->eax, MAX_EXTENDED_CPUID);
+}
 
-    adjust_8000_0001(&args);
+static void set_leaf_8000_0001(hax_cpuid_entry *dest, hax_cpuid_entry *src)
+{
+    if (dest == NULL || src == NULL)
+        return;
 
-    dest->eax = args.eax;
-    dest->ebx = args.ebx;
-    dest->ecx = args.ecx;
-    dest->edx = args.edx;
+    // See Intel SDM Vol. 2A 3.2, Table 3-8.
+    dest->eax = src->eax;
+    dest->ebx = 0;
+    dest->ecx = src->ecx;
+    dest->edx = src->edx;
+}
+
+static void set_leaf_8000_0006(hax_cpuid_entry *dest, hax_cpuid_entry *src)
+{
+    if (dest == NULL || src == NULL)
+        return;
+
+    // See Intel SDM Vol. 2A 3.2, Table 3-8.
+    dest->eax = dest->ebx = dest->edx = 0;
+    dest->ecx = src->ecx;
+}
+
+static void set_leaf_8000_0008(hax_cpuid_entry *dest, hax_cpuid_entry *src)
+{
+    if (dest == NULL || src == NULL)
+        return;
+
+    // See Intel SDM Vol. 2A 3.2, Table 3-8.
+    dest->eax = src->eax;
+    dest->ebx = src->ebx;
+    dest->ecx = dest->edx = 0;
 }
