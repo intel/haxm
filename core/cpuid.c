@@ -322,7 +322,10 @@ void cpuid_init_supported_features(void)
 
 uint32_t cpuid_guest_get_size(void)
 {
-    return sizeof(uint32_t) + CPUID_TOTAL_LEAVES * sizeof(hax_cpuid_entry);
+    // Both the external type 'hax_cpuid' and the internal type 'hax_cpuid_t'
+    // have the same size, so the size of either type can be calculated by this
+    // function.
+    return sizeof(hax_cpuid_t) + CPUID_TOTAL_LEAVES * sizeof(hax_cpuid_entry);
 }
 
 void cpuid_guest_init(hax_cpuid_t *cpuid)
@@ -406,27 +409,35 @@ void cpuid_set_features_mask(hax_cpuid_t *cpuid, uint64_t features_mask)
     cpuid->features_mask = features_mask;
 }
 
-void cpuid_get_guest_features(hax_cpuid_t *cpuid, hax_cpuid_entry *features)
+int cpuid_get_guest_features(hax_cpuid_t *cpuid, hax_cpuid *cpuid_info)
 {
-    hax_cpuid_entry *entry;
+    size_t size;
 
-    if (cpuid == NULL || features == NULL)
-        return;
+    if (cpuid == NULL || cpuid_info == NULL)
+        return -EINVAL;
 
-    entry = find_cpuid_entry(cpuid->features, CPUID_TOTAL_LEAVES,
-                             features->function, 0);
-    if (entry == NULL)
-        return;
+    if (cpuid_info->total < CPUID_TOTAL_LEAVES) {
+        cpuid_info->total = CPUID_TOTAL_LEAVES;
+        hax_log(HAX_LOGI, "%s: The buffer passed in is not enough to hold %lu "
+                "CPUID leaves.\n", __func__, cpuid_info->total);
+        return -ENOMEM;
+    }
 
-    *features = *entry;
+    size = CPUID_TOTAL_LEAVES * sizeof(hax_cpuid_entry);
+
+    cpuid_info->total = CPUID_TOTAL_LEAVES;
+    cpuid_info->pad   = 0;
+    memcpy_s(cpuid_info->entries, size, cpuid->features, size);
+
+    return 0;
 }
 
-void cpuid_set_guest_features(hax_cpuid_t *cpuid, hax_cpuid *cpuid_info)
+int cpuid_set_guest_features(hax_cpuid_t *cpuid, hax_cpuid *cpuid_info)
 {
     int i;
 
     if (cpuid == NULL || cpuid_info == NULL)
-        return;
+        return -EINVAL;
 
     hax_log(HAX_LOGI, "%s: user setting:\n", __func__);
     dump_features(cpuid_info->entries, cpuid_info->total);
@@ -440,6 +451,8 @@ void cpuid_set_guest_features(hax_cpuid_t *cpuid, hax_cpuid *cpuid_info)
 
     hax_log(HAX_LOGI, "%s: after:\n", __func__);
     dump_features(cpuid->features, CPUID_TOTAL_LEAVES);
+
+    return 0;
 }
 
 static hax_cpuid_entry * find_cpuid_entry(hax_cpuid_entry *features,
