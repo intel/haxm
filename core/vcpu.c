@@ -3962,7 +3962,7 @@ int vcpu_set_msr(struct vcpu_t *vcpu, uint64_t entry, uint64_t val)
 
 int vcpu_set_cpuid(struct vcpu_t *vcpu, hax_cpuid *cpuid_info)
 {
-    hax_log(HAX_LOGI, "%s: vCPU #%u is setting guest CPUID.\n", __func__,
+    hax_log(HAX_LOGW, "%s: vCPU #%u is setting guest CPUID.\n", __func__,
             vcpu->vcpu_id);
 
     if (cpuid_info->total == 0 || cpuid_info->total > HAX_MAX_CPUID_ENTRIES) {
