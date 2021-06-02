@@ -47,6 +47,17 @@ typedef uint64_t ADDRESS;
 #define PW_INVALID_GPA (~((uint64_t)0))
 #define PW_NUM_OF_PDPT_ENTRIES_IN_32_BIT_MODE 4
 
+enum {
+    TF_OK      = 0,
+    TF_FAILED  = 0x80000000,    // Translation failed
+    TF_GP2HP   = 0x40000000,    // GP->HP translation failed
+    TF_PROTECT = 0x00000001,    // Fault due to protection
+    TF_WRITE   = 0x00000002,    // Fault due to write
+    TF_USER    = 0x00000004,    // Fault due to user mode
+    TF_RSVD    = 0x00000008,    // Fault due to reserved bit violation
+    TF_EXEC    = 0x00000010     // Fault due to exec protection
+};
+
 /*
  * Function: pw_perform_page_walk
  * Description: The function performs page walk over guest page tables for

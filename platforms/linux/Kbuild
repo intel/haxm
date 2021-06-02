@@ -18,6 +18,7 @@ haxm-y += ../../core/ia32_ops.o
 haxm-y += ../../core/intr_exc.o
 haxm-y += ../../core/memory.o
 haxm-y += ../../core/memslot.o
+haxm-y += ../../core/mmio.o
 haxm-y += ../../core/name.o
 haxm-y += ../../core/page_walker.o
 haxm-y += ../../core/ramblock.o
@@ -25,7 +26,6 @@ haxm-y += ../../core/vcpu.o
 haxm-y += ../../core/vm.o
 haxm-y += ../../core/vmx.o
 haxm-y += ../../core/vmx_ops.o
-haxm-y += ../../core/vtlb.o
 
 # haxm-linux
 haxm-y += components.o

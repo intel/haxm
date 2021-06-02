@@ -65,17 +65,6 @@ struct gstate {
     uint64_t apic_base;
 };
 
-struct cvtlb {
-    hax_vaddr_t va;
-    hax_paddr_t ha;
-    uint64_t flags;
-    uint guest_order;
-    uint order;
-    uint access;
-    uint flag;
-};
-
-struct hax_mmu;
 struct per_cpu_data;
 
 struct vcpu_vmx_data {
@@ -179,7 +168,6 @@ struct vcpu_t {
     hax_mutex tmutex;
 
     struct vm_t *vm;
-    struct hax_mmu *mmu;
     struct vcpu_state_t *state;
     struct hax_tunnel *tunnel;
     uint8_t *io_buf;
@@ -199,7 +187,6 @@ struct vcpu_t {
         uint64_t vmcs_pending_entry_error_code   : 1;
         uint64_t vmcs_pending_entry_instr_length : 1;
         uint64_t vmcs_pending_entry_intr_info    : 1;
-        uint64_t vmcs_pending_guest_cr3          : 1;
         uint64_t debug_control_dirty             : 1;
         uint64_t dr_dirty                        : 1;
         uint64_t rflags_dirty                    : 1;
@@ -208,7 +195,7 @@ struct vcpu_t {
         uint64_t interruptibility_dirty          : 1;
         uint64_t pcpu_ctls_dirty                 : 1;
         uint64_t pae_pdpt_dirty                  : 1;
-        uint64_t padding                         : 45;
+        uint64_t padding                         : 46;
     };
 
     /* For TSC offseting feature*/
@@ -237,7 +224,6 @@ struct vcpu_t {
     struct gstate gstate;
     struct hax_vcpu_mem *tunnel_vcpumem;
     struct hax_vcpu_mem *iobuf_vcpumem;
-    struct cvtlb prefetch[16];
 
     struct em_context_t emulate_ctxt;
     struct vcpu_post_mmio post_mmio;
@@ -261,11 +247,10 @@ void vcpu_save_guest_state(struct vcpu_t *vcpu);
 void vcpu_load_host_state(struct vcpu_t *vcpu);
 void vcpu_save_host_state(struct vcpu_t *vcpu);
 
-int vtlb_active(struct vcpu_t *vcpu);
 int vcpu_vmexit_handler(struct vcpu_t *vcpu, exit_reason_t exit_reason,
                         struct hax_tunnel *htun);
 void vcpu_vmread_all(struct vcpu_t *vcpu);
-void vcpu_vmwrite_all(struct vcpu_t *vcpu, int force_vtlb_flush);
+void vcpu_vmwrite_all(struct vcpu_t *vcpu);
 
 int vcpu_teardown(struct vcpu_t *vcpu);
 

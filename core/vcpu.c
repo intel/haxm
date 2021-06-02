@@ -31,6 +31,7 @@
 #include "../include/hax.h"
 #include "include/compiler.h"
 #include "include/ia32_defs.h"
+#include "include/mmio.h"
 #include "include/vcpu.h"
 #include "include/mtrr.h"
 #include "include/vmx.h"
@@ -41,7 +42,6 @@
 #include "include/dump.h"
 
 #include "include/intr.h"
-#include "include/vtlb.h"
 #include "include/ept.h"
 #include "include/paging.h"
 #include "include/hax_core_interface.h"
@@ -108,7 +108,6 @@ static void advance_rip(struct vcpu_t *vcpu);
 static void handle_machine_check(struct vcpu_t *vcpu);
 
 static void handle_mem_fault(struct vcpu_t *vcpu, struct hax_tunnel *htun);
-static void check_flush(struct vcpu_t *vcpu, uint32_t bits);
 static void vmwrite_efer(struct vcpu_t *vcpu);
 
 static int handle_msr_read(struct vcpu_t *vcpu, uint32_t msr, uint64_t *val);
@@ -456,14 +455,11 @@ struct vcpu_t *vcpu_create(struct vm_t *vm, void *vm_host, int vcpu_id)
     if (!vcpu->tmutex)
         goto fail_5;
 
-    if (!vcpu_vtlb_alloc(vcpu))
+    if (!vcpu_alloc_cpuid(vcpu))
         goto fail_6;
 
-    if (!vcpu_alloc_cpuid(vcpu))
-        goto fail_7;
-
     if (hax_vcpu_create_host(vcpu, vm_host, vm->vm_id, vcpu_id))
-        goto fail_8;
+        goto fail_7;
 
     vcpu->prev_cpu_id = (uint32_t)(~0ULL);
     vcpu->cpu_id = hax_cpu_id();
@@ -493,10 +489,8 @@ struct vcpu_t *vcpu_create(struct vm_t *vm, void *vm_host, int vcpu_id)
 
     hax_log(HAX_LOGD, "vcpu %d is created.\n", vcpu->vcpu_id);
     return vcpu;
-fail_8:
-    vcpu_free_cpuid(vcpu);
 fail_7:
-    vcpu_vtlb_free(vcpu);
+    vcpu_free_cpuid(vcpu);
 fail_6:
     hax_mutex_free(vcpu->tmutex);
 fail_5:
@@ -547,7 +541,6 @@ static int _vcpu_teardown(struct vcpu_t *vcpu)
     }
     hax_free_pages(vcpu->vmcs_page);
     hax_vfree(vcpu->state, sizeof(struct vcpu_state_t));
-    vcpu_vtlb_free(vcpu);
     hax_mutex_free(vcpu->tmutex);
     vcpu_free_cpuid(vcpu);
     hax_vfree(vcpu, sizeof(struct vcpu_t));
@@ -1823,27 +1816,6 @@ int vcpu_vmexit_handler(struct vcpu_t *vcpu, exit_reason_t exit_reason,
     return ret;
 }
 
-int vtlb_active(struct vcpu_t *vcpu)
-{
-    struct vcpu_state_t *state = vcpu->state;
-    struct per_cpu_data *cpu_data = current_cpu_data();
-
-    if (hax->ug_enable_flag)
-        return 0;
-
-    hax_log(HAX_LOGD, "vtlb active: cr0, %llx\n", state->_cr0);
-    if ((state->_cr0 & CR0_PG) == 0)
-        return 1;
-
-    if (config.disable_ept)
-        return 1;
-
-    if (!cpu_data->vmx_info._ept_cap)
-        return 1;
-
-    return 0;
-}
-
 static void advance_rip(struct vcpu_t *vcpu)
 {
     struct vcpu_state_t *state = vcpu->state;
@@ -1912,7 +1884,7 @@ void vcpu_vmread_all(struct vcpu_t *vcpu)
     }
 }
 
-void vcpu_vmwrite_all(struct vcpu_t *vcpu, int force_tlb_flush)
+void vcpu_vmwrite_all(struct vcpu_t *vcpu)
 {
     struct vcpu_state_t *state = vcpu->state;
 
@@ -1938,10 +1910,6 @@ void vcpu_vmwrite_all(struct vcpu_t *vcpu, int force_tlb_flush)
             vmx(vcpu, interruptibility_state).raw);
 
     vmwrite_cr(vcpu);
-
-    if (force_tlb_flush) {
-        vcpu_invalidate_tlb(vcpu, 1);
-    }
 }
 
 // Prepares the values (4 GPAs) to be loaded into VMCS fields PDPTE{0..3}.
@@ -2026,52 +1994,36 @@ static void vmwrite_cr(struct vcpu_t *vcpu)
                    ~(cr0_fixed_0 ^ cr0_fixed_1);
     }
 
-    if (vtlb_active(vcpu)) {
-        hax_log(HAX_LOGD, "vTLB mode, cr0 %llx\n", vcpu->state->_cr0);
-        vcpu->mmu->mmu_mode = MMU_MODE_VTLB;
-        exc_bitmap |= 1u << VECTOR_PF;
-        cr0 |= CR0_WP;
-        cr0_mask |= CR0_WP;
-        cr4 |= CR4_PGE | CR4_PAE;
-        cr4_mask |= CR4_PGE | CR4_PAE | CR4_PSE;
-        pcpu_ctls |= CR3_LOAD_EXITING | CR3_STORE_EXITING | INVLPG_EXITING;
-        scpu_ctls &= ~ENABLE_EPT;
-
-        vmwrite(vcpu, GUEST_CR3, vtlb_get_cr3(vcpu));
-        state->_efer = 0;
-    } else {  // EPTE
-        vcpu->mmu->mmu_mode = MMU_MODE_EPT;
-        // In EPT mode, we need to monitor guest writes to CR.PAE, so that we
-        // know when it wants to enter PAE paging mode (see IASDM Vol. 3A 4.1.2,
-        // Figure 4-1, as well as vcpu_prepare_pae_pdpt() and its caller).
-        // TODO: Monitor guest writes to CR4.{PGE, PSE, SMEP} as well (see IASDM
-        // Vol. 3A 4.4.1)
-        cr4_mask |= CR4_PAE;
-        eptp = vm_get_eptp(vcpu->vm);
-        hax_assert(eptp != INVALID_EPTP);
-        // hax_log(HAX_LOGD, "Guest eip:%llx, EPT mode, eptp:%llx\n",
-        //         vcpu->state->_rip, eptp);
-        vmwrite(vcpu, GUEST_CR3, state->_cr3);
-        scpu_ctls |= ENABLE_EPT;
-        if (vcpu->pae_pdpt_dirty) {
-            // vcpu_prepare_pae_pdpt() has updated vcpu->pae_pdptes
-            // Note that because we do not monitor guest writes to CR3, the only
-            // case where vcpu->pae_pdptes is newer than VMCS GUEST_PDPTE{0..3}
-            // is following a guest write to CR0 or CR4 that requires PDPTEs to
-            // be reloaded, i.e. the pae_pdpt_dirty case. When the guest is in
-            // PAE paging mode but !pae_pdpt_dirty, VMCS GUEST_PDPTE{0..3} are
-            // already up-to-date following each VM exit (see Intel SDM Vol. 3C
-            // 27.3.4), and we must not overwrite them with our cached values
-            // (vcpu->pae_pdptes), which may be outdated.
-            vmwrite(vcpu, GUEST_PDPTE0, vcpu->pae_pdptes[0]);
-            vmwrite(vcpu, GUEST_PDPTE1, vcpu->pae_pdptes[1]);
-            vmwrite(vcpu, GUEST_PDPTE2, vcpu->pae_pdptes[2]);
-            vmwrite(vcpu, GUEST_PDPTE3, vcpu->pae_pdptes[3]);
-            vcpu->pae_pdpt_dirty = 0;
-        }
-        vmwrite(vcpu, VMX_EPTP, eptp);
-        // pcpu_ctls |= RDTSC_EXITING;
+    // In EPT mode, we need to monitor guest writes to CR.PAE, so that we know
+    // when it wants to enter PAE paging mode (see IASDM Vol. 3A 4.1.2,
+    // Figure 4-1, as well as vcpu_prepare_pae_pdpt() and its caller).
+    // TODO: Monitor guest writes to CR4.{PGE, PSE, SMEP} as well (see IASDM
+    // Vol. 3A 4.4.1)
+    cr4_mask |= CR4_PAE;
+    eptp = vm_get_eptp(vcpu->vm);
+    hax_assert(eptp != INVALID_EPTP);
+    // hax_log(HAX_LOGD, "Guest eip:%llx, EPT mode, eptp:%llx\n",
+    //         vcpu->state->_rip, eptp);
+    vmwrite(vcpu, GUEST_CR3, state->_cr3);
+    scpu_ctls |= ENABLE_EPT;
+    if (vcpu->pae_pdpt_dirty) {
+        // vcpu_prepare_pae_pdpt() has updated vcpu->pae_pdptes
+        // Note that because we do not monitor guest writes to CR3, the only
+        // case where vcpu->pae_pdptes is newer than VMCS GUEST_PDPTE{0..3} is
+        // following a guest write to CR0 or CR4 that requires PDPTEs to be
+        // reloaded, i.e., the pae_pdpt_dirty case. When the guest is in PAE
+        // paging mode but !pae_pdpt_dirty, VMCS GUEST_PDPTE{0..3} are already
+        // up-to-date following each VM exit (see Intel SDM Vol. 3C 27.3.4),
+        // and we must not overwrite them with our cached values
+        // (vcpu->pae_pdptes), which may be outdated.
+        vmwrite(vcpu, GUEST_PDPTE0, vcpu->pae_pdptes[0]);
+        vmwrite(vcpu, GUEST_PDPTE1, vcpu->pae_pdptes[1]);
+        vmwrite(vcpu, GUEST_PDPTE2, vcpu->pae_pdptes[2]);
+        vmwrite(vcpu, GUEST_PDPTE3, vcpu->pae_pdptes[3]);
+        vcpu->pae_pdpt_dirty = 0;
     }
+    vmwrite(vcpu, VMX_EPTP, eptp);
+    // pcpu_ctls |= RDTSC_EXITING;
 
     vmwrite(vcpu, GUEST_CR0, cr0);
     vmwrite(vcpu, VMX_CR0_MASK, cr0_mask);
@@ -2168,16 +2120,11 @@ static bool qemu_support_fastmmio_extra(struct vcpu_t *vcpu)
 
 static bool is_mmio_address(struct vcpu_t *vcpu, hax_paddr_t gpa)
 {
-    hax_paddr_t hpa;
-    if (vtlb_active(vcpu)) {
-        hpa = hax_gpfn_to_hpa(vcpu->vm, gpa >> HAX_PAGE_SHIFT);
-        // hax_gpfn_to_hpa() assumes hpa == 0 is invalid
-        return !hpa;
-    }
+    hax_memslot *slot;
 
-    hax_memslot *slot = memslot_find(&vcpu->vm->gpa_space, gpa >> PG_ORDER_4K);
+    slot = memslot_find(&vcpu->vm->gpa_space, gpa >> PG_ORDER_4K);
 
-    return !slot;
+    return (slot == NULL);
 }
 
 static int vcpu_emulate_insn(struct vcpu_t *vcpu)
@@ -2417,17 +2364,10 @@ static int exit_exc_nmi(struct vcpu_t *vcpu, struct hax_tunnel *htun)
             return HAX_RESUME;
         }
         case VECTOR_PF: {
-            if (vtlb_active(vcpu)) {
-                if (handle_vtlb(vcpu))
-                    return HAX_RESUME;
-
-                return vcpu_emulate_insn(vcpu);
-            } else {
-                vcpu_set_panic(vcpu);
-                hax_log(HAX_LOGPANIC, "Page fault shouldn't happen when EPT is"
-                        " enabled.\n");
-                dump_vmcs(vcpu);
-            }
+            vcpu_set_panic(vcpu);
+            hax_log(HAX_LOGPANIC, "Page fault shouldn't happen when EPT is "
+                    "enabled.\n");
+            dump_vmcs(vcpu);
             break;
         }
         case VECTOR_MC: {
@@ -2585,8 +2525,8 @@ static int exit_hlt(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 static int exit_invlpg(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
     advance_rip(vcpu);
-    vcpu_invalidate_tlb_addr(vcpu, vmx(vcpu, exit_qualification).address);
     htun->_exit_reason = vmx(vcpu, exit_reason).basic_reason;
+
     return HAX_RESUME;
 }
 
@@ -2594,34 +2534,6 @@ static int exit_rdtsc(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
     hax_log(HAX_LOGD, "rdtsc exiting: rip: %llx\n", vcpu->state->_rip);
     return HAX_RESUME;
-}
-
-static void check_flush(struct vcpu_t *vcpu, uint32_t bits)
-{
-    switch (vmx(vcpu, exit_qualification).cr.creg) {
-        case 0: {
-            if (bits & (CR0_PE | CR0_PG)) {
-                vcpu_invalidate_tlb(vcpu, 1);
-            }
-            break;
-        }
-        case 2: {
-            break;
-        }
-        case 3: {
-            vcpu_invalidate_tlb(vcpu, 0);
-            break;
-        }
-        case 4: {
-            if (bits & (CR4_PSE | CR4_PAE | CR4_PGE)) {
-                vcpu_invalidate_tlb(vcpu, 1);
-            }
-            break;
-        }
-        case 8: {
-            break;
-        }
-    }
 }
 
 static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
@@ -2675,7 +2587,7 @@ static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
                 // See IASDM Vol. 3A 4.4.1
                 cr0_pae_triggers = CR0_CD | CR0_NW | CR0_PG;
                 if ((val & CR0_PG) && (state->_cr4 & CR4_PAE) &&
-                    !(state->_efer & IA32_EFER_LME) && !vtlb_active(vcpu) &&
+                    !(state->_efer & IA32_EFER_LME) &&
                     ((val ^ old_val) & cr0_pae_triggers)) {
                     hax_log(HAX_LOGI, "%s: vCPU #%u triggers PDPT (re)load for"
                             " EPT+PAE mode (CR0 path)\n", __func__,
@@ -2697,7 +2609,7 @@ static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
                 // TODO: CR4_SMEP is not yet defined
                 cr4_pae_triggers = CR4_PAE | CR4_PGE | CR4_PSE;
                 if ((val & CR4_PAE) && (state->_cr0 & CR0_PG) &&
-                    !(state->_efer & IA32_EFER_LME) && !vtlb_active(vcpu) &&
+                    !(state->_efer & IA32_EFER_LME) &&
                     ((val ^ old_val) & cr4_pae_triggers)) {
                     hax_log(HAX_LOGI, "%s: vCPU #%u triggers PDPT (re)load for "
                             "EPT+PAE mode (CR4 path)\n", __func__,
@@ -2709,7 +2621,6 @@ static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
                         cr, val);
                 break;
             }
-            check_flush(vcpu, old_val ^ val);
             vcpu_write_cr(state, cr, val);
 
             if (is_ept_pae) {
@@ -3313,13 +3224,7 @@ static void vmwrite_efer(struct vcpu_t *vcpu)
     }
 
     if (vmx(vcpu, entry_ctls) & ENTRY_CONTROL_LOAD_EFER) {
-        uint32_t guest_efer = state->_efer;
-
-        if (vtlb_active(vcpu)) {
-            guest_efer |= IA32_EFER_XD;
-        }
-
-        vmwrite(vcpu, GUEST_EFER, guest_efer);
+        vmwrite(vcpu, GUEST_EFER, state->_efer);
     }
 
     if (entry_ctls != vmx(vcpu, entry_ctls)) {
@@ -3450,10 +3355,6 @@ static int handle_msr_write(struct vcpu_t *vcpu, uint32_t msr, uint64_t val,
                 vcpu_set_panic(vcpu);
                 hax_log(HAX_LOGPANIC,
                         "64-bit guest is not allowed on 32-bit host.\n");
-            } else if ((state->_efer & IA32_EFER_LME) && vtlb_active(vcpu)) {
-                vcpu_set_panic(vcpu);
-                hax_log(HAX_LOGPANIC, "64-bit guest is not allowed on core 2 "
-                        "machine.\n");
             } else {
                 vmwrite_efer(vcpu);
             }
