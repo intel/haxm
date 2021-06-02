@@ -36,7 +36,6 @@
 #include "include/debug.h"
 #include "include/dump.h"
 #include "include/name.h"
-#include "include/vtlb.h"
 #include "include/intr.h"
 #include "include/ept.h"
 
@@ -327,12 +326,7 @@ void vcpu_handle_vmcs_pending(struct vcpu_t *vcpu)
         vcpu->vmcs_pending_entry_intr_info = 0;
     }
 
-    if (vcpu->vmcs_pending_guest_cr3) {
-        vmwrite(vcpu, GUEST_CR3, vtlb_get_cr3(vcpu));
-        vcpu->vmcs_pending_guest_cr3 = 0;
-    }
     vcpu->vmcs_pending = 0;
-    return;
 }
 
 /* Return the value same as ioctl value */
@@ -633,7 +627,7 @@ void load_vmcs_common(struct vcpu_t *vcpu)
         vmwrite(vcpu, VMX_TSC_OFFSET, vcpu->tsc_offset);
 
     vmwrite(vcpu, GUEST_ACTIVITY_STATE, vcpu->state->_activity_state);
-    vcpu_vmwrite_all(vcpu, 0);
+    vcpu_vmwrite_all(vcpu);
 }
 
 

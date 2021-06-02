@@ -47,6 +47,7 @@ uint hax_intr_is_blocked(struct vcpu_t *vcpu);
 void hax_handle_idt_vectoring(struct vcpu_t *vcpu);
 void vcpu_inject_intr(struct vcpu_t *vcpu, struct hax_tunnel *htun);
 void hax_inject_exception(struct vcpu_t *vcpu, uint8_t vector, uint32_t error_code);
+void hax_inject_page_fault(struct vcpu_t *vcpu, mword error_code);
 /*
  * Get highest pending interrupt vector
  * Return HAX_INVALID_INTR_VECTOR when no pending

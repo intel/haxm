@@ -32,7 +32,6 @@
 #include "include/ia32_defs.h"
 #include "include/paging.h"
 #include "include/vcpu.h"
-#include "include/vtlb.h"
 #include "include/ept.h"
 #include "include/intr.h"
 #include "include/page_walker.h"
