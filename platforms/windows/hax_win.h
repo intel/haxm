@@ -53,14 +53,6 @@ int write_event(NTSTATUS err_code, PVOID obj, void *dump_data, int dsize);
 
 int hax_valid_uva(uint64_t uva, uint64_t size);
 
-NTSTATUS
-PptRegGetDword(
-  IN     ULONG RelativeTo,
-  IN     __nullterminated PWSTR Path,
-  IN     __nullterminated PWSTR ParameterName,
-  IN     OUT PULONG ParameterValue
-);
-
 #define MAX_HOST_MEM_SIZE ((uint64_t)1 << 41)
 
 #endif  // HAX_WINDOWS_HAX_WIN_H_
