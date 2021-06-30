@@ -665,6 +665,7 @@ static long hax_vm_ioctl(struct file *filp, unsigned int cmd,
     default:
         // TODO: Print information about the process that sent the ioctl.
         hax_log(HAX_LOGE, "Unknown VM IOCTL 0x%lx\n", cmd);
+        ret = -ENOSYS;
         break;
     }
     hax_put_vm(cvm);

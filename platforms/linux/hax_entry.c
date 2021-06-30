@@ -39,6 +39,7 @@
 #include "../../include/hax_interface.h"
 #include "../../include/hax_release_ver.h"
 #include "../../core/include/hax_core_interface.h"
+#include "../../core/include/config.h"
 
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Kryptos Logic");
@@ -106,7 +107,18 @@ static long hax_dev_ioctl(struct file *filp, unsigned int cmd,
             return -EFAULT;
         break;
     }
+    case HAX_IOCTL_CAP_MAX_VCPU: {
+        int max_vcpu = HAX_MAX_VCPUS;
+
+        if (copy_to_user(argp, &max_vcpu, sizeof(max_vcpu)))
+            return -EFAULT;
+
+        break;
+    }
+
     default:
+        hax_log(HAX_LOGE, "Invalid HAX IOCTL 0x%lx\n", cmd);
+        ret = -ENOSYS;
         break;
     }
     return ret;

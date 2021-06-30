@@ -116,6 +116,10 @@ int hax_ioctl(dev_t self __unused, u_long cmd, void *data, int flag,
         *((uint32_t *)data) = vm_id;
         break;
     }
+    case HAX_IOCTL_CAP_MAX_VCPU: {
+        *((uint32_t *)data) = HAX_MAX_VCPUS;
+        break;
+    }
     default:
         hax_log(HAX_LOGE, "Unknown ioctl %#lx, pid=%d ('%s')\n", cmd,
                 l->l_proc->p_pid, l->l_proc->p_comm);

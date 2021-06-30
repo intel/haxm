@@ -66,12 +66,13 @@ struct config_t {
     int no_msr_pass_through;
 };
 
-#define HAX_MAX_VCPUS 16
 
 #ifdef HAX_PLATFORM_NETBSD
-// TODO: Handle 64 VMs
+// TODO: Handle 64 VMs and 64 VCPUs
+#define HAX_MAX_VCPUS 16
 #define HAX_MAX_VMS 8
 #else
+#define HAX_MAX_VCPUS 64
 // Matches the number of bits in vm_mid_bits (see vm.c)
 #define HAX_MAX_VMS 64
 #endif

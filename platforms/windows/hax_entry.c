@@ -35,6 +35,7 @@
 #include <string.h>
 
 #include "hax_win.h"
+#include "../../core/include/config.h"
 
 // vcpu.h
 int vcpu_takeoff(struct vcpu_t *vcpu);
@@ -731,6 +732,15 @@ NTSTATUS HaxDeviceControl(PDEVICE_OBJECT DeviceObject,
                 break;
             }
             *((uint32_t *)outBuf) = vm_id;
+            infret = sizeof(uint32_t);
+            ret = STATUS_SUCCESS;
+            break;
+        case HAX_IOCTL_CAP_MAX_VCPU:
+            if (outBufLength < sizeof(uint32_t)) {
+                ret = STATUS_BUFFER_TOO_SMALL;
+                goto done;
+            }
+            *((uint32_t *)outBuf) = HAX_MAX_VCPUS;
             infret = sizeof(uint32_t);
             ret = STATUS_SUCCESS;
             break;
