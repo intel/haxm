@@ -3648,6 +3648,9 @@ int vcpu_get_regs(struct vcpu_t *vcpu, struct vcpu_state_t *ustate)
     ustate->_dr3 = state->_dr3;
     ustate->_dr6 = state->_dr6;
     ustate->_dr7 = state->_dr7;
+
+    ustate->_efer = state->_efer;
+
     _copy_desc(&state->_cs, &ustate->_cs);
     _copy_desc(&state->_ds, &ustate->_ds);
     _copy_desc(&state->_es, &ustate->_es);
@@ -3677,7 +3680,7 @@ int vcpu_set_regs(struct vcpu_t *vcpu, struct vcpu_state_t *ustate)
 {
     struct vcpu_state_t *state = vcpu->state;
     int i;
-    int cr_dirty = 0, dr_dirty = 0;
+    int cr_dirty = 0, dr_dirty = 0, efer_dirty = 0;
     preempt_flag flags;
     int rsp_dirty = 0;
     uint32_t vmcs_err = 0;
@@ -3717,6 +3720,11 @@ int vcpu_set_regs(struct vcpu_t *vcpu, struct vcpu_state_t *ustate)
     UPDATE_VCPU_STATE(_cr4, cr_dirty);
     if (cr_dirty) {
         vmwrite_cr(vcpu);
+    }
+
+    UPDATE_VCPU_STATE(_efer, efer_dirty);
+    if (efer_dirty) {
+        vmwrite_efer(vcpu);
     }
 
     /*
