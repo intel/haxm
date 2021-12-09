@@ -669,6 +669,9 @@ static void execute_0000_000a(cpuid_args_t *args)
 
 static void execute_4000_0000(cpuid_args_t *args)
 {
+    static const char kSignature[13] = "HAXMHAXMHAXM";
+    const uint32_t *kVendorId = (const uint32_t *)kSignature;
+
     if (args == NULL)
         return;
 
@@ -680,8 +683,6 @@ static void execute_4000_0000(cpuid_args_t *args)
     // guest VMM on top of another VMM such as KVM or Hyper-V, in which case
     // EBX, ECX and EDX represent the underlying VMM's vendor ID and should be
     // overridden.
-    static const char kSignature[13] = "HAXMHAXMHAXM";
-    const uint32_t *kVendorId = (const uint32_t *)kSignature;
     // Some VMMs use EAX to indicate the maximum CPUID leaf valid for the range
     // of [0x40000000, 0x4fffffff]
     args->eax = 0x40000000;
