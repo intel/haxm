@@ -34,9 +34,6 @@
 
 #define HAX_RAM_ENTRY_SIZE 0x4000000
 
-#define min(a,b)  (((a)<(b))?(a):(b))
-#define max(a,b)  (((a)>(b))?(a):(b))
-
 hax_spinlock *hax_spinlock_alloc_init(void);
 void hax_spinlock_free(hax_spinlock *lock);
 void hax_spin_lock(hax_spinlock *lock);

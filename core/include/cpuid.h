@@ -32,7 +32,7 @@
 #define HAX_CORE_CPUID_H_
 
 #include "../../include/hax.h"
-#include "../../include/hax_types.h"
+#include "types.h"
 
 #define CPUID_REG_EAX 0
 #define CPUID_REG_ECX 1
