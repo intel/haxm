@@ -31,7 +31,6 @@
 #ifndef HAX_WINDOWS_HAX_WINDOWS_H_
 #define HAX_WINDOWS_HAX_WINDOWS_H_
 
-//#include <ntddk.h>
 #include <ntifs.h>
 
 #ifndef HAX_UNIFIED_BINARY

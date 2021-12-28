@@ -30,7 +30,6 @@
 
 // The entry code for HAX kernel driver
 
-//#include <ntddk.h>
 #include <ntifs.h>
 #include <string.h>
 #include <wdmsec.h>

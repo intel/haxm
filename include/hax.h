@@ -31,9 +31,9 @@
 #ifndef HAX_H_
 #define HAX_H_
 
-#include "hax_types.h"
-#include "hax_list.h"
 #include "hax_interface.h"
+#include "hax_list.h"
+#include "hax_types.h"
 
 // TODO: Refactor proc_event_pending(), and then delete the following forward
 // declaration

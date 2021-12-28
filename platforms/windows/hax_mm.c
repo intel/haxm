@@ -28,12 +28,10 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-//#include <ntddk.h>
 #include <ntifs.h>
 #include <string.h>
 
 #include "hax_win.h"
-#include "hax_entry.h"
 
 static inline int hax_free_pmdl(PMDL pmdl, int flags)
 {

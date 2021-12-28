@@ -28,13 +28,13 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "include/vmx.h"
+#include "vmx.h"
 
-#include "include/cpu.h"
-#include "include/ept.h"
-#include "include/hax_core_interface.h"
-#include "include/ia32.h"
-#include "include/ia32_defs.h"
+#include "cpu.h"
+#include "ept.h"
+#include "ia32.h"
+#include "ia32_defs.h"
+#include "interface.h"
 
 static void _vmx_vmwrite(struct vcpu_t *vcpu, const char *name,
                          component_index_t component,

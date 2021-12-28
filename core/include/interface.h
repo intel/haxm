@@ -28,10 +28,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef HAX_CORE_HAX_CORE_INTERFACE_H_
-#define HAX_CORE_HAX_CORE_INTERFACE_H_
+#ifndef HAX_CORE_INTERFACE_H_
+#define HAX_CORE_INTERFACE_H_
 
-#include "../../include/hax.h"
+#include "hax.h"
+
 struct vcpu_t;
 struct vm_t;
 
@@ -98,4 +99,4 @@ int vcpu_event_pending(struct vcpu_t *vcpu);
 }
 #endif
 
-#endif  // HAX_CORE_HAX_CORE_INTERFACE_H_
+#endif  // HAX_CORE_INTERFACE_H_

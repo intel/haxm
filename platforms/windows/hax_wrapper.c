@@ -28,8 +28,9 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "ia32.h"
+
 #include "hax_win.h"
-#include "../../core/include/ia32.h"
 
 uint32_t hax_cpu_id(void)
 {

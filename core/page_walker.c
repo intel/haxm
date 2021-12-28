@@ -28,13 +28,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "../include/hax.h"
-#include "include/ia32_defs.h"
-#include "include/paging.h"
-#include "include/vcpu.h"
-#include "include/ept.h"
-#include "include/intr.h"
-#include "include/page_walker.h"
+#include "page_walker.h"
+
+#include "hax.h"
+
+#include "ia32_defs.h"
+#include "paging.h"
 
 typedef union PW_PAGE_ENTRY_U {
     union {

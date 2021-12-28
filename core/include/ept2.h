@@ -31,8 +31,6 @@
 #ifndef HAX_CORE_EPT2_H_
 #define HAX_CORE_EPT2_H_
 
-#include "../../include/hax_types.h"
-#include "../../include/hax_list.h"
 #include "memory.h"
 #include "vmx.h"
 

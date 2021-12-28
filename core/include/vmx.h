@@ -31,7 +31,7 @@
 #ifndef HAX_CORE_VMX_H_
 #define HAX_CORE_VMX_H_
 
-#include "../../include/hax_types.h"
+#include "types.h"
 
 #define VMCS_NONE 0xFFFFFFFFFFFFFFFF
 

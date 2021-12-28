@@ -28,11 +28,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "include/ept2.h"
+#include "ept2.h"
 
-#include "../include/hax.h"
-#include "../include/hax_host_mem.h"
-#include "include/paging.h"
+#include "hax.h"
+#include "hax_host_mem.h"
+
+#include "paging.h"
 
 static hax_epte INVALID_EPTE = {
     .pfn = INVALID_PFN

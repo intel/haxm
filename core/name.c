@@ -28,8 +28,9 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "include/name.h"
-#include "include/vmx.h"
+#include "name.h"
+
+#include "vmx.h"
 
 const char *name_vmcs_component(int value)
 {

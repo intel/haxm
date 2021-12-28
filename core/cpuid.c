@@ -29,8 +29,10 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "include/cpuid.h"
-#include "include/hax_driver.h"
+#include "cpuid.h"
+
+#include "driver.h"
+#include "ia32.h"
 
 #define CPUID_CACHE_SIZE        6
 #define CPUID_FEATURE_SET_SIZE  2

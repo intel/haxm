@@ -31,7 +31,6 @@
 #ifndef HAX_CORE_INTR_H_
 #define HAX_CORE_INTR_H_
 
-#include "../../include/hax.h"
 #include "vcpu.h"
 
 #define NO_ERROR_CODE ~0U

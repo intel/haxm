@@ -28,8 +28,9 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "../../include/hax_release_ver.h"
 #include <windows.h>
+
+#include "hax_release_ver.h"
 
 #define VER_DEBUG                   2
 #define VER_PRERELEASE              0

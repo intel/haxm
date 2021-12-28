@@ -28,10 +28,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "include/intr.h"
-#include "include/ia32_defs.h"
-#include "include/vcpu.h"
-#include "../include/hax.h"
+#include "intr.h"
+
+#include "hax.h"
+
+#include "ia32_defs.h"
+#include "vcpu.h"
 
 /*
  * Get highest pending interrupt vector

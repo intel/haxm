@@ -31,7 +31,7 @@
 #ifndef HAX_CORE_IA32_DEFS_H_
 #define HAX_CORE_IA32_DEFS_H_
 
-#include "../../include/hax_types.h"
+#include "types.h"
 
 #define IA32_FXSAVE_SIZE 512
 

@@ -28,12 +28,13 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "../include/hax.h"
-#include "include/vcpu.h"
-#include "include/vm.h"
-#include "include/hax_driver.h"
-#include "include/ept.h"
-#include "include/paging.h"
+#include "hax.h"
+
+#include "driver.h"
+#include "ept.h"
+#include "paging.h"
+#include "vcpu.h"
+#include "vm.h"
 
 static int handle_alloc_ram(struct vm_t *vm, uint64_t start_uva, uint64_t size)
 {

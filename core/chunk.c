@@ -28,10 +28,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "../include/hax.h"
-#include "include/memory.h"
-#include "../include/hax_host_mem.h"
-#include "include/paging.h"
+#include "memory.h"
+
+#include "hax.h"
+#include "hax_host_mem.h"
+
+#include "paging.h"
 
 int chunk_alloc(uint64_t base_uva, uint64_t size, hax_chunk **chunk)
 {

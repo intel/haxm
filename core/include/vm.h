@@ -31,13 +31,10 @@
 #ifndef HAX_CORE_VM_H_
 #define HAX_CORE_VM_H_
 
-#include "vmx.h"
+#include "ept2.h"
+#include "memory.h"
 #include "segments.h"
 #include "vcpu.h"
-#include "../../include/hax.h"
-
-#include "memory.h"
-#include "ept2.h"
 
 #define KERNEL_BASE                    0xC0000000
 

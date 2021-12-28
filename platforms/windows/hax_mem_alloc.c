@@ -32,7 +32,6 @@
 #include <string.h>
 
 #include "hax_win.h"
-#include "hax_entry.h"
 
 #define HAX_MEM_TAG 'HMEM'
 

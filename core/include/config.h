@@ -31,8 +31,6 @@
 #ifndef HAX_CORE_CONFIG_H_
 #define HAX_CORE_CONFIG_H_
 
-#include "../../include/hax_types.h"
-
 struct config_t {
     int memory_pass_through;
     int disable_ept;

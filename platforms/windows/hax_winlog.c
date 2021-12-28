@@ -28,11 +28,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-//#include <ntddk.h>
-#include <ntifs.h>
-#include <string.h>
 #include <ntdef.h>
+#include <ntifs.h>
 #include <ntstrsafe.h>
+#include <string.h>
+
 #include "hax_win.h"
 
 int hax_init_unicodestring(PUNICODE_STRING str, int length)

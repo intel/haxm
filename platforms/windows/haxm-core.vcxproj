@@ -85,6 +85,7 @@
       <SDLCheck>true</SDLCheck>
       <SupportJustMyCode>false</SupportJustMyCode>
       <WarningLevel>Level1</WarningLevel>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\..\include;$(SolutionDir)..\..\core\include;$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <NASM>
       <AdditionalOptions>--prefix _ %(AdditionalOptions)</AdditionalOptions>
@@ -94,6 +95,7 @@
     <ClCompile>
       <SDLCheck>true</SDLCheck>
       <WarningLevel>Level1</WarningLevel>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\..\include;$(SolutionDir)..\..\core\include;$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <NASM>
       <AdditionalOptions>--prefix _ %(AdditionalOptions)</AdditionalOptions>
@@ -104,12 +106,14 @@
       <SDLCheck>true</SDLCheck>
       <SupportJustMyCode>false</SupportJustMyCode>
       <WarningLevel>Level1</WarningLevel>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\..\include;$(SolutionDir)..\..\core\include;$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <SDLCheck>true</SDLCheck>
       <WarningLevel>Level1</WarningLevel>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\..\include;$(SolutionDir)..\..\core\include;$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>

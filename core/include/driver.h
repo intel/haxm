@@ -28,11 +28,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef HAX_CORE_HAX_DRIVER_H_
-#define HAX_CORE_HAX_DRIVER_H_
+#ifndef HAX_CORE_DRIVER_H_
+#define HAX_CORE_DRIVER_H_
 
-#include "vm.h"
 #include "pmu.h"
+
 #define CONFIG_VM_NUM 16
 
 struct hax_t {
@@ -63,4 +63,4 @@ struct hax_t {
 
 uint64_t hax_get_memory_threshold(void);
 extern struct hax_t *hax;
-#endif  // HAX_CORE_HAX_DRIVER_H_
+#endif  // HAX_CORE_DRIVER_H_

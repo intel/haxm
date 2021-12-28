@@ -28,7 +28,7 @@
 * POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "include/ia32.h"
+#include "ia32.h"
 
 struct qword_val {
     uint32_t low;

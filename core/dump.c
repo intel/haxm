@@ -28,11 +28,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "include/compiler.h"
-#include "include/name.h"
-#include "include/vmx.h"
-#include "include/dump.h"
-#include "../include/hax.h"
+#include "dump.h"
+
+#include "hax.h"
+
+#include "compiler.h"
+#include "name.h"
 
 static uint32_t dump_vmcs_list[] = {
     VMX_PIN_CONTROLS,

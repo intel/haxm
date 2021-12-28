@@ -38,6 +38,7 @@
  */
 
 #include "hax_types.h"
+#include "hax_vcpu_state.h"
 
 #ifdef HAX_PLATFORM_DARWIN
 #include "darwin/hax_interface_mac.h"
@@ -51,8 +52,6 @@
 #ifdef HAX_PLATFORM_WINDOWS
 #include "windows/hax_interface_windows.h"
 #endif
-
-#include "vcpu_state.h"
 
 struct vmx_msr {
     uint64_t entry;

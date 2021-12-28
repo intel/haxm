@@ -31,7 +31,7 @@
 #ifndef HAX_CORE_PAGING_H_
 #define HAX_CORE_PAGING_H_
 
-#include "../../include/hax.h"
+#include "hax.h"
 
 #define PM_INVALID    0
 #define PM_FLAT       1

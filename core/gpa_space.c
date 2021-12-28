@@ -28,11 +28,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "include/memory.h"
+#include "memory.h"
 
-#include "../include/hax.h"
-#include "include/paging.h"
-#include "../include/hax_host_mem.h"
+#include "hax.h"
+#include "hax_host_mem.h"
+
+#include "paging.h"
 
 int gpa_space_init(hax_gpa_space *gpa_space)
 {
