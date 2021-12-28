@@ -28,11 +28,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "../../include/hax.h"
-
 #include <asm/io.h>
 #include <linux/mm.h>
 #include <linux/slab.h>
+
+#include "hax.h"
 
 void * hax_vmalloc(uint32_t size, uint32_t flags)
 {

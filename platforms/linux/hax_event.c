@@ -28,7 +28,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "../../include/hax.h"
+#include "hax.h"
 
 int hax_notify_host_event(enum hax_notify_event event, uint32_t *param,
                           uint32_t size)

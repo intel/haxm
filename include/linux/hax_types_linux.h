@@ -32,11 +32,13 @@
 #ifndef HAX_LINUX_HAX_TYPES_LINUX_H_
 #define HAX_LINUX_HAX_TYPES_LINUX_H_
 
-#include <linux/types.h>
+#include <linux/errno.h>
 #define _ASM_X86_CPUFEATURES_H
 #include <linux/string.h>
 #undef _ASM_X86_CPUFEATURES_H
-#include <linux/errno.h>
+#include <linux/types.h>
+
+#include "hax_list.h"
 
 // Signed Types
 typedef int8_t  int8;
@@ -62,7 +64,6 @@ typedef uint64_t mword;
 #endif
 typedef mword HAX_VADDR_T;
 
-#include "../hax_list.h"
 struct hax_page {
     void *kva;
     struct page *page;

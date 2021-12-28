@@ -30,14 +30,13 @@
 
 #include <linux/cred.h>
 #include <linux/dm-ioctl.h>
+#include <linux/fs.h>
 #include <linux/miscdevice.h>
 #include <linux/namei.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 
-#include <linux/fs.h>
-
-#include "../../core/include/hax_core_interface.h"
+#include "interface.h"
 
 #define HAX_VM_DEVFS_FMT    "hax_vm/vm%02d"
 #define HAX_VCPU_DEVFS_FMT  "hax_vm%02d/vcpu%02d"
