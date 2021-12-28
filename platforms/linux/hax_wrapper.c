@@ -28,17 +28,15 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "../../include/hax.h"
-#include "../../core/include/hax_core_interface.h"
-#include "../../core/include/ia32.h"
-
+#include <asm/cmpxchg.h>
 #include <linux/atomic.h>
 #include <linux/mutex.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/spinlock_types.h>
 
-#include <asm/cmpxchg.h>
+#include "ia32.h"
+#include "interface.h"
 
 static const char* kLogLevel[] = {
     KERN_ERR,

@@ -1,4 +1,5 @@
 ccflags-y += -Wno-unused-function
+ccflags-y += -I$(src)/../../include -I$(src)/../../core/include
 obj-m := haxm.o
 
 # haxm

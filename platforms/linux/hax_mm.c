@@ -28,14 +28,14 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "../../include/hax.h"
-
 #include <linux/mm.h>
 #include <linux/mman.h>
 #include <linux/pagemap.h>
 #include <linux/slab.h>
 #include <linux/version.h>
 #include <linux/vmalloc.h>
+
+#include "hax.h"
 
 typedef struct hax_vcpu_mem_hinfo_t {
     int flags;

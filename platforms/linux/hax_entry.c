@@ -29,16 +29,15 @@
  */
 
 #include <linux/init.h>
-#include <linux/module.h>
-#include <linux/kernel.h>
 #include <linux/fs.h>
+#include <linux/kernel.h>
 #include <linux/miscdevice.h>
+#include <linux/module.h>
 #include <linux/uaccess.h>
 
-#include "../../include/hax.h"
-#include "../../include/hax_interface.h"
-#include "../../include/hax_release_ver.h"
-#include "../../core/include/hax_core_interface.h"
+#include "hax_release_ver.h"
+
+#include "interface.h"
 
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Kryptos Logic");

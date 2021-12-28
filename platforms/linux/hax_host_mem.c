@@ -28,14 +28,15 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "../../include/hax_host_mem.h"
-#include "../../core/include/paging.h"
-
 #include <linux/mm.h>
 #include <linux/pagemap.h>
 #include <linux/slab.h>
 #include <linux/version.h>
 #include <linux/vmalloc.h>
+
+#include "hax_host_mem.h"
+
+#include "paging.h"
 
 int hax_pin_user_pages(uint64_t start_uva, uint64_t size, hax_memdesc_user *memdesc)
 {
