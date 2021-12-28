@@ -36,8 +36,9 @@
 #include <uvm/uvm.h>
 #include <machine/pmap.h>
 
-#include "../../include/hax_host_mem.h"
-#include "../../core/include/paging.h"
+#include "hax_host_mem.h"
+
+#include "paging.h"
 
 int hax_pin_user_pages(uint64_t start_uva, uint64_t size, hax_memdesc_user *memdesc)
 {

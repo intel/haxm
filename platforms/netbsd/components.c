@@ -34,8 +34,8 @@
 #include <sys/device.h>
 #include <sys/kmem.h>
 
-#include "../../core/include/hax_core_interface.h"
-#include "../../core/include/config.h"
+#include "config.h"
+#include "interface.h"
 
 extern struct cfdriver hax_vm_cd;
 extern struct cfdriver hax_vcpu_cd;

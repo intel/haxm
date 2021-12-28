@@ -38,11 +38,10 @@
 #include <machine/specialreg.h>
 #include <machine/cpufunc.h>
 
-#include "../../include/hax.h"
-#include "../../include/hax_interface.h"
-#include "../../include/hax_release_ver.h"
-#include "../../core/include/hax_core_interface.h"
-#include "../../core/include/config.h"
+#include "hax_release_ver.h"
+
+#include "config.h"
+#include "interface.h"
 
 dev_type_open(hax_open);
 dev_type_close(hax_close);

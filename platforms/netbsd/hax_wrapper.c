@@ -39,10 +39,8 @@
 #include <machine/cpu.h>
 #include <machine/cpufunc.h>
 
-
-#include "../../include/hax.h"
-#include "../../core/include/hax_core_interface.h"
-#include "../../core/include/ia32.h"
+#include "ia32.h"
+#include "interface.h"
 
 static const char* kLogPrefix[] = {
     "haxm: ",

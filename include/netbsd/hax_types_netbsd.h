@@ -35,6 +35,8 @@
 #include <sys/param.h>
 #include <sys/types.h>
 
+#include "hax_list.h"
+
 // Signed Types
 typedef int8_t  int8;
 typedef int16_t int16;
@@ -59,7 +61,6 @@ typedef uint64_t mword;
 #endif
 typedef mword HAX_VADDR_T;
 
-#include "../hax_list.h"
 struct hax_page {
     void *kva;
     struct vm_page *page;

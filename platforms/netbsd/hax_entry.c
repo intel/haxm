@@ -35,10 +35,8 @@
 #include <sys/module.h>
 #include <sys/cpu.h>
 
-#include "../../core/include/config.h"
-#include "../../core/include/hax_core_interface.h"
-#include "../../include/hax.h"
-#include "../../include/hax_interface.h"
+#include "config.h"
+#include "interface.h"
 
 #define HAX_DEVICE_NAME "HAX"
 #define HAX_VM_DEVICE_NAME "hax_vm"

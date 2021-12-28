@@ -33,7 +33,7 @@
 #include <sys/kmem.h>
 #include <uvm/uvm.h>
 
-#include "../../include/hax.h"
+#include "hax.h"
 
 void * hax_vmalloc(uint32_t size, uint32_t flags)
 {
