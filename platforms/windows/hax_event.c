@@ -28,9 +28,9 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-//#include <ntddk.h>
 #include <ntifs.h>
 #include <wdm.h>
+
 #include "hax_win.h"
 
 /* Really have no idea of the unicode string, so no insertion string input */

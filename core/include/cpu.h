@@ -31,11 +31,11 @@
 #ifndef HAX_CORE_CPU_H_
 #define HAX_CORE_CPU_H_
 
-#include "vmx.h"
-#include "segments.h"
 #include "config.h"
-#include "vm.h"
 #include "pmu.h"
+#include "segments.h"
+#include "vm.h"
+#include "vmx.h"
 
 #define VMXON_SUCCESS 0x0
 #define VMXON_FAIL    0x1

@@ -28,24 +28,24 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "../include/hax.h"
-#include "include/compiler.h"
-#include "include/ia32_defs.h"
-#include "include/mmio.h"
-#include "include/vcpu.h"
-#include "include/mtrr.h"
-#include "include/vmx.h"
-#include "include/cpu.h"
-#include "include/cpuid.h"
-#include "include/vm.h"
-#include "include/debug.h"
-#include "include/dump.h"
+#include "vcpu.h"
 
-#include "include/intr.h"
-#include "include/ept.h"
-#include "include/paging.h"
-#include "include/hax_core_interface.h"
-#include "include/hax_driver.h"
+#include "hax.h"
+
+#include "compiler.h"
+#include "cpu.h"
+#include "cpuid.h"
+#include "driver.h"
+#include "dump.h"
+#include "ept.h"
+#include "ia32_defs.h"
+#include "interface.h"
+#include "intr.h"
+#include "mmio.h"
+#include "mtrr.h"
+#include "paging.h"
+#include "vm.h"
+#include "vmx.h"
 
 // Explicit type casting is to prevent the upper 32 bits of the array elements
 // from being filled with 1 due to sign extension of the enum type.

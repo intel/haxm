@@ -28,16 +28,16 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "../include/hax.h"
-#include "include/ia32_defs.h"
-#include "include/cpu.h"
-#include "include/cpuid.h"
-#include "include/vcpu.h"
-#include "include/debug.h"
-#include "include/dump.h"
-#include "include/name.h"
-#include "include/intr.h"
-#include "include/ept.h"
+#include "cpu.h"
+
+#include "hax.h"
+
+#include "cpuid.h"
+#include "dump.h"
+#include "ia32_defs.h"
+#include "intr.h"
+#include "name.h"
+#include "vcpu.h"
 
 static void cpu_vmentry_failed(struct vcpu_t *vcpu, vmx_result_t result);
 static int cpu_vmexit_handler(struct vcpu_t *vcpu, exit_reason_t exit_reason,

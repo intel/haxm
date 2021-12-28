@@ -37,8 +37,9 @@
  *    mapping.
  */
 
-#include "include/ept.h"
-#include "include/cpu.h"
+#include "ept.h"
+
+#include "cpu.h"
 
 static uint64_t ept_capabilities;
 

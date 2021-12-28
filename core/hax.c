@@ -28,15 +28,13 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "include/ia32_defs.h"
-#include "include/vmx.h"
+#include "hax.h"
 
-#include "include/cpu.h"
-#include "include/config.h"
-#include "include/hax_driver.h"
-#include "include/vm.h"
-#include "../include/hax.h"
-#include "../include/hax_release_ver.h"
+#include "hax_release_ver.h"
+
+#include "cpu.h"
+#include "driver.h"
+#include "ia32_defs.h"
 
 /* deal with module parameter */
 struct config_t config = {

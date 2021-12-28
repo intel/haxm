@@ -31,6 +31,9 @@
 #ifndef HAX_CORE_PAGE_WALKER_H_
 #define HAX_CORE_PAGE_WALKER_H_
 
+#include "types.h"
+#include "vcpu.h"
+
 typedef uint64_t ADDRESS;
 
 #define ALIGN_BACKWARD(__address, __bytes)  \

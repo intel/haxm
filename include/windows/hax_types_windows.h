@@ -31,9 +31,10 @@
 #ifndef HAX_WINDOWS_HAX_TYPES_WINDOWS_H_
 #define HAX_WINDOWS_HAX_TYPES_WINDOWS_H_
 
-//#include <ntddk.h>
-#include <ntifs.h>
 #include <errno.h>
+#include <ntifs.h>
+
+#include "hax_list.h"
 
 #if defined(_WIN32) && !defined(__cplusplus)
 #define inline __inline
@@ -69,7 +70,6 @@ typedef ULONG_PTR hax_smp_func_ret_t;
 
 typedef KIRQL preempt_flag;
 
-#include "../hax_list.h"
 struct hax_page {
     void *kva;
     PMDL pmdl;

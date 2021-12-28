@@ -28,13 +28,13 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <vector>
 #include <type_traits>
+#include <vector>
 
 #include "gtest/gtest.h"
 #include "keystone/keystone.h"
 
-#include "../core/include/emulate.h"
+#include "emulate.h"
 
 /* Immediate types */
 template <int N>

@@ -31,8 +31,6 @@
 #ifndef HAX_CORE_EMULATE_H_
 #define HAX_CORE_EMULATE_H_
 
-#include "../../include/hax_types.h"
-
 #include "emulate_ops.h"
 
 typedef enum {

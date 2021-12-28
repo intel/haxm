@@ -31,13 +31,13 @@
 #ifndef HAX_WINDOWS_HAX_WIN_H_
 #define HAX_WINDOWS_HAX_WIN_H_
 
-//#include <ntddk.h>
 #include <Ntifs.h>
 #include <stdarg.h>
-#include "hax_core_interface.h"
-#include "../../include/hax_interface.h"
-#include "hax_types_windows.h"
-#include "hax_entry.h"
+
+#include "windows/hax_types_windows.h"
+
+#include "interface.h"
+
 #include "hax_event_win.h"
 
 struct windows_vcpu_mem {

@@ -31,14 +31,13 @@
 #ifndef HAX_CORE_VCPU_H_
 #define HAX_CORE_VCPU_H_
 
+#include "config.h"
 #include "cpuid.h"
 #include "emulate.h"
-#include "vmx.h"
 #include "mtrr.h"
-#include "vm.h"
 #include "pmu.h"
-#include "../../include/hax_interface.h"
-#include "config.h"
+#include "vm.h"
+#include "vmx.h"
 
 #define NR_GMSR     5
 #define NR_EMT64MSR 6

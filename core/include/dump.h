@@ -31,6 +31,8 @@
 #ifndef HAX_CORE_DUMP_H_
 #define HAX_CORE_DUMP_H_
 
+#include "vmx.h"
+
 void dump_vmcs(struct vcpu_t *vcpu);
 
 void dump_vmx_info(struct info_t *info);

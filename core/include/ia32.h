@@ -31,7 +31,7 @@
 #ifndef HAX_CORE_IA32_H_
 #define HAX_CORE_IA32_H_
 
-#include "../../include/hax_types.h"
+#include "types.h"
 
 union cpuid_args_t;
 struct system_desc_t;

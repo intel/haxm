@@ -28,10 +28,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "../include/hax.h"
-#include "include/memory.h"
-#include "include/paging.h"
-#include "include/types.h"
+#include "memory.h"
+
+#include "hax.h"
+
+#include "paging.h"
 
 #define MEMSLOT_PROCESSING 0x01
 #define MEMSLOT_TO_INSERT  0x02

@@ -28,11 +28,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "include/ia32_defs.h"
-#include "include/intr.h"
-#include "include/mmio.h"
-#include "include/page_walker.h"
-#include "include/paging.h"
+#include "mmio.h"
+
+#include "ia32_defs.h"
+#include "intr.h"
+#include "page_walker.h"
+#include "paging.h"
 
 typedef uint32_t pagemode_t;
 

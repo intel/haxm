@@ -31,7 +31,6 @@
 #ifndef HAX_CORE_EPT_H_
 #define HAX_CORE_EPT_H_
 
-#include "../../include/hax_types.h"
 #include "vm.h"
 
 #define ept_cap_rwX             ((uint64_t)1 << 0)

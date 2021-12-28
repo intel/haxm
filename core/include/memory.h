@@ -31,8 +31,9 @@
 #ifndef HAX_CORE_MEMORY_H_
 #define HAX_CORE_MEMORY_H_
 
-#include "../../include/hax_types.h"
-#include "../../include/hax_list.h"
+#include "hax_list.h"
+
+#include "types.h"
 
 #define HAX_CHUNK_SHIFT 21
 #define HAX_CHUNK_SIZE  (1U << HAX_CHUNK_SHIFT)  // 2MB

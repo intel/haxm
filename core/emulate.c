@@ -28,7 +28,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "include/emulate.h"
+#include "emulate.h"
 
 /* Instruction flags */
 /* Instruction does not read from destination */

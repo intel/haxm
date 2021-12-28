@@ -28,14 +28,16 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "include/vm.h"
-#include "include/hax_driver.h"
-#include "include/vcpu.h"
-#include "../include/hax.h"
-#include "include/hax_core_interface.h"
-#include "include/ept.h"
-#include "include/paging.h"
-#include "include/config.h"
+#include "vm.h"
+
+#include "hax.h"
+
+#include "config.h"
+#include "driver.h"
+#include "ept.h"
+#include "interface.h"
+#include "paging.h"
+#include "vcpu.h"
 
 static uint64_t vm_mid_bits = 0;
 

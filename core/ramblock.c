@@ -28,8 +28,9 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "../include/hax.h"
-#include "include/memory.h"
+#include "memory.h"
+
+#include "hax.h"
 
 static inline uint64_t ramblock_count_chunks(hax_ramblock *block)
 {

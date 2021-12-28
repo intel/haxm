@@ -28,11 +28,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "include/ept2.h"
+#include "ept2.h"
 
-#include "../include/hax.h"
-#include "include/paging.h"
-#include "../include/hax_host_mem.h"
+#include "hax.h"
+#include "hax_host_mem.h"
+
+#include "paging.h"
 
 void ept_handle_mapping_removed(hax_gpa_space_listener *listener,
                                 uint64_t start_gfn, uint64_t npages, uint64_t uva,

@@ -31,7 +31,8 @@
 #ifndef HAX_CORE_CPUID_H_
 #define HAX_CORE_CPUID_H_
 
-#include "../../include/hax.h"
+#include "hax.h"
+
 #include "types.h"
 
 #define CPUID_REG_EAX 0

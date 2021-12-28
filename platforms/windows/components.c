@@ -28,12 +28,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-// VM and VCPU host components handling
-#include "hax_win.h"
-
+#include <ntifs.h>
 #include <Ntstrsafe.h>
 #include <wdmsec.h>
-#include <ntifs.h>
+
+// VM and VCPU host components handling
+#include "hax_win.h"
 
 #define HAX_VCPU_DEV_FMT     L"\\Device\\hax_vm%02d_vcpu%02d"
 #define HAX_VCPU_DOS_DEV_FMT L"\\DosDevices\\hax_vm%02d_vcpu%02d"
