@@ -28,9 +28,10 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <IOKit/IOLib.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
-#include "com_intel_hax.h"
+#include <IOKit/IOLib.h>
+
+#include "hax_mem_alloc.h"
 
 #define HAX_ALLOC_CHECK_FAIL NULL
 

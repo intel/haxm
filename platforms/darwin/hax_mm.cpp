@@ -36,11 +36,12 @@
  * it to QEMU.
  * Considering the big kernel address space even in 32-bit mac, hope this works.
  */
-#include <mach/mach_types.h>
-#include <IOKit/IOMemoryDescriptor.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
+#include <IOKit/IOMemoryDescriptor.h>
+#include <mach/mach_types.h>
 #include <sys/errno.h>
-#include "com_intel_hax.h"
+
+#include "hax_mem_alloc.h"
 
 int hax_setup_vcpumem(struct hax_vcpu_mem *mem, uint64_t uva, uint32_t size,
                       int flags)

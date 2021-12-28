@@ -28,10 +28,10 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef HAX_DARWIN_COM_INTEL_HAX_COMPONENT_H_
-#define HAX_DARWIN_COM_INTEL_HAX_COMPONENT_H_
+#ifndef HAX_DARWIN_COMPONENTS_H_
+#define HAX_DARWIN_COMPONENTS_H_
 
-#include "com_intel_hax.h"
+#include "hax_mem_alloc.h"
 
 struct hax_vm_mac {
     /* The hax core's vm id */
@@ -79,4 +79,4 @@ static struct vcpu_t *mvcpu2cvcpu(struct hax_vcpu_mac *vcpu) {
     return vcpu->cvcpu;
 }
 
-#endif  // HAX_DARWIN_COM_INTEL_HAX_COMPONENT_H_
+#endif  // HAX_DARWIN_COMPONENTS_H_

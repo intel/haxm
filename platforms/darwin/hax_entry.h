@@ -28,34 +28,21 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef HAX_DARWIN_COM_INTEL_HAX_H_
-#define HAX_DARWIN_COM_INTEL_HAX_H_
+#ifndef HAX_DARWIN_HAX_ENTRY_H_
+#define HAX_DARWIN_HAX_ENTRY_H_
 
-#include <mach/mach_types.h>
-#include <IOKit/IOLib.h>
-#include <sys/conf.h>
-#include <miscfs/devfs/devfs.h>
-#include <sys/ioccom.h>
-#include <sys/errno.h>
-#include <sys/kauth.h>
-#include <libkern/OSBase.h>
+#include "hax_mem_alloc.h"
 
-#include "../../include/hax.h"
-#include "../../core/include/hax_core_interface.h"
+__private_extern__
+int com_intel_hax_init_ui(void);
 
-#include "com_intel_hax_component.h"
-#include "com_intel_hax_ui.h"
-#include "com_intel_hax_mem.h"
+__private_extern__
+int com_intel_hax_exit_ui(void);
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+int hax_vcpu_destroy_ui(struct hax_vcpu_mac *vcpu);
+int hax_vcpu_create_ui(struct hax_vcpu_mac *vcpu);
 
-/* Definition for hax_mem_alloc.cpp */
-int hax_malloc_init(void);
-void hax_malloc_exit(void);
+int hax_vm_destroy_ui(struct hax_vm_mac *vm);
+int hax_vm_create_ui(struct hax_vm_mac *vm);
 
-#ifdef __cplusplus
-}
-#endif
-#endif  // HAX_DARWIN_COM_INTEL_HAX_H_
+#endif  // HAX_DARWIN_HAX_ENTRY_H_

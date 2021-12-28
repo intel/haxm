@@ -39,16 +39,17 @@ typedef uint64_t hax_va_t;
 typedef uint32_t hax_size_t;
 
 #else
-#include <libkern/OSAtomic.h>
 #include <IOKit/IOLib.h>
-#include <sys/conf.h>
-#include <miscfs/devfs/devfs.h>
-#include <sys/ioccom.h>
-#include <sys/errno.h>
 #include <kern/locks.h>
+#include <libkern/OSAtomic.h>
 #include <libkern/OSBase.h>
+#include <miscfs/devfs/devfs.h>
+#include <sys/conf.h>
+#include <sys/errno.h>
+#include <sys/ioccom.h>
 
-#include "../hax_list.h"
+#include "hax_list.h"
+
 typedef uint64_t hax_va_t;
 typedef uint32_t hax_size_t;
 
