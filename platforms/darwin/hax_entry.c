@@ -28,11 +28,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "com_intel_hax.h"
-
 #include <libkern/version.h>
 #include <sys/proc.h>
 #include <sys/ttycom.h>
+
+#include "hax_mem_alloc.h"
 
 /* Major version number of Darwin/XNU kernel */
 extern const int version_major;

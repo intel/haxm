@@ -28,8 +28,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef HAX_DARWIN_COM_INTEL_HAX_MEM_H_
-#define HAX_DARWIN_COM_INTEL_HAX_MEM_H_
+#ifndef HAX_DARWIN_HAX_MM_H_
+#define HAX_DARWIN_HAX_MM_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -56,4 +56,4 @@ struct darwin_vcpu_mem {
 }
 #endif
 
-#endif  // HAX_DARWIN_COM_INTEL_HAX_MEM_H_
+#endif  // HAX_DARWIN_HAX_MM_H_

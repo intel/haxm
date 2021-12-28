@@ -28,7 +28,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "com_intel_hax.h"
+#include "hax_mem_alloc.h"
 
 lck_grp_t *hax_lck_grp = NULL, *hax_mtx_grp = NULL;
 lck_attr_t *hax_lck_attr = NULL, *hax_mtx_attr = NULL;

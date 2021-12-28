@@ -12,26 +12,26 @@
 		22BFCFD813A59A9100AD9F0F /* ept.h in Headers */ = {isa = PBXBuildFile; fileRef = 22BFCFD713A59A9100AD9F0F /* ept.h */; };
 		22BFCFDC13A59AA000AD9F0F /* intr.h in Headers */ = {isa = PBXBuildFile; fileRef = 22BFCFDB13A59AA000AD9F0F /* intr.h */; };
 		32A4FEBC0562C75700D090E7 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 089C167DFE841241C02AAC07 /* InfoPlist.strings */; };
-		32A4FEBE0562C75700D090E7 /* com_intel_hax.c in Sources */ = {isa = PBXBuildFile; fileRef = 1A224C3CFF42312311CA2CB7 /* com_intel_hax.c */; settings = {ATTRIBUTES = (); }; };
+		32A4FEBE0562C75700D090E7 /* hax_main.c in Sources */ = {isa = PBXBuildFile; fileRef = 1A224C3CFF42312311CA2CB7 /* hax_main.c */; settings = {ATTRIBUTES = (); }; };
 		43038ADA145F94190014BEE6 /* memory.c in Sources */ = {isa = PBXBuildFile; fileRef = 43038AD9145F94190014BEE6 /* memory.c */; };
-		4324E35613A3781500FA7CFB /* hax_core_interface.h in Headers */ = {isa = PBXBuildFile; fileRef = 4324E35513A3781500FA7CFB /* hax_core_interface.h */; };
+		4324E35613A3781500FA7CFB /* interface.h in Headers */ = {isa = PBXBuildFile; fileRef = 4324E35513A3781500FA7CFB /* interface.h */; };
 		43440D1F13A3834B002E1442 /* hax_interface_mac.h in Headers */ = {isa = PBXBuildFile; fileRef = 43440D1D13A3834B002E1442 /* hax_interface_mac.h */; };
 		43440D2013A3834B002E1442 /* hax_types_mac.h in Headers */ = {isa = PBXBuildFile; fileRef = 43440D1E13A3834B002E1442 /* hax_types_mac.h */; };
 		43440D2C13A384D2002E1442 /* hax_mac.h in Headers */ = {isa = PBXBuildFile; fileRef = 43440D2B13A384D2002E1442 /* hax_mac.h */; };
 		43440F3113A3B69A002E1442 /* hax_mem_alloc.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 43440F2F13A3B69A002E1442 /* hax_mem_alloc.cpp */; };
 		43440F3213A3B69A002E1442 /* hax_wrapper.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 43440F3013A3B69A002E1442 /* hax_wrapper.cpp */; };
 		4344104213A3C1B1002E1442 /* hax_interface.h in Headers */ = {isa = PBXBuildFile; fileRef = 4344104013A3C1B1002E1442 /* hax_interface.h */; };
-		4344104313A3C1B1002E1442 /* vcpu_state.h in Headers */ = {isa = PBXBuildFile; fileRef = 4344104113A3C1B1002E1442 /* vcpu_state.h */; };
-		438B7295138CA774009DF91B /* com_intel_hax_ui.h in Headers */ = {isa = PBXBuildFile; fileRef = 438B7293138CA774009DF91B /* com_intel_hax_ui.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		438B7296138CA774009DF91B /* com_intel_hax_ui.c in Sources */ = {isa = PBXBuildFile; fileRef = 438B7294138CA774009DF91B /* com_intel_hax_ui.c */; };
-		438B72DB138CE46F009DF91B /* com_intel_hax.h in Headers */ = {isa = PBXBuildFile; fileRef = 438B72DA138CE46F009DF91B /* com_intel_hax.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		4344104313A3C1B1002E1442 /* hax_vcpu_state.h in Headers */ = {isa = PBXBuildFile; fileRef = 4344104113A3C1B1002E1442 /* hax_vcpu_state.h */; };
+		438B7295138CA774009DF91B /* hax_entry.h in Headers */ = {isa = PBXBuildFile; fileRef = 438B7293138CA774009DF91B /* hax_entry.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		438B7296138CA774009DF91B /* hax_entry.c in Sources */ = {isa = PBXBuildFile; fileRef = 438B7294138CA774009DF91B /* hax_entry.c */; };
+		438B72DB138CE46F009DF91B /* hax_mem_alloc.h in Headers */ = {isa = PBXBuildFile; fileRef = 438B72DA138CE46F009DF91B /* hax_mem_alloc.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		4397BF1E138F4530001A6A33 /* hax.h in Headers */ = {isa = PBXBuildFile; fileRef = 4397BF1A138F4530001A6A33 /* hax.h */; };
 		4397BF20138F4530001A6A33 /* hax_list.h in Headers */ = {isa = PBXBuildFile; fileRef = 4397BF1C138F4530001A6A33 /* hax_list.h */; };
 		4397BF21138F4530001A6A33 /* hax_types.h in Headers */ = {isa = PBXBuildFile; fileRef = 4397BF1D138F4530001A6A33 /* hax_types.h */; };
-		43C9A9E4138DD459000A1071 /* com_intel_hax_component.c in Sources */ = {isa = PBXBuildFile; fileRef = 43C9A9E2138DD459000A1071 /* com_intel_hax_component.c */; };
+		43C9A9E4138DD459000A1071 /* components.c in Sources */ = {isa = PBXBuildFile; fileRef = 43C9A9E2138DD459000A1071 /* components.c */; };
 		43C9A9E7138DDA93000A1071 /* hax_host.h in Headers */ = {isa = PBXBuildFile; fileRef = 43C9A9E6138DDA93000A1071 /* hax_host.h */; };
-		43F857E013931E75008A93D6 /* com_intel_hax_mem.h in Headers */ = {isa = PBXBuildFile; fileRef = 43F857DE13931E75008A93D6 /* com_intel_hax_mem.h */; };
-		43F857E113931E75008A93D6 /* com_intel_hax_mem.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 43F857DF13931E75008A93D6 /* com_intel_hax_mem.cpp */; };
+		43F857E013931E75008A93D6 /* hax_mm.h in Headers */ = {isa = PBXBuildFile; fileRef = 43F857DE13931E75008A93D6 /* hax_mm.h */; };
+		43F857E113931E75008A93D6 /* hax_mm.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 43F857DF13931E75008A93D6 /* hax_mm.cpp */; };
 		642FD41B20D9F74D00C197FF /* cpuid.h in Headers */ = {isa = PBXBuildFile; fileRef = 642FD41A20D9F74D00C197FF /* cpuid.h */; };
 		642FD41E20D9F79100C197FF /* emulate_ops.h in Headers */ = {isa = PBXBuildFile; fileRef = 642FD41C20D9F79100C197FF /* emulate_ops.h */; };
 		642FD41F20D9F79100C197FF /* emulate.h in Headers */ = {isa = PBXBuildFile; fileRef = 642FD41D20D9F79100C197FF /* emulate.h */; };
@@ -55,7 +55,7 @@
 		B98ECFBB13A059BB00485DDB /* cpu.h in Headers */ = {isa = PBXBuildFile; fileRef = B98ECFA213A059BB00485DDB /* cpu.h */; };
 		B98ECFBC13A059BB00485DDB /* debug.h in Headers */ = {isa = PBXBuildFile; fileRef = B98ECFA313A059BB00485DDB /* debug.h */; };
 		B98ECFBD13A059BB00485DDB /* dump.h in Headers */ = {isa = PBXBuildFile; fileRef = B98ECFA413A059BB00485DDB /* dump.h */; };
-		B98ECFBE13A059BB00485DDB /* hax_driver.h in Headers */ = {isa = PBXBuildFile; fileRef = B98ECFA513A059BB00485DDB /* hax_driver.h */; };
+		B98ECFBE13A059BB00485DDB /* driver.h in Headers */ = {isa = PBXBuildFile; fileRef = B98ECFA513A059BB00485DDB /* driver.h */; };
 		B98ECFC013A059BB00485DDB /* ia32_defs.h in Headers */ = {isa = PBXBuildFile; fileRef = B98ECFA713A059BB00485DDB /* ia32_defs.h */; };
 		B98ECFC113A059BB00485DDB /* mtrr.h in Headers */ = {isa = PBXBuildFile; fileRef = B98ECFA813A059BB00485DDB /* mtrr.h */; };
 		B98ECFC213A059BB00485DDB /* paging.h in Headers */ = {isa = PBXBuildFile; fileRef = B98ECFA913A059BB00485DDB /* paging.h */; };
@@ -86,6 +86,8 @@
 			isa = PBXBuildRule;
 			compilerSpec = com.apple.compilers.proxy.script;
 			fileType = sourcecode.nasm;
+			inputFiles = (
+			);
 			isEditable = 1;
 			outputFiles = (
 				"$(DERIVED_FILE_DIR)/${INPUT_FILE_BASE}.o",
@@ -96,7 +98,7 @@
 
 /* Begin PBXFileReference section */
 		089C167EFE841241C02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		1A224C3CFF42312311CA2CB7 /* com_intel_hax.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = com_intel_hax.c; sourceTree = "<group>"; };
+		1A224C3CFF42312311CA2CB7 /* hax_main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = hax_main.c; sourceTree = "<group>"; };
 		22BFCFCD13A59A4300AD9F0F /* ept.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ept.c; path = ../../core/ept.c; sourceTree = SOURCE_ROOT; };
 		22BFCFD113A59A6500AD9F0F /* intr_exc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = intr_exc.c; path = ../../core/intr_exc.c; sourceTree = SOURCE_ROOT; };
 		22BFCFD713A59A9100AD9F0F /* ept.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ept.h; sourceTree = "<group>"; };
@@ -104,24 +106,24 @@
 		32A4FEC30562C75700D090E7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		32A4FEC40562C75800D090E7 /* intelhaxm.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = intelhaxm.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		43038AD9145F94190014BEE6 /* memory.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = memory.c; path = ../../core/memory.c; sourceTree = SOURCE_ROOT; };
-		4324E35513A3781500FA7CFB /* hax_core_interface.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = hax_core_interface.h; sourceTree = "<group>"; };
+		4324E35513A3781500FA7CFB /* interface.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = interface.h; sourceTree = "<group>"; };
 		43440D1D13A3834B002E1442 /* hax_interface_mac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = hax_interface_mac.h; path = darwin/hax_interface_mac.h; sourceTree = "<group>"; };
 		43440D1E13A3834B002E1442 /* hax_types_mac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = hax_types_mac.h; path = darwin/hax_types_mac.h; sourceTree = "<group>"; };
 		43440D2B13A384D2002E1442 /* hax_mac.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = hax_mac.h; path = darwin/hax_mac.h; sourceTree = "<group>"; };
 		43440F2F13A3B69A002E1442 /* hax_mem_alloc.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = hax_mem_alloc.cpp; sourceTree = "<group>"; };
 		43440F3013A3B69A002E1442 /* hax_wrapper.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = hax_wrapper.cpp; sourceTree = "<group>"; };
 		4344104013A3C1B1002E1442 /* hax_interface.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = hax_interface.h; sourceTree = "<group>"; };
-		4344104113A3C1B1002E1442 /* vcpu_state.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = vcpu_state.h; sourceTree = "<group>"; };
-		438B7293138CA774009DF91B /* com_intel_hax_ui.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = com_intel_hax_ui.h; sourceTree = "<group>"; };
-		438B7294138CA774009DF91B /* com_intel_hax_ui.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = com_intel_hax_ui.c; sourceTree = "<group>"; };
-		438B72DA138CE46F009DF91B /* com_intel_hax.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = com_intel_hax.h; sourceTree = "<group>"; };
+		4344104113A3C1B1002E1442 /* hax_vcpu_state.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = hax_vcpu_state.h; sourceTree = "<group>"; };
+		438B7293138CA774009DF91B /* hax_entry.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = hax_entry.h; sourceTree = "<group>"; };
+		438B7294138CA774009DF91B /* hax_entry.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = hax_entry.c; sourceTree = "<group>"; };
+		438B72DA138CE46F009DF91B /* hax_mem_alloc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = hax_mem_alloc.h; sourceTree = "<group>"; };
 		4397BF1A138F4530001A6A33 /* hax.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = hax.h; sourceTree = "<group>"; };
 		4397BF1C138F4530001A6A33 /* hax_list.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = hax_list.h; sourceTree = "<group>"; };
 		4397BF1D138F4530001A6A33 /* hax_types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = hax_types.h; sourceTree = "<group>"; };
-		43C9A9E2138DD459000A1071 /* com_intel_hax_component.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = com_intel_hax_component.c; sourceTree = "<group>"; };
+		43C9A9E2138DD459000A1071 /* components.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = components.c; sourceTree = "<group>"; };
 		43C9A9E6138DDA93000A1071 /* hax_host.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = hax_host.h; sourceTree = "<group>"; };
-		43F857DE13931E75008A93D6 /* com_intel_hax_mem.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = com_intel_hax_mem.h; sourceTree = "<group>"; };
-		43F857DF13931E75008A93D6 /* com_intel_hax_mem.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = com_intel_hax_mem.cpp; sourceTree = "<group>"; };
+		43F857DE13931E75008A93D6 /* hax_mm.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = hax_mm.h; sourceTree = "<group>"; };
+		43F857DF13931E75008A93D6 /* hax_mm.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = hax_mm.cpp; sourceTree = "<group>"; };
 		642FD41A20D9F74D00C197FF /* cpuid.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cpuid.h; sourceTree = "<group>"; };
 		642FD41C20D9F79100C197FF /* emulate_ops.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = emulate_ops.h; sourceTree = "<group>"; };
 		642FD41D20D9F79100C197FF /* emulate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = emulate.h; sourceTree = "<group>"; };
@@ -145,7 +147,7 @@
 		B98ECFA213A059BB00485DDB /* cpu.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cpu.h; sourceTree = "<group>"; };
 		B98ECFA313A059BB00485DDB /* debug.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = debug.h; sourceTree = "<group>"; };
 		B98ECFA413A059BB00485DDB /* dump.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = dump.h; sourceTree = "<group>"; };
-		B98ECFA513A059BB00485DDB /* hax_driver.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = hax_driver.h; sourceTree = "<group>"; };
+		B98ECFA513A059BB00485DDB /* driver.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = driver.h; sourceTree = "<group>"; };
 		B98ECFA713A059BB00485DDB /* ia32_defs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ia32_defs.h; sourceTree = "<group>"; };
 		B98ECFA813A059BB00485DDB /* mtrr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = mtrr.h; sourceTree = "<group>"; };
 		B98ECFA913A059BB00485DDB /* paging.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = paging.h; sourceTree = "<group>"; };
@@ -244,13 +246,13 @@
 				B98ECFB413A059BB00485DDB /* name.c */,
 				B98ECFB513A059BB00485DDB /* vmx.c */,
 				43C9A9E6138DDA93000A1071 /* hax_host.h */,
-				1A224C3CFF42312311CA2CB7 /* com_intel_hax.c */,
-				43C9A9E2138DD459000A1071 /* com_intel_hax_component.c */,
-				438B7293138CA774009DF91B /* com_intel_hax_ui.h */,
-				438B7294138CA774009DF91B /* com_intel_hax_ui.c */,
-				438B72DA138CE46F009DF91B /* com_intel_hax.h */,
-				43F857DE13931E75008A93D6 /* com_intel_hax_mem.h */,
-				43F857DF13931E75008A93D6 /* com_intel_hax_mem.cpp */,
+				1A224C3CFF42312311CA2CB7 /* hax_main.c */,
+				43C9A9E2138DD459000A1071 /* components.c.c */,
+				438B7293138CA774009DF91B /* hax_entry.h */,
+				438B7294138CA774009DF91B /* hax_entry.c */,
+				438B72DA138CE46F009DF91B /* hax_mem_alloc.h */,
+				43F857DE13931E75008A93D6 /* hax_mm.h */,
+				43F857DF13931E75008A93D6 /* hax_mm.cpp */,
 			);
 			name = Source;
 			sourceTree = "<group>";
@@ -259,7 +261,7 @@
 			isa = PBXGroup;
 			children = (
 				4344104013A3C1B1002E1442 /* hax_interface.h */,
-				4344104113A3C1B1002E1442 /* vcpu_state.h */,
+				4344104113A3C1B1002E1442 /* hax_vcpu_state.h */,
 				43440D2B13A384D2002E1442 /* hax_mac.h */,
 				43440D1D13A3834B002E1442 /* hax_interface_mac.h */,
 				43440D1E13A3834B002E1442 /* hax_types_mac.h */,
@@ -285,14 +287,14 @@
 				22BFCFDB13A59AA000AD9F0F /* intr.h */,
 				22BFCFD713A59A9100AD9F0F /* ept.h */,
 				6456261E1EEFF705005280EF /* ept2.h */,
-				4324E35513A3781500FA7CFB /* hax_core_interface.h */,
+				4324E35513A3781500FA7CFB /* interface.h */,
 				B98ECFA013A059BB00485DDB /* compiler.h */,
 				B98ECFA113A059BB00485DDB /* config.h */,
 				B98ECFA213A059BB00485DDB /* cpu.h */,
 				642FD41A20D9F74D00C197FF /* cpuid.h */,
 				B98ECFA313A059BB00485DDB /* debug.h */,
 				B98ECFA413A059BB00485DDB /* dump.h */,
-				B98ECFA513A059BB00485DDB /* hax_driver.h */,
+				B98ECFA513A059BB00485DDB /* driver.h */,
 				B98ECFA713A059BB00485DDB /* ia32_defs.h */,
 				B98ECFA813A059BB00485DDB /* mtrr.h */,
 				B98ECFA913A059BB00485DDB /* paging.h */,
@@ -314,8 +316,8 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				438B7295138CA774009DF91B /* com_intel_hax_ui.h in Headers */,
-				438B72DB138CE46F009DF91B /* com_intel_hax.h in Headers */,
+				438B7295138CA774009DF91B /* hax_entry.h in Headers */,
+				438B72DB138CE46F009DF91B /* hax_mem_alloc.h in Headers */,
 				43C9A9E7138DDA93000A1071 /* hax_host.h in Headers */,
 				4397BF1E138F4530001A6A33 /* hax.h in Headers */,
 				642FD41F20D9F79100C197FF /* emulate.h in Headers */,
@@ -324,7 +326,7 @@
 				6E2DBBCE18EB6155003B66C9 /* page_walker.h in Headers */,
 				4397BF21138F4530001A6A33 /* hax_types.h in Headers */,
 				CF6A32291EDEB86E00468E62 /* pmu.h in Headers */,
-				43F857E013931E75008A93D6 /* com_intel_hax_mem.h in Headers */,
+				43F857E013931E75008A93D6 /* hax_mm.h in Headers */,
 				B98ECFB913A059BB00485DDB /* compiler.h in Headers */,
 				B98ECFBA13A059BB00485DDB /* config.h in Headers */,
 				B98ECFBB13A059BB00485DDB /* cpu.h in Headers */,
@@ -332,7 +334,7 @@
 				6448A2211EDFCDAB000B4B32 /* hax_host_mem.h in Headers */,
 				B98ECFBD13A059BB00485DDB /* dump.h in Headers */,
 				6456261F1EEFF705005280EF /* ept2.h in Headers */,
-				B98ECFBE13A059BB00485DDB /* hax_driver.h in Headers */,
+				B98ECFBE13A059BB00485DDB /* driver.h in Headers */,
 				B98ECFC013A059BB00485DDB /* ia32_defs.h in Headers */,
 				B98ECFC113A059BB00485DDB /* mtrr.h in Headers */,
 				B98ECFC213A059BB00485DDB /* paging.h in Headers */,
@@ -344,14 +346,14 @@
 				CFC66287265E57400035D630 /* mmio.h in Headers */,
 				64CD0F582101B51100099B53 /* ia32.h in Headers */,
 				B98ECFC913A059BB00485DDB /* vmx.h in Headers */,
-				4324E35613A3781500FA7CFB /* hax_core_interface.h in Headers */,
+				4324E35613A3781500FA7CFB /* interface.h in Headers */,
 				43440D1F13A3834B002E1442 /* hax_interface_mac.h in Headers */,
 				43440D2013A3834B002E1442 /* hax_types_mac.h in Headers */,
 				43440D2C13A384D2002E1442 /* hax_mac.h in Headers */,
 				642FD41B20D9F74D00C197FF /* cpuid.h in Headers */,
 				4344104213A3C1B1002E1442 /* hax_interface.h in Headers */,
 				642FD41E20D9F79100C197FF /* emulate_ops.h in Headers */,
-				4344104313A3C1B1002E1442 /* vcpu_state.h in Headers */,
+				4344104313A3C1B1002E1442 /* hax_vcpu_state.h in Headers */,
 				22BFCFD813A59A9100AD9F0F /* ept.h in Headers */,
 				22BFCFDC13A59AA000AD9F0F /* intr.h in Headers */,
 			);
@@ -434,10 +436,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				32A4FEBE0562C75700D090E7 /* com_intel_hax.c in Sources */,
-				438B7296138CA774009DF91B /* com_intel_hax_ui.c in Sources */,
-				43C9A9E4138DD459000A1071 /* com_intel_hax_component.c in Sources */,
-				43F857E113931E75008A93D6 /* com_intel_hax_mem.cpp in Sources */,
+				32A4FEBE0562C75700D090E7 /* hax_main.c in Sources */,
+				438B7296138CA774009DF91B /* hax_entry.c in Sources */,
+				43C9A9E4138DD459000A1071 /* components.c in Sources */,
+				43F857E113931E75008A93D6 /* hax_mm.cpp in Sources */,
 				B98ECFB613A059BB00485DDB /* cpu.c in Sources */,
 				64BB0CD220F36C470064593A /* vmx_ops.asm in Sources */,
 				CF0539AD1EE536CB00FAD569 /* chunk.c in Sources */,
@@ -494,7 +496,7 @@
 				GCC_PREPROCESSOR_DEFINITIONS = __MACH__;
 				INFOPLIST_FILE = Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				MODULE_NAME = com.yourcompany.kext.com_intel_hax;
+				MODULE_NAME = com.intel.kext.com_intel_hax;
 				MODULE_START = com_intel_hax_start;
 				MODULE_STOP = com_intel_hax_stop;
 				MODULE_VERSION = 1.0.0d1;
@@ -517,7 +519,7 @@
 				GCC_MODEL_TUNING = G5;
 				INFOPLIST_FILE = Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				MODULE_NAME = com.yourcompany.kext.com_intel_hax;
+				MODULE_NAME = com.intel.kext.com_intel_hax;
 				MODULE_START = com_intel_hax_start;
 				MODULE_STOP = com_intel_hax_stop;
 				MODULE_VERSION = 1.0.0d1;
@@ -543,6 +545,10 @@
 				GCC_WARN_UNUSED_FUNCTION = NO;
 				GCC_WARN_UNUSED_LABEL = NO;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				"HEADER_SEARCH_PATHS[arch=*]" = (
+					../../include,
+					../../core/include,
+				);
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "-fstack-protector-strong";
 				PREBINDING = NO;
@@ -559,6 +565,10 @@
 				GCC_PREPROCESSOR_DEFINITIONS = __MACH__;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				"HEADER_SEARCH_PATHS[arch=*]" = (
+					../../include,
+					../../core/include,
+				);
 				OTHER_CFLAGS = "-fstack-protector-strong";
 				PREBINDING = NO;
 				SDKROOT = macosx10.12;

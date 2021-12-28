@@ -32,7 +32,7 @@
  * Define the data structure and handling method for vm, vcpu
  */
 
-#include "com_intel_hax.h"
+#include "hax_mem_alloc.h"
 
 struct hax_vcpu_mac * hax_vcpu_create_mac(struct vcpu_t *cvcpu, void *vm_host,
                                           int vm_id, int cid) {

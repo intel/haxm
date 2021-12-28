@@ -31,15 +31,15 @@
 #ifndef HAX_DARWIN_HAX_MAC_H_
 #define HAX_DARWIN_HAX_MAC_H_
 
-#include <libkern/OSAtomic.h>
-#include <mach/mach_types.h>
 #include <IOKit/IOLib.h>
-#include <sys/conf.h>
-#include <miscfs/devfs/devfs.h>
-#include <sys/ioccom.h>
-#include <sys/errno.h>
-#include <kern/locks.h>
+#include <libkern/OSAtomic.h>
 #include <libkern/OSBase.h>
+#include <kern/locks.h>
+#include <mach/mach_types.h>
+#include <miscfs/devfs/devfs.h>
+#include <sys/conf.h>
+#include <sys/errno.h>
+#include <sys/ioccom.h>
 
 #define HAX_RAM_ENTRY_SIZE 0x4000000
 
