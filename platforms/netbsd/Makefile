@@ -2,6 +2,9 @@ S?=	/usr/src/sys
 
 KMOD=	haxm
 
+CFLAGS+= -Wno-error=address-of-packed-member
+CPPFLAGS+= -I../../include -I../../core/include
+
 # toplevel
 SRCS+=	components.c
 SRCS+=	hax_entry.c

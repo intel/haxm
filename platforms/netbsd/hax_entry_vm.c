@@ -35,7 +35,7 @@
 #include <sys/lwp.h>
 #include <sys/proc.h>
 
-#include "../../core/include/hax_core_interface.h"
+#include "interface.h"
 
 extern struct cfdriver hax_vm_cd;
 

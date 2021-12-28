@@ -33,7 +33,7 @@
 #include <sys/kmem.h>
 #include <uvm/uvm.h>
 
-#include "../../include/hax.h"
+#include "hax.h"
 
 struct hax_vcpu_mem_hinfo_t {
     struct uvm_object *uao;
