@@ -2,7 +2,7 @@
 ### Prerequisites
 
 **Option A (Visual Studio)**
-* [Visual Studio 2017][visualstudio]
+* [Visual Studio 2022][visualstudio]
   * Install at least the following components:
 _Universal Windows Platform development_, _Desktop development with C++_.
 * [Windows SDK for Windows 10][sdk10]
