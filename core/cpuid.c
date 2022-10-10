@@ -35,7 +35,7 @@
 #include "ia32.h"
 
 #define CPUID_CACHE_SIZE        6
-#define CPUID_FEATURE_SET_SIZE  2
+#define CPUID_FEATURE_SET_SIZE  3
 #define MAX_BASIC_CPUID         0x16
 #define MAX_EXTENDED_CPUID      0x80000008
 
@@ -95,7 +95,6 @@ static hax_cpuid_entry * find_cpuid_entry(hax_cpuid_entry *features,
                                           uint32_t index);
 static void dump_features(hax_cpuid_entry *features, uint32_t size);
 
-static void get_guest_cache(cpuid_args_t *args, hax_cpuid_entry *entry);
 static void adjust_0000_0001(cpuid_args_t *args);
 static void adjust_8000_0001(cpuid_args_t *args);
 static void execute_0000_0000(cpuid_args_t *args);
@@ -132,6 +131,7 @@ static const cpuid_manager_t kCpuidManager[] = {
     {0x00000001, 0, execute_0000_0001},  // Version Information and Features
     {0x00000002, 0, execute_0000_0002},  // Cache and TLB Information
     {0x00000007, 0, execute_0000_0007},  // Structured Extended Feature Flags
+    {0x00000007, 1, execute_0000_0007},  // Structured Extended Feature Flags
     {0x0000000a, 0, execute_0000_000a},  // Architectural Performance Monitoring
     {0x00000015, 0, NULL},               // Time Stamp Counter and Nominal
                                          // Core Crystal Clock Information
@@ -173,6 +173,7 @@ static const cpuid_controller_t kCpuidController[] = {
     {0x00000001, 0, set_leaf_0000_0001},
     {0x00000002, 0, NULL},
     {0x00000007, 0, NULL},
+    {0x00000007, 1, NULL},
     {0x0000000a, 0, NULL},
     {0x00000015, 0, set_leaf_0000_0015},
     {0x00000016, 0, set_leaf_0000_0016},
@@ -270,6 +271,12 @@ void cpuid_init_supported_features(void)
         .edx = cache.data[1]
     };
     host_supported[1] = (hax_cpuid_entry){
+        .function = 0x07,
+        .index = 0,
+        .ebx = cache.data[3],
+        .ecx = cache.data[2]
+    };
+    host_supported[2] = (hax_cpuid_entry){
         .function = 0x80000001,
         .ecx = cache.data[4],
         .edx = cache.data[5]
@@ -320,6 +327,12 @@ void cpuid_init_supported_features(void)
             FEATURE(HTT)
     };
     hax_supported[1] = (hax_cpuid_entry){
+        .function = 0x07,
+        .index = 0,
+        .ebx =
+            FEATURE(ERMS)
+    };
+    hax_supported[2] = (hax_cpuid_entry){
         .function = 0x80000001,
         .edx =
             FEATURE(NX)         |
@@ -667,22 +680,6 @@ static void dump_features(hax_cpuid_entry *features, uint32_t size)
     }
 }
 
-static void get_guest_cache(cpuid_args_t *args, hax_cpuid_entry *entry)
-{
-    if (args == NULL)
-        return;
-
-    if (entry == NULL) {
-        args->eax = args->ebx = args->ecx = args->edx = 0;
-        return;
-    }
-
-    args->eax = entry->eax;
-    args->ebx = entry->ebx;
-    args->ecx = entry->ecx;
-    args->edx = entry->edx;
-}
-
 static void adjust_0000_0001(cpuid_args_t *args)
 {
 #define VIRT_FAMILY    0x06
@@ -764,7 +761,7 @@ static void adjust_8000_0001(cpuid_args_t *args)
     if (args == NULL)
         return;
 
-    hax_supported = &cache.hax_supported[1];
+    hax_supported = &cache.hax_supported[2];
 
     args->eax = args->ebx = 0;
     // Report only the features specified but turn off any features this
@@ -810,18 +807,18 @@ static void execute_0000_0007(cpuid_args_t *args)
         return;
 
     switch (args->ecx) {
-        case 0: {  // Sub-leaf 0
-            // The maximum input value for supported leaf 7 sub-leaves
-            // Bit 09: Supports Enhanced REP MOVSB/STOSB if 1
-            // TODO: Add sub-leaf in the CPUID manager so that the feature bits
-            // can be specified in cache.hax_supported[] during CPUID
-            // initialization.
-            args->ebx = cache.data[3] & 0x00000200;
+        case 0: {  // Structured Extended Feature Flags Enumeration Leaf
+            hax_cpuid_entry *host_supported, *hax_supported;
+
+            host_supported = &cache.host_supported[1];
+            hax_supported = &cache.hax_supported[1];
+
+            args->ebx = host_supported->ebx & hax_supported->ebx;
             args->eax = args->ecx = args->edx = 0;
             break;
         }
         case 1: {  // Structured Extended Feature Enumeration Sub-leaf
-            get_guest_cache(args, NULL);
+            args->eax = args->ebx = args->ecx = args->edx = 0;
             break;
         }
         default: {
