@@ -82,6 +82,14 @@ typedef struct cpuid_controller_t {
 
 static cpuid_cache_t cache = {0};
 
+static inline uint32_t feature_leaf(uint32_t feature_key);
+static inline uint32_t feature_subleaf(uint32_t feature_key);
+static inline uint32_t feature_reg(uint32_t feature_key);
+static inline uint32_t feature_bit(uint32_t feature_key);
+static uint32_t * get_reg(hax_cpuid_entry *entry, uint32_t feature_key);
+static bool is_feature_set(hax_cpuid_entry *entry, uint32_t feature_key);
+static void update_feature(hax_cpuid_entry *entry, uint32_t feature_key,
+                           bool set);
 static hax_cpuid_entry * find_cpuid_entry(hax_cpuid_entry *features,
                                           uint32_t size, uint32_t function,
                                           uint32_t index);
@@ -372,6 +380,23 @@ void cpuid_guest_init(hax_cpuid_t *cpuid)
     dump_features(cpuid->features, CPUID_TOTAL_LEAVES);
 }
 
+bool cpuid_guest_has_feature(hax_cpuid_t *cpuid, uint32_t feature_key)
+{
+    hax_cpuid_entry *entry;
+
+    if (cpuid == NULL)
+        return false;
+
+    entry = find_cpuid_entry(cpuid->features, CPUID_TOTAL_LEAVES,
+                             feature_leaf(feature_key),
+                             feature_subleaf(feature_key));
+
+    if (entry == NULL)
+        return false;
+
+    return is_feature_set(entry, feature_key);
+}
+
 void cpuid_execute(hax_cpuid_t *cpuid, cpuid_args_t *args)
 {
     uint32_t leaf, subleaf;
@@ -501,6 +526,109 @@ int cpuid_set_guest_features(hax_cpuid_t *cpuid, hax_cpuid *cpuid_info)
     dump_features(cpuid->features, CPUID_TOTAL_LEAVES);
 
     return 0;
+}
+
+static uint32_t feature_leaf(uint32_t feature_key)
+{
+    cpuid_feature_t feature;
+
+    feature.value = feature_key;
+
+    return feature.leaf_lo | (feature.leaf_hi << 30);
+}
+
+static uint32_t feature_subleaf(uint32_t feature_key)
+{
+    cpuid_feature_t feature;
+
+    feature.value = feature_key;
+
+    return feature.subleaf_key;
+}
+
+static uint32_t feature_reg(uint32_t feature_key)
+{
+    cpuid_feature_t feature;
+
+    feature.value = feature_key;
+
+    return feature.reg;
+}
+
+static uint32_t feature_bit(uint32_t feature_key)
+{
+    cpuid_feature_t feature;
+
+    feature.value = feature_key;
+
+    return 1 << feature.bit;
+}
+
+static uint32_t * get_reg(hax_cpuid_entry *entry, uint32_t feature_key)
+{
+    uint32_t *reg = NULL;
+
+    if (entry == NULL)
+        return NULL;
+
+    switch (feature_reg(feature_key)) {
+        case CPUID_REG_EAX: {
+            reg = &entry->eax;
+            break;
+        }
+        case CPUID_REG_EBX: {
+            reg = &entry->ebx;
+            break;
+        }
+        case CPUID_REG_ECX: {
+            reg = &entry->ecx;
+            break;
+        }
+        case CPUID_REG_EDX: {
+            reg = &entry->edx;
+            break;
+        }
+        default: {
+            break;
+        }
+    }
+
+    return reg;
+}
+
+static bool is_feature_set(hax_cpuid_entry *entry, uint32_t feature_key)
+{
+    uint32_t *reg;
+
+    if (entry == NULL)
+        return false;
+
+    reg = get_reg(entry, feature_key);
+
+    if (reg == NULL)
+        return false;
+
+    return !!(*reg & feature_bit(feature_key));
+}
+
+static void update_feature(hax_cpuid_entry *entry, uint32_t feature_key,
+                           bool set)
+{
+    uint32_t *reg;
+
+    if (entry == NULL)
+        return;
+
+    reg = get_reg(entry, feature_key);
+
+    if (reg == NULL)
+        return;
+
+    if (set) {
+        *reg |= feature_bit(feature_key);
+    } else {
+        *reg &= ~feature_bit(feature_key);
+    }
 }
 
 static hax_cpuid_entry * find_cpuid_entry(hax_cpuid_entry *features,
