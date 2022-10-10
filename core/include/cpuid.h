@@ -203,6 +203,7 @@ enum {
     X86_FEATURE_AVX2          = FEAT(5),  /* 0x00000020  Advanced Vector Extensions 2 */
     X86_FEATURE_SMEP          = FEAT(7),  /* 0x00000080  Supervisor-Mode Execution Prevention */
     X86_FEATURE_BMI2          = FEAT(8),  /* 0x00000100  Bit Manipulation Instruction Set 2 */
+    X86_FEATURE_ERMS          = FEAT(9),  /* 0x00000200  Enhanced REP MOVSB/STOSB */
     X86_FEATURE_INVPCID       = FEAT(10), /* 0x00000400  INVPCID instruction */
     X86_FEATURE_RTM           = FEAT(11), /* 0x00000800  Transactional Synchronization Extensions */
     X86_FEATURE_RDT_M         = FEAT(12), /* 0x00001000  Resource Director Technology Monitoring */
