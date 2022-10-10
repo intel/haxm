@@ -261,6 +261,7 @@ bool cpuid_host_has_feature_uncached(uint32_t feature_key);
 void cpuid_init_supported_features(void);
 uint32_t cpuid_guest_get_size(void);
 void cpuid_guest_init(hax_cpuid_t *cpuid);
+bool cpuid_guest_has_feature(hax_cpuid_t *cpuid, uint32_t feature_key);
 void cpuid_execute(hax_cpuid_t *cpuid, cpuid_args_t *args);
 void cpuid_get_features_mask(hax_cpuid_t *cpuid, uint64_t *features_mask);
 void cpuid_set_features_mask(hax_cpuid_t *cpuid, uint64_t features_mask);
