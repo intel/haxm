@@ -70,11 +70,13 @@ typedef void (*set_leaf_t)(hax_cpuid_entry *, hax_cpuid_entry *);
 
 typedef struct cpuid_manager_t {
     uint32_t   leaf;
+    uint32_t   subleaf;
     execute_t  execute;
 } cpuid_manager_t;
 
 typedef struct cpuid_controller_t {
     uint32_t    leaf;
+    uint32_t    subleaf;
     set_leaf_t  set_leaf;
 } cpuid_controller_t;
 
@@ -118,26 +120,26 @@ static void set_leaf_8000_0008(hax_cpuid_entry *dest, hax_cpuid_entry *src);
 
 static const cpuid_manager_t kCpuidManager[] = {
     // Basic CPUID Information
-    {0x00000000, execute_0000_0000},  // Maximum Basic Information
-    {0x00000001, execute_0000_0001},  // Version Information and Features
-    {0x00000002, execute_0000_0002},  // Cache and TLB Information
-    {0x00000007, execute_0000_0007},  // Structured Extended Feature Flags
-    {0x0000000a, execute_0000_000a},  // Architectural Performance Monitoring
-    {0x00000015, NULL},               // Time Stamp Counter and Nominal Core
-                                      // Crystal Clock Information
-    {0x00000016, NULL},               // Processor Frequency Information
+    {0x00000000, 0, execute_0000_0000},  // Maximum Basic Information
+    {0x00000001, 0, execute_0000_0001},  // Version Information and Features
+    {0x00000002, 0, execute_0000_0002},  // Cache and TLB Information
+    {0x00000007, 0, execute_0000_0007},  // Structured Extended Feature Flags
+    {0x0000000a, 0, execute_0000_000a},  // Architectural Performance Monitoring
+    {0x00000015, 0, NULL},               // Time Stamp Counter and Nominal
+                                         // Core Crystal Clock Information
+    {0x00000016, 0, NULL},               // Processor Frequency Information
 
     // Unimplemented CPUID Leaf Functions
-    {0x40000000, execute_4000_0000},  // Unimplemented by real Intel CPUs
+    {0x40000000, 0, execute_4000_0000},  // Unimplemented by real Intel CPUs
 
     // Extended Function CPUID Information
-    {0x80000000, execute_8000_0000},  // Maximum Extended Information
-    {0x80000001, execute_8000_0001},  // Extended Signature and Features
-    {0x80000002, execute_8000_0002},  // Processor Brand String - part 1
-    {0x80000003, execute_8000_0003},  // Processor Brand String - part 2
-    {0x80000004, execute_8000_0003},  // Processor Brand String - part 3
-    {0x80000006, execute_8000_0006},
-    {0x80000008, execute_8000_0008}   // Virtual/Physical Address Size
+    {0x80000000, 0, execute_8000_0000},  // Maximum Extended Information
+    {0x80000001, 0, execute_8000_0001},  // Extended Signature and Features
+    {0x80000002, 0, execute_8000_0002},  // Processor Brand String - part 1
+    {0x80000003, 0, execute_8000_0003},  // Processor Brand String - part 2
+    {0x80000004, 0, execute_8000_0003},  // Processor Brand String - part 3
+    {0x80000006, 0, execute_8000_0006},
+    {0x80000008, 0, execute_8000_0008}   // Virtual/Physical Address Size
 };
 // ________
 // 03H        Reserved
@@ -159,21 +161,21 @@ static const cpuid_manager_t kCpuidManager[] = {
 #define CPUID_TOTAL_LEAVES sizeof(kCpuidManager)/sizeof(kCpuidManager[0])
 
 static const cpuid_controller_t kCpuidController[] = {
-    {0x00000000, set_leaf_0000_0000},
-    {0x00000001, set_leaf_0000_0001},
-    {0x00000002, NULL},
-    {0x00000007, NULL},
-    {0x0000000a, NULL},
-    {0x00000015, set_leaf_0000_0015},
-    {0x00000016, set_leaf_0000_0016},
-    {0x40000000, NULL},
-    {0x80000000, set_leaf_8000_0000},
-    {0x80000001, set_leaf_8000_0001},
-    {0x80000002, NULL},
-    {0x80000003, NULL},
-    {0x80000004, NULL},
-    {0x80000006, set_leaf_8000_0006},
-    {0x80000008, set_leaf_8000_0008}
+    {0x00000000, 0, set_leaf_0000_0000},
+    {0x00000001, 0, set_leaf_0000_0001},
+    {0x00000002, 0, NULL},
+    {0x00000007, 0, NULL},
+    {0x0000000a, 0, NULL},
+    {0x00000015, 0, set_leaf_0000_0015},
+    {0x00000016, 0, set_leaf_0000_0016},
+    {0x40000000, 0, NULL},
+    {0x80000000, 0, set_leaf_8000_0000},
+    {0x80000001, 0, set_leaf_8000_0001},
+    {0x80000002, 0, NULL},
+    {0x80000003, 0, NULL},
+    {0x80000004, 0, NULL},
+    {0x80000006, 0, set_leaf_8000_0006},
+    {0x80000008, 0, set_leaf_8000_0008}
 };
 
 #define CPUID_TOTAL_CONTROLS \
@@ -346,7 +348,7 @@ void cpuid_guest_init(hax_cpuid_t *cpuid)
         cpuid_manager = &kCpuidManager[i];
 
         args.eax = cpuid_manager->leaf;
-        args.ecx = 0;
+        args.ecx = cpuid_manager->subleaf;
 
         if (cpuid_manager->execute != NULL) {
             // Guest values or processed host values
@@ -359,7 +361,7 @@ void cpuid_guest_init(hax_cpuid_t *cpuid)
         entry = &cpuid->features[i];
 
         entry->function = cpuid_manager->leaf;
-        entry->index    = 0;
+        entry->index    = cpuid_manager->subleaf;
         entry->flags    = 0;
         entry->eax      = args.eax;
         entry->ebx      = args.ebx;
@@ -372,9 +374,9 @@ void cpuid_guest_init(hax_cpuid_t *cpuid)
 
 void cpuid_execute(hax_cpuid_t *cpuid, cpuid_args_t *args)
 {
-    int i;
     uint32_t leaf, subleaf;
-    hax_cpuid_entry *entry, *supported = NULL;
+    int i, index, supported = 0;
+    hax_cpuid_entry *e, *entry = NULL;
 
     if (cpuid == NULL || args == NULL)
         return;
@@ -382,23 +384,67 @@ void cpuid_execute(hax_cpuid_t *cpuid, cpuid_args_t *args)
     leaf = args->eax;
     subleaf = args->ecx;
 
+    // * If the entry is never found with the leaf, the CPUID instruction
+    //   parameters are not supported (supported = 0);
+    // * If only a unique entry is found, the cached values will always be used
+    //   regardless of whether the subleaf matches (supported = 1);
+    // * If multiple entries are found and the subleaf matches exactly, the
+    //   cached values will be used (supported = 1); otherwise the instruction
+    //   is regarded as uncached and needs to be re-executed (supported > 1).
     for (i = 0; i < CPUID_TOTAL_LEAVES; ++i) {
-        entry = &cpuid->features[i];
-        if (entry->function == leaf) {
-            supported = entry;
+        e = &cpuid->features[i];
+
+        if (e->function != leaf) {
+            if (supported == 0)
+                continue;
+            else
+                break;
+        }
+
+        if (e->index == subleaf) {
+            supported = 1;
+            entry = e;
+            break;
+        }
+
+        if (supported++ != 0)
+            continue;
+
+        index = i;
+        entry = e;
+    }
+
+    switch (supported) {
+        case 0: {  // unsupported
+            // If the CPUID leaf cannot be found, i.e., out of the kCpuidManager
+            // list, the processing is undecided:
+            // * Return all zeroes;
+            // * Call asm_cpuid() to return host values.
+            args->eax = args->ebx = args->ecx = args->edx = 0;
+            break;
+        }
+        case 1: {  // cached
+            // Return guest values cached during the initialization phase.
+            args->eax = entry->eax;
+            args->ebx = entry->ebx;
+            args->ecx = entry->ecx;
+            args->edx = entry->edx;
+            break;
+        }
+        default: {  // uncached
+            // Call the primary execute() corresponding to the leaf for the
+            // CPUID instruction.
+            const cpuid_manager_t *cpuid_manager = &kCpuidManager[index];
+
+            if (cpuid_manager->execute != NULL) {
+                cpuid_manager->execute(args);
+            }
             break;
         }
     }
 
-    // Return guest values cached during the initialization phase. If the CPUID
-    // leaf cannot be found, i.e., out of the kCpuidManager list, the processing
-    // is undecided:
-    // * Call get_guest_cache() with NULL to return all zeroes;
-    // * Call asm_cpuid() to return host values.
-    get_guest_cache(args, supported);
-
-    hax_log(HAX_LOGD, "CPUID %08x %08x: %08x %08x %08x %08x\n", leaf, subleaf,
-            args->eax, args->ebx, args->ecx, args->edx);
+    hax_log(HAX_LOGD, "CPUID.(EAX=0x%lx,ECX=%d): %08lx %08lx %08lx %08lx\n",
+            leaf, subleaf, args->eax, args->ebx, args->ecx, args->edx);
 }
 
 void cpuid_get_features_mask(hax_cpuid_t *cpuid, uint64_t *features_mask)
@@ -764,18 +810,20 @@ static void set_feature(hax_cpuid_entry *features, hax_cpuid *cpuid_info,
                         const cpuid_controller_t *cpuid_controller)
 {
     hax_cpuid_entry *dest, *src;
-    uint32_t leaf;
+    uint32_t leaf, subleaf;
 
     if (features == NULL || cpuid_info == NULL)
         return;
 
     leaf = cpuid_controller->leaf;
+    subleaf = cpuid_controller->subleaf;
 
-    dest = find_cpuid_entry(features, CPUID_TOTAL_LEAVES, leaf, 0);
+    dest = find_cpuid_entry(features, CPUID_TOTAL_LEAVES, leaf, subleaf);
     if (dest == NULL)
         return;
 
-    src = find_cpuid_entry(cpuid_info->entries, cpuid_info->total, leaf, 0);
+    src = find_cpuid_entry(cpuid_info->entries, cpuid_info->total, leaf,
+                           subleaf);
     if (src == NULL)
         return;
 
@@ -790,8 +838,8 @@ static void set_feature(hax_cpuid_entry *features, hax_cpuid *cpuid_info,
         return;
 
     hax_log(HAX_LOGW, "%s: filtered or unchanged flags:\n", __func__);
-    hax_log(HAX_LOGW, "leaf: %08lx, eax: %08lx, ebx: %08lx, ecx: %08lx, "
-            "edx: %08lx\n", leaf, src->eax ^ dest->eax, src->ebx ^ dest->ebx,
+    hax_log(HAX_LOGW, "CPUID.(EAX=0x%lx,ECX=%d): %08lx %08lx %08lx %08lx\n",
+            leaf, subleaf, src->eax ^ dest->eax, src->ebx ^ dest->ebx,
             src->ecx ^ dest->ecx, src->edx ^ dest->edx);
 }
 
