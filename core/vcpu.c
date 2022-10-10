@@ -1045,7 +1045,6 @@ static void load_host_msr(struct vcpu_t *vcpu)
     int i;
     struct hstate *hstate = &get_cpu_data(vcpu->cpu_id)->hstate;
     bool em64t_support = cpu_has_feature(X86_FEATURE_EM64T);
-    uint32_t count = 0;
 
     // Load below MSR values manually on VM exits.
 
@@ -1072,23 +1071,16 @@ static void load_host_msr(struct vcpu_t *vcpu)
     if (!hax->apm_version)
         return;
 
-    // Load below MSR values automatically on VM exits.
-
-    // TODO: It will be implemented to trap IA32_PERFEVTSELx MSRs and
-    // automatically load below host values only when IA32_PERFEVTSELx MSRs are
-    // changed during the guest runtime.
+    // * IA32_PMCx and IA32_PERFEVTSELx
+    //   BSOD will occur in the host with SGX enabled when rebooting host on
+    //   automatic load.
     // APM v1: restore IA32_PMCx and IA32_PERFEVTSELx
     for (i = 0; i < (int)hax->apm_general_count; ++i) {
-        hstate->hmsr_autoload[count].index = (uint32_t)(IA32_PMC0 + i);
-        hstate->hmsr_autoload[count++].data = hstate->apm_pmc_msrs[i];
+        uint32_t msr = (uint32_t)(IA32_PMC0 + i);
+        ia32_wrmsr(msr, hstate->apm_pmc_msrs[i]);
+        msr = (uint32_t)(IA32_PERFEVTSEL0 + i);
+        ia32_wrmsr(msr, hstate->apm_pes_msrs[i]);
     }
-
-    for (i = 0; i < (int)hax->apm_general_count; ++i) {
-        hstate->hmsr_autoload[count].index = (uint32_t)(IA32_PERFEVTSEL0 + i);
-        hstate->hmsr_autoload[count++].data = hstate->apm_pes_msrs[i];
-    }
-
-    vmwrite(vcpu, VMX_EXIT_MSR_LOAD_COUNT, count);
 }
 
 static inline bool is_host_debug_enabled(struct vcpu_t *vcpu)
@@ -1529,8 +1521,7 @@ static void fill_common_vmcs(struct vcpu_t *vcpu)
     vmwrite(vcpu, VMX_EXIT_MSR_STORE_ADDRESS, 0);
 
     vmwrite(vcpu, VMX_EXIT_MSR_LOAD_COUNT, 0);
-    vmwrite(vcpu, VMX_EXIT_MSR_LOAD_ADDRESS,
-            (uint64_t)hax_pa(cpu_data->hstate.hmsr_autoload));
+    vmwrite(vcpu, VMX_EXIT_MSR_LOAD_ADDRESS, 0);
 
     vmwrite(vcpu, VMX_ENTRY_INTERRUPT_INFO, 0);
     // vmwrite(NULL, VMX_ENTRY_EXCEPTION_ERROR_CODE, 0);
