@@ -330,7 +330,8 @@ void cpuid_init_supported_features(void)
         .function = 0x07,
         .index = 0,
         .ebx =
-            FEATURE(ERMS)
+            FEATURE(ERMS)       |
+            FEATURE(INVPCID)
     };
     hax_supported[2] = (hax_cpuid_entry){
         .function = 0x80000001,

@@ -297,7 +297,8 @@ typedef enum component_index_t component_index_t;
 #define WBINVD_EXITING                         0x00000040
 #define UNRESTRICTED_GUEST                     0x00000080
 #define PAUSE_LOOP_EXITING                     0x00000400
-#define SECONDARY_CONTROLS_DEFINED             0x000004ff
+#define ENABLE_INVPCID                         0x00001000
+#define SECONDARY_CONTROLS_DEFINED             0x000014ff
 
 // Exit Controls
 #define EXIT_CONTROL_SAVE_DEBUG_CONTROLS       0x00000004
