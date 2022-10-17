@@ -1428,6 +1428,13 @@ static void fill_common_vmcs(struct vcpu_t *vcpu)
         }
     }
 
+    // Make the INVPCID instruction available to the guest if the host supports
+    // it (cf. Intel SDM Vol. 3C Table 24-7, bit 12: Enable INVPCID)
+    if (cpu_has_feature(X86_FEATURE_INVPCID)) {
+        // TODO: Check VMX capabilities to ensure ENABLE_INVPCID is available
+        scpu_ctls |= ENABLE_INVPCID;
+    }
+
 #ifdef HAX_ARCH_X86_64
     exit_ctls = EXIT_CONTROL_HOST_ADDR_SPACE_SIZE | EXIT_CONTROL_LOAD_EFER |
                 EXIT_CONTROL_SAVE_DEBUG_CONTROLS | EXIT_CONTROL_LOAD_PAT;
