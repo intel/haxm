@@ -91,4 +91,10 @@ enum xfeature {
 
 #define XCR_XFEATURE_ENABLED_MASK  0x00000000
 
+// XSTATE
+#define FXSAVE_SIZE              512
+
+#define XSAVE_HDR_SIZE           64
+#define XSAVE_HDR_OFFSET         FXSAVE_SIZE
+
 #endif  // HAX_CORE_FPU_H_
