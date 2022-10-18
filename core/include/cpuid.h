@@ -227,11 +227,24 @@ enum {
 
     /*
      * Intel SDM Vol. 2A: Table 3-8. Information Returned by CPUID Instruction
+     * Processor Extended State Enumeration Sub-leaf
+     * Features for CPUID with EAX=0dh, ECX=01h stored in EAX
+     */
+#define FEAT(bit) \
+    FEATURE_KEY_SUBLEAF(4, 0x0d, 0x01, CPUID_REG_EAX, bit)
+    X86_FEATURE_XSAVEOPT      = FEAT(0),  /* 0x00000001  XSAVEOPT instruction */
+    X86_FEATURE_XSAVEC        = FEAT(1),  /* 0x00000002  XSAVEC instruction */
+    X86_FEATURE_XGETBV1       = FEAT(2),  /* 0x00000004  XGETBV with ECX = 1 instruction */
+    X86_FEATURE_XSAVES        = FEAT(3),  /* 0x00000008  XSAVES/XRSTORS instructions */
+#undef FEAT
+
+    /*
+     * Intel SDM Vol. 2A: Table 3-8. Information Returned by CPUID Instruction
      * Extended Function CPUID Information
      * Features for CPUID with EAX=80000001h stored in ECX
      */
 #define FEAT(bit) \
-    FEATURE_KEY_LEAF(4, 0x80000001, CPUID_REG_ECX, bit)
+    FEATURE_KEY_LEAF(5, 0x80000001, CPUID_REG_ECX, bit)
     X86_FEATURE_LAHF          = FEAT(0),  /* 0x00000001  LAHF/SAHF Instructions */
     X86_FEATURE_PREFETCHW     = FEAT(8),  /* 0x00000100  PREFETCH/PREFETCHW instructions */
 #undef FEAT
@@ -242,7 +255,7 @@ enum {
      * Features for CPUID with EAX=80000001h stored in EDX
      */
 #define FEAT(bit) \
-    FEATURE_KEY_LEAF(5, 0x80000001, CPUID_REG_EDX, bit)
+    FEATURE_KEY_LEAF(6, 0x80000001, CPUID_REG_EDX, bit)
     X86_FEATURE_SYSCALL       = FEAT(11), /* 0x00000800  SYSCALL/SYSRET Instructions */
     X86_FEATURE_NX            = FEAT(20), /* 0x00100000  No-Execute Bit */
     X86_FEATURE_PDPE1GB       = FEAT(26), /* 0x04000000  Gibibyte pages */

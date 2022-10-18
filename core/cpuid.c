@@ -32,10 +32,11 @@
 #include "cpuid.h"
 
 #include "driver.h"
+#include "fpu.h"
 #include "ia32.h"
 
-#define CPUID_CACHE_SIZE        6
-#define CPUID_FEATURE_SET_SIZE  3
+#define CPUID_CACHE_SIZE        7
+#define CPUID_FEATURE_SET_SIZE  4
 #define MAX_BASIC_CPUID         0x16
 #define MAX_EXTENDED_CPUID      0x80000008
 
@@ -94,6 +95,8 @@ static hax_cpuid_entry * find_cpuid_entry(hax_cpuid_entry *features,
                                           uint32_t size, uint32_t function,
                                           uint32_t index);
 static void dump_features(hax_cpuid_entry *features, uint32_t size);
+static uint32_t calc_xstate_required_size(uint64_t xstate_bv,
+                                          bool is_compacted);
 
 static void adjust_0000_0001(cpuid_args_t *args);
 static void adjust_8000_0001(cpuid_args_t *args);
@@ -102,6 +105,7 @@ static void execute_0000_0001(cpuid_args_t *args);
 static void execute_0000_0002(cpuid_args_t *args);
 static void execute_0000_0007(cpuid_args_t *args);
 static void execute_0000_000a(cpuid_args_t *args);
+static void execute_0000_000d(cpuid_args_t *args);
 static void execute_4000_0000(cpuid_args_t *args);
 static void execute_8000_0000(cpuid_args_t *args);
 static void execute_8000_0001(cpuid_args_t *args);
@@ -133,6 +137,8 @@ static const cpuid_manager_t kCpuidManager[] = {
     {0x00000007, 0, execute_0000_0007},  // Structured Extended Feature Flags
     {0x00000007, 1, execute_0000_0007},  // Structured Extended Feature Flags
     {0x0000000a, 0, execute_0000_000a},  // Architectural Performance Monitoring
+    {0x0000000d, 0, execute_0000_000d},  // Processor Extended State
+    {0x0000000d, 1, execute_0000_000d},  // Processor Extended State
     {0x00000015, 0, NULL},               // Time Stamp Counter and Nominal
                                          // Core Crystal Clock Information
     {0x00000016, 0, NULL},               // Processor Frequency Information
@@ -216,9 +222,12 @@ void cpuid_host_init(void)
     data[2] = res.ecx;
     data[3] = res.ebx;
 
+    cpuid_query_subleaf(&res, 0x0000000d, 0x01);
+    data[4] = res.eax;
+
     cpuid_query_leaf(&res, 0x80000001);
-    data[4] = res.ecx;
-    data[5] = res.edx;
+    data[5] = res.ecx;
+    data[6] = res.edx;
 
     cache.initialized = true;
 }
@@ -277,9 +286,14 @@ void cpuid_init_supported_features(void)
         .ecx = cache.data[2]
     };
     host_supported[2] = (hax_cpuid_entry){
+        .function = 0x0d,
+        .index = 1,
+        .eax = cache.data[4]
+    };
+    host_supported[3] = (hax_cpuid_entry){
         .function = 0x80000001,
-        .ecx = cache.data[4],
-        .edx = cache.data[5]
+        .ecx = cache.data[5],
+        .edx = cache.data[6]
     };
 
     hax_log(HAX_LOGI, "%s: host supported features:\n", __func__);
@@ -334,6 +348,14 @@ void cpuid_init_supported_features(void)
             FEATURE(INVPCID)
     };
     hax_supported[2] = (hax_cpuid_entry){
+        .function = 0x0d,
+        .index = 1,
+        .eax =
+            FEATURE(XSAVEOPT)   |
+            FEATURE(XSAVEC)     |
+            FEATURE(XGETBV1)
+    };
+    hax_supported[3] = (hax_cpuid_entry){
         .function = 0x80000001,
         .edx =
             FEATURE(NX)         |
@@ -681,6 +703,31 @@ static void dump_features(hax_cpuid_entry *features, uint32_t size)
     }
 }
 
+static uint32_t calc_xstate_required_size(uint64_t xstate_bv, bool is_compacted)
+{
+    uint32_t size = XSAVE_HDR_SIZE + XSAVE_HDR_OFFSET;
+    uint32_t bit, offset;
+    cpuid_args_t args;
+
+    for (xstate_bv &= XFEATURE_MASK_EXTENDED, bit = 0;
+         xstate_bv != 0;
+         xstate_bv >>= 1, ++bit) {
+        if (!(xstate_bv & 0x1))
+            continue;
+
+        args.eax = 0x0d;
+        args.ecx = bit;
+        asm_cpuid(&args);
+
+        offset = is_compacted ? size : args.ebx;
+        size = max(size, offset + args.eax);
+    }
+
+    hax_log(HAX_LOGI, "%s: size = %ld\n", __func__, size);
+
+    return size;
+}
+
 static void adjust_0000_0001(cpuid_args_t *args)
 {
 #define VIRT_FAMILY    0x06
@@ -762,7 +809,7 @@ static void adjust_8000_0001(cpuid_args_t *args)
     if (args == NULL)
         return;
 
-    hax_supported = &cache.hax_supported[2];
+    hax_supported = &cache.hax_supported[3];
 
     args->eax = args->ebx = 0;
     // Report only the features specified but turn off any features this
@@ -839,6 +886,56 @@ static void execute_0000_000a(cpuid_args_t *args)
     args->ebx = pmu_info->cpuid_ebx;
     args->ecx = 0;
     args->edx = pmu_info->cpuid_edx;
+}
+
+static void execute_0000_000d(cpuid_args_t *args)
+{
+    if (args == NULL)
+        return;
+
+    if (args->ecx > 63)
+        return;
+
+    switch (args->ecx) {
+        case 0: {  // Processor Extended State Enumeration Main Leaf
+            asm_cpuid(args);
+
+            args->eax &= hax->supported_xcr0;
+            args->ebx = calc_xstate_required_size(hax->supported_xcr0, false);
+            args->ecx = args->ebx;
+            args->edx &= hax->supported_xcr0 >> 32;
+            break;
+        }
+        case 1: {  // Processor Extended State Enumeration Sub-leaf
+            hax_cpuid_entry *hax_supported = &cache.hax_supported[2];
+
+            args->eax = hax_supported->eax;
+            args->ebx = (args->eax & FEATURE(XSAVEC))
+                        ? calc_xstate_required_size(hax->supported_xcr0, true)
+                        : 0;
+            args->ecx = args->edx = 0;
+            break;
+        }
+        default: {  // 2 ... 63: Processor Extended State Enumeration Sub-leaves 
+            if (!(hax->supported_xcr0 & (1ULL << args->ecx))) {
+                args->eax = args->ebx = args->ecx = args->edx = 0;
+                break;
+            }
+
+            asm_cpuid(args);
+
+            // The size of the save area for an extended state should never be
+            // 0. Furthermore, it should be clear in ECX[0] as currently HAXM
+            // only supports XCR0-managed area.
+            if (args->eax == 0 || (args->ecx & 0x1)) {
+                hax_log(HAX_LOGW, "%s: returned exceptional size (eax: %d) or "
+                        "state (ecx: %08lx)\n", __func__, args->eax, args->ecx);
+            }
+
+            args->edx = 0;
+            break;
+        }
+    }
 }
 
 static void execute_4000_0000(cpuid_args_t *args)

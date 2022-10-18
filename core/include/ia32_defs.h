@@ -33,8 +33,6 @@
 
 #include "types.h"
 
-#define IA32_FXSAVE_SIZE 512
-
 enum {
     CR0_PE          = (1  <<  0),
     CR0_MP          = (1  <<  1),
