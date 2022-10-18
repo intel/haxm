@@ -289,6 +289,48 @@ function asm_wrmsr, 2
     %error "Unimplemented function"
 %endif
 
+function asm_xgetbv, 2
+%ifidn __BITS__, 64
+    mov rcx, reg_arg1
+    xgetbv
+    shl rdx, 32
+    or reg_ret, rdx
+    ret
+%elifidn __CONV__, x32_cdecl
+    push ebx
+    mov ebx, reg_arg2
+    xgetbv
+    mov [ebx + qword_struct.lo], eax
+    mov [ebx + qword_struct.hi], edx
+    pop ebx
+    ret
+%else
+    %error "Unimplemented function"
+%endif
+
+function asm_xsetbv, 2
+%ifidn __BITS__, 64
+    mov rcx, reg_arg1
+    mov rax, reg_arg2
+    mov rdx, reg_arg2
+    shr rdx, 32
+    xsetbv
+    ret
+%elifidn __CONV__, x32_cdecl
+    push edi
+    push esi
+    mov edi, [reg_arg2 + qword_struct.lo]
+    mov esi, [reg_arg2 + qword_struct.hi]
+    mov eax, edi
+    mov edx, esi
+    xsetbv
+    pop esi
+    pop edi
+    ret
+%else
+    %error "Unimplemented function"
+%endif
+
 function get_kernel_tr_selector, 0
     str reg_ret_16
     ret
