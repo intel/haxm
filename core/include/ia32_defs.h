@@ -50,19 +50,30 @@ enum {
 };
 
 enum {
-    CR4_VME         = (1 <<  0),
-    CR4_PVI         = (1 <<  1),
-    CR4_TSD         = (1 <<  2),
-    CR4_DE          = (1 <<  3),
-    CR4_PSE         = (1 <<  4),
-    CR4_PAE         = (1 <<  5),
-    CR4_MCE         = (1 <<  6),
-    CR4_PGE         = (1 <<  7),
-    CR4_PCE         = (1 <<  8),
-    CR4_OSFXSR      = (1 <<  9),
-    CR4_OSXMMEXCPT  = (1 << 10),
-    CR4_VMXE        = (1 << 13),
-    CR4_SMXE        = (1 << 14)
+    CR4_VME         = (1 <<  0),  // Enables virtual-8086 mode extensions
+    CR4_PVI         = (1 <<  1),  // Enables protected-mode virtual interrupts
+    CR4_TSD         = (1 <<  2),  // Time stamp disable (CPL > 0)
+    CR4_DE          = (1 <<  3),  // Enables debugging extensions
+    CR4_PSE         = (1 <<  4),  // Enables page size extensions
+    CR4_PAE         = (1 <<  5),  // Enables physical address extensions
+    CR4_MCE         = (1 <<  6),  // Machine-check enable
+    CR4_PGE         = (1 <<  7),  // Page global enable
+    CR4_PCE         = (1 <<  8),  // Performance-monitoring counter enable
+    CR4_OSFXSR      = (1 <<  9),  // Enables OS support for FXSAVE and FXRSTOR
+    CR4_OSXMMEXCPT  = (1 << 10),  // Enables unmasked SSE exceptions
+    CR4_UMIP        = (1 << 11),  // Enables user-mode instruction prevention
+    CR4_LA57        = (1 << 12),  // Enables 57-bit linear addresses
+    CR4_VMXE        = (1 << 13),  // Virtual machine extensions enable bit
+    CR4_SMXE        = (1 << 14),  // Safer mode extensions enable bit
+    CR4_FSGSBASE    = (1 << 16),  // Enables FSGSBASE instructions
+    CR4_PCIDE       = (1 << 17),  // Process-context identifiers enable bit
+    CR4_OSXSAVE     = (1 << 18),  // Enables XSAVE and processor extended states
+    CR4_KL          = (1 << 19),  // Enables key locker
+    CR4_SMEP        = (1 << 20),  // Enables SMEP
+    CR4_SMAP        = (1 << 21),  // Enables SMAP
+    CR4_PKE         = (1 << 22),  // Enables protection keys
+    CR4_CET         = (1 << 23),  // Enables control-flow enforcement technology
+    CR4_PKS         = (1 << 24)   // Enables protection keys (supervisor-mode)
 };
 
 enum {

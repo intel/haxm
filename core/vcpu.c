@@ -1244,6 +1244,26 @@ static void load_host_dr(struct vcpu_t *vcpu)
     set_dr7(hstate->dr7);
 }
 
+static void load_host_xsave_state(struct vcpu_t *vcpu)
+{
+    vcpu_state_t *state = vcpu->state;
+    struct hstate *hstate = &get_cpu_data(vcpu->cpu_id)->hstate;
+
+    if ((state->_cr4 & CR4_OSXSAVE) && (state->_xcr0 != hstate->xcr0)) {
+        ia32_xsetbv(XCR_XFEATURE_ENABLED_MASK, hstate->xcr0);
+    }
+}
+
+static void load_guest_xsave_state(struct vcpu_t *vcpu)
+{
+    vcpu_state_t *state = vcpu->state;
+    struct hstate *hstate = &get_cpu_data(vcpu->cpu_id)->hstate;
+
+    if ((state->_cr4 & CR4_OSXSAVE) && (state->_xcr0 != hstate->xcr0)) {
+        ia32_xsetbv(XCR_XFEATURE_ENABLED_MASK, state->_xcr0);
+    }
+}
+
 void vcpu_save_host_state(struct vcpu_t *vcpu)
 {
     struct hstate *hstate = &get_cpu_data(vcpu->cpu_id)->hstate;
@@ -1615,6 +1635,7 @@ void vcpu_load_host_state(struct vcpu_t *vcpu)
     set_cr2(hstate->hcr2);
 
     load_host_dr(vcpu);
+    load_host_xsave_state(vcpu);
 
     vcpu_exit_fpu_state(vcpu);
 }
@@ -1633,6 +1654,8 @@ void vcpu_load_guest_state(struct vcpu_t *vcpu)
     load_guest_dr(vcpu);
 
     load_dirty_vmcs_fields(vcpu);
+
+    load_guest_xsave_state(vcpu);
 }
 
 /*
