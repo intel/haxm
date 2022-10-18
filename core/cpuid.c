@@ -35,6 +35,7 @@
 #include "driver.h"
 #include "fpu.h"
 #include "ia32.h"
+#include "ia32_defs.h"
 
 #define CPUID_CACHE_SIZE        7
 #define CPUID_FEATURE_SET_SIZE  4
@@ -507,6 +508,28 @@ void cpuid_execute(hax_cpuid_t *cpuid, cpuid_args_t *args)
 
     hax_log(HAX_LOGD, "CPUID.(EAX=0x%lx,ECX=%d): %08lx %08lx %08lx %08lx\n",
             leaf, subleaf, args->eax, args->ebx, args->ecx, args->edx);
+}
+
+void cpuid_update(hax_cpuid_t *cpuid, vcpu_state_t *state)
+{
+    hax_cpuid_entry *entry;
+
+    entry = find_cpuid_entry(cpuid->features, CPUID_TOTAL_LEAVES, 0x01, 0);
+    if (entry != NULL && cpu_has_feature(X86_FEATURE_XSAVE)) {
+        // Update OSXSAVE bit
+        update_feature(entry, X86_FEATURE_OSXSAVE,
+                       !!(state->_cr4 & CR4_OSXSAVE));
+    }
+
+    entry = find_cpuid_entry(cpuid->features, CPUID_TOTAL_LEAVES, 0x0d, 0);
+    if (entry != NULL) {
+        entry->ebx = calc_xstate_required_size(state->_xcr0, false);
+    }
+
+    entry = find_cpuid_entry(cpuid->features, CPUID_TOTAL_LEAVES, 0x0d, 1);
+    if (entry != NULL && is_feature_set(entry, X86_FEATURE_XSAVEC)) {
+        entry->ebx = calc_xstate_required_size(state->_xcr0, true);
+    }
 }
 
 void cpuid_get_features_mask(hax_cpuid_t *cpuid, uint64_t *features_mask)

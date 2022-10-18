@@ -2567,7 +2567,7 @@ static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
 {
     int cr;
     struct vcpu_state_t *state = vcpu->state;
-    bool is_ept_pae = false;
+    bool is_ept_pae = false, is_cpuid_changing = false;
     preempt_flag flags;
     uint32_t vmcs_err = 0;
 
@@ -2643,6 +2643,12 @@ static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
                             vcpu->vcpu_id);
                     is_ept_pae = true;
                 }
+
+                if ((val ^ old_val) & CR4_OSXSAVE) {
+                    hax_log(HAX_LOGI, "%s: vCPU #%u updates CPUID due to "
+                            "CR4_OSXSAVE change\n", __func__, vcpu->vcpu_id);
+                    is_cpuid_changing = true;
+                }
             } else {
                 hax_log(HAX_LOGE, "Unsupported CR%d write, val=0x%llx\n",
                         cr, val);
@@ -2663,6 +2669,10 @@ static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
                     dump_vmcs(vcpu);
                     return HAX_RESUME;
                 }
+            }
+
+            if (is_cpuid_changing) {
+                cpuid_update(vcpu->guest_cpuid, vcpu->state);
             }
 
             if ((vmcs_err = load_vmcs(vcpu, &flags))) {
@@ -3943,6 +3953,10 @@ int vcpu_set_xcr(struct vcpu_t *vcpu, uint32_t index, uint64_t value)
     state->_xcr0 = xcr0;
     hax_log(HAX_LOGI, "%s: exit_xsetbv() sets XCR0: 0x%llx => 0x%llx\n",
             __func__, old_xcr0, xcr0);
+
+    if ((xcr0 ^ old_xcr0) & XFEATURE_MASK_EXTENDED) {
+        cpuid_update(vcpu->guest_cpuid, vcpu->state);
+    }
 
     return 0;
 }
