@@ -31,6 +31,7 @@
 
 #include "cpuid.h"
 
+#include "cpu.h"
 #include "driver.h"
 #include "fpu.h"
 #include "ia32.h"
@@ -562,6 +563,16 @@ int cpuid_set_guest_features(hax_cpuid_t *cpuid, hax_cpuid *cpuid_info)
     dump_features(cpuid->features, CPUID_TOTAL_LEAVES);
 
     return 0;
+}
+
+void cpuid_post_set_features(hax_cpuid_t *cpuid, struct vm_t *vm)
+{
+    hax_cpuid_entry *entry;
+
+    entry = find_cpuid_entry(cpuid->features, CPUID_TOTAL_LEAVES, 0x0d, 0);
+
+    vm->valid_xcr0 = (entry == NULL) ? 0 : (entry->eax |
+            ((uint64_t)entry->edx << 32)) & hax->supported_xcr0;
 }
 
 static uint32_t feature_leaf(uint32_t feature_key)
