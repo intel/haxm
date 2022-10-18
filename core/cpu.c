@@ -33,7 +33,9 @@
 #include "hax.h"
 
 #include "cpuid.h"
+#include "driver.h"
 #include "dump.h"
+#include "fpu.h"
 #include "ia32_defs.h"
 #include "intr.h"
 #include "name.h"
@@ -68,6 +70,7 @@ void cpu_init_vmx(void *arg)
 {
     struct info_t vmx_info;
     struct per_cpu_data *cpu_data;
+    struct hstate *hstate;
     uint32_t fc_msr;
     vmcs_t *vmxon;
     int nx_enable = 0, vt_enable = 0;
@@ -143,6 +146,16 @@ void cpu_init_vmx(void *arg)
     vmx_read_info(&cpu_data->vmx_info);
 
     cpu_data->cpu_features |= HAX_CPUF_INITIALIZED;
+
+    if (cpu_has_feature(X86_FEATURE_XSAVE)) {
+        hstate = &cpu_data->hstate;
+
+        hstate->xcr0 = ia32_xgetbv(XCR_XFEATURE_ENABLED_MASK);
+        hax->supported_xcr0 = hstate->xcr0 & HAX_SUPPORTED_XCR0;
+
+        hax_log(HAX_LOGI, "%s: host xcr0 = 0x%llx, HAXM supported xcr0 = 0x%llx"
+                "\n", __func__, hstate->xcr0, hax->supported_xcr0);
+    }
 }
 
 void cpu_exit_vmx(void *arg)

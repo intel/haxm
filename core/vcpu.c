@@ -38,6 +38,7 @@
 #include "driver.h"
 #include "dump.h"
 #include "ept.h"
+#include "fpu.h"
 #include "ia32_defs.h"
 #include "interface.h"
 #include "intr.h"
@@ -119,6 +120,8 @@ static void vcpu_enter_fpu_state(struct vcpu_t *vcpu);
 
 static int vcpu_set_apic_base(struct vcpu_t *vcpu, uint64_t val);
 static bool vcpu_is_bsp(struct vcpu_t *vcpu);
+
+static void vcpu_init_fx(struct vcpu_t *vcpu);
 
 static void vcpu_init_cpuid(struct vcpu_t *vcpu);
 static int vcpu_alloc_cpuid(struct vcpu_t *vcpu);
@@ -632,6 +635,7 @@ static void vcpu_init(struct vcpu_t *vcpu)
 
     // Initialize guest CPUID
     vcpu_init_cpuid(vcpu);
+    vcpu_init_fx(vcpu);
 
     hax_mutex_unlock(vcpu->tmutex);
 }
@@ -4205,6 +4209,23 @@ static bool vcpu_is_bsp(struct vcpu_t *vcpu)
 {
     // TODO: add an API to set bootstrap processor
     return (vcpu->vm->bsp_vcpu_id == vcpu->vcpu_id);
+}
+
+static void vcpu_init_fx(struct vcpu_t *vcpu)
+{
+    vcpu_state_t *state = vcpu->state;
+    bool is_xsave_enabled;
+
+    // Ensure guest XCR0 is valid for loading. Moreover, when XSAVE is enabled,
+    // XCR0 cannot just be set to XFEATURE_MASK_FP. This is because when a
+    // snapshot is loaded, guest XCR0 had already changed during the last run
+    // and needs to be restored to the state it was when VM was shut down.
+    // TODO: It is better to retrieve the current XCR0 value from the guest
+    // instead of using the HAXM supported XCR0.
+    is_xsave_enabled = cpuid_guest_has_feature(vcpu->guest_cpuid,
+                                               X86_FEATURE_XSAVE);
+    state->_xcr0 = is_xsave_enabled ? hax->supported_xcr0 : XFEATURE_MASK_FP;
+    state->_cr0 |= CR0_ET;
 }
 
 static void vcpu_init_cpuid(struct vcpu_t *vcpu)
