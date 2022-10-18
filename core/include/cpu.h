@@ -84,6 +84,8 @@ struct hstate {
     uint64_t dr7;
     // CR0
     bool cr0_ts;
+    // XCR0
+    uint64_t xcr0;
     uint64_t _pat;
 };
 
