@@ -83,6 +83,8 @@ uint32_t ASMCALL asm_fls(uint32_t bit32);
 
 uint64_t ia32_rdmsr(uint32_t reg);
 void ia32_wrmsr(uint32_t reg, uint64_t val);
+uint64_t ia32_xgetbv(uint32_t reg);
+void ia32_xsetbv(uint32_t reg, uint64_t val);
 
 uint64_t ia32_rdtsc(void);
 

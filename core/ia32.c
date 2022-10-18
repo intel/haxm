@@ -38,10 +38,14 @@ struct qword_val {
 #ifdef HAX_ARCH_X86_32
 extern void ASMCALL asm_rdmsr(uint32_t reg, struct qword_val *qv);
 extern void ASMCALL asm_wrmsr(uint32_t reg, struct qword_val *qv);
+extern void ASMCALL asm_xgetbv(uint32_t reg, struct qword_val *qv);
+extern void ASMCALL asm_xsetbv(uint32_t reg, struct qword_val *qv);
 extern void ASMCALL asm_rdtsc(struct qword_val *qv);
 #else  // !HAX_ARCH_X86_32
 extern uint64_t ASMCALL asm_rdmsr(uint32_t reg);
 extern void ASMCALL asm_wrmsr(uint32_t reg, uint64_t val);
+extern uint64_t ASMCALL asm_xgetbv(uint32_t reg);
+extern void ASMCALL asm_xsetbv(uint32_t reg, uint64_t val);
 extern uint64_t ASMCALL asm_rdtsc(void);
 #endif  // HAX_ARCH_X86_32
 
@@ -67,6 +71,33 @@ void ia32_wrmsr(uint32_t reg, uint64_t val)
     asm_wrmsr(reg, &tmp);
 #else
     asm_wrmsr(reg, val);
+#endif
+}
+
+uint64_t ia32_xgetbv(uint32_t reg)
+{
+#ifdef HAX_ARCH_X86_32
+    struct qword_val value = {0};
+
+    asm_xgetbv(reg, &value);
+
+    return ((uint64_t)value.low | (uint64_t)value.high << 32);
+#else
+    return asm_xgetbv(reg);
+#endif
+}
+
+void ia32_xsetbv(uint32_t reg, uint64_t val)
+{
+#ifdef HAX_ARCH_X86_32
+    struct qword_val value = {0};
+
+    value.high = (uint32_t)(val >> 32);
+    value.low = (uint32_t)val;
+
+    asm_xsetbv(reg, &value);
+#else
+    asm_xsetbv(reg, val);
 #endif
 }
 
