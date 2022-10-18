@@ -315,6 +315,7 @@ void cpuid_init_supported_features(void)
             FEATURE(AESNI)      |
             FEATURE(PCLMULQDQ)  |
             FEATURE(POPCNT)     |
+            FEATURE(XSAVE)      |
             FEATURE(AVX)        |
             FEATURE(F16C),
         .edx =
