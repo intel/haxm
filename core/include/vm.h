@@ -65,6 +65,7 @@ struct vm_t {
     hax_list_head hvm_list;
     hax_list_head vcpu_list;
     uint16_t bsp_vcpu_id;
+    uint64_t valid_xcr0;
     void *vm_host;
     void *p2m_map[MAX_GMEM_G];
     hax_gpa_space gpa_space;

@@ -3888,6 +3888,8 @@ int vcpu_set_msr(struct vcpu_t *vcpu, uint64_t entry, uint64_t val)
 
 int vcpu_set_cpuid(struct vcpu_t *vcpu, hax_cpuid *cpuid_info)
 {
+    int ret;
+
     hax_log(HAX_LOGW, "%s: vCPU #%u is setting guest CPUID.\n", __func__,
             vcpu->vcpu_id);
 
@@ -3903,7 +3905,10 @@ int vcpu_set_cpuid(struct vcpu_t *vcpu, hax_cpuid *cpuid_info)
         return -EFAULT;
     }
 
-    return cpuid_set_guest_features(vcpu->guest_cpuid, cpuid_info);
+    ret = cpuid_set_guest_features(vcpu->guest_cpuid, cpuid_info);
+    cpuid_post_set_features(vcpu->guest_cpuid, vcpu->vm);
+
+    return ret;
 }
 
 int vcpu_get_cpuid(struct vcpu_t *vcpu, hax_cpuid *cpuid_info)
@@ -4271,6 +4276,7 @@ static void vcpu_init_cpuid(struct vcpu_t *vcpu)
     cpuid_guest_init(vcpu->guest_cpuid);
     hax_log(HAX_LOGI, "%s: initialized vcpu[%u].guest_cpuid with default "
             "feature set.\n", __func__, vcpu->vcpu_id);
+    cpuid_post_set_features(vcpu->guest_cpuid, vcpu->vm);
 }
 
 static int vcpu_alloc_cpuid(struct vcpu_t *vcpu)

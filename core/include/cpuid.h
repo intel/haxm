@@ -40,6 +40,8 @@
 #define CPUID_REG_EDX 2
 #define CPUID_REG_EBX 3
 
+struct vm_t;
+
 typedef union cpuid_args_t {
     struct {
         uint32_t eax;
@@ -281,5 +283,6 @@ void cpuid_get_features_mask(hax_cpuid_t *cpuid, uint64_t *features_mask);
 void cpuid_set_features_mask(hax_cpuid_t *cpuid, uint64_t features_mask);
 int cpuid_get_guest_features(hax_cpuid_t *cpuid, hax_cpuid *cpuid_info);
 int cpuid_set_guest_features(hax_cpuid_t *cpuid, hax_cpuid *cpuid_info);
+void cpuid_post_set_features(hax_cpuid_t *cpuid, struct vm_t *vm);
 
 #endif /* HAX_CORE_CPUID_H_ */
