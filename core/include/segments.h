@@ -40,6 +40,9 @@
 #pragma pack(push, 1)
 #endif
 
+#define AR_DPL_SHIFT 5
+#define AR_DPL(ar) (((ar) >> AR_DPL_SHIFT) & 0x3)
+
 struct seg_desc_t {
     union {
         struct {

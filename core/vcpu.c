@@ -101,6 +101,7 @@ static int exit_invalid_guest_state(struct vcpu_t *vcpu,
 static int exit_ept_misconfiguration(struct vcpu_t *vcpu,
                                      struct hax_tunnel *htun);
 static int exit_ept_violation(struct vcpu_t *vcpu, struct hax_tunnel *htun);
+static int exit_xsetbv(struct vcpu_t *vcpu, struct hax_tunnel *htun);
 static int exit_unsupported_instruction(struct vcpu_t *vcpu,
                                         struct hax_tunnel *htun);
 static int null_handler(struct vcpu_t *vcpu, struct hax_tunnel *hun);
@@ -117,6 +118,7 @@ static int handle_msr_write(struct vcpu_t *vcpu, uint32_t msr, uint64_t val,
 static void vcpu_dump(struct vcpu_t *vcpu, uint32_t mask, const char *caption);
 static void vcpu_state_dump(struct vcpu_t *vcpu);
 static void vcpu_enter_fpu_state(struct vcpu_t *vcpu);
+static int vcpu_get_cpl(struct vcpu_t *vcpu);
 
 static int vcpu_set_apic_base(struct vcpu_t *vcpu, uint64_t val);
 static bool vcpu_is_bsp(struct vcpu_t *vcpu);
@@ -394,6 +396,7 @@ static int (*handler_funcs[])(struct vcpu_t *vcpu, struct hax_tunnel *htun) = {
     [VMX_EXIT_FAILED_VMENTER_GS]  = exit_invalid_guest_state,
     [VMX_EXIT_EPT_VIOLATION]      = exit_ept_violation,
     [VMX_EXIT_EPT_MISCONFIG]      = exit_ept_misconfiguration,
+    [VMX_EXIT_XSETBV]             = exit_xsetbv,
     [VMX_EXIT_GETSEC]             = exit_unsupported_instruction,
     [VMX_EXIT_INVD]               = exit_unsupported_instruction,
     [VMX_EXIT_VMCALL]             = exit_unsupported_instruction,
@@ -408,8 +411,7 @@ static int (*handler_funcs[])(struct vcpu_t *vcpu, struct hax_tunnel *htun) = {
     [VMX_EXIT_VMWRITE]            = exit_unsupported_instruction,
     [VMX_EXIT_VMRESUME]           = exit_unsupported_instruction,
     [VMX_EXIT_VMXOFF]             = exit_unsupported_instruction,
-    [VMX_EXIT_VMXON]              = exit_unsupported_instruction,
-    [VMX_EXIT_XSETBV]             = exit_unsupported_instruction,
+    [VMX_EXIT_VMXON]              = exit_unsupported_instruction
 };
 
 static int nr_handlers = ARRAY_ELEMENTS(handler_funcs);
@@ -3601,6 +3603,30 @@ static int exit_ept_violation(struct vcpu_t *vcpu, struct hax_tunnel *htun)
     return vcpu_emulate_insn(vcpu);
 }
 
+static int exit_xsetbv(struct vcpu_t *vcpu, struct hax_tunnel *htun)
+{
+    struct vcpu_state_t *state = vcpu->state;
+    uint64_t value;
+
+    htun->_exit_reason = vmx(vcpu, exit_reason).basic_reason;
+
+    if (vcpu_get_cpl(vcpu) > 0) {
+        hax_inject_exception(vcpu, VECTOR_GP, 0);
+        return HAX_RESUME;
+    }
+
+    value = (state->_rax & ~0UL) | ((uint64_t)(state->_rdx & ~0UL) << 32);
+
+    if (vcpu_set_xcr(vcpu, state->_rcx, value)) {
+        hax_inject_exception(vcpu, VECTOR_GP, 0);
+        return HAX_RESUME;
+    }
+
+    advance_rip(vcpu);
+
+    return HAX_RESUME;
+}
+
 static int exit_unsupported_instruction(struct vcpu_t *vcpu,
                                         struct hax_tunnel *htun)
 {
@@ -3884,6 +3910,56 @@ int vcpu_get_msr(struct vcpu_t *vcpu, uint64_t entry, uint64_t *val)
 int vcpu_set_msr(struct vcpu_t *vcpu, uint64_t entry, uint64_t val)
 {
     return handle_msr_write(vcpu, entry, val, true);
+}
+
+int vcpu_set_xcr(struct vcpu_t *vcpu, uint32_t index, uint64_t value)
+{
+    vcpu_state_t *state = vcpu->state;
+    uint64_t old_xcr0 = state->_xcr0;
+    uint64_t xcr0 = value;
+
+    // Only supports XCR_XFEATURE_ENABLED_MASK (XCR0) now
+    if (index != XCR_XFEATURE_ENABLED_MASK)
+        return -EINVAL;
+
+    if (!(xcr0 & XFEATURE_MASK_FP))
+        return -EINVAL;
+
+    if ((xcr0 & XFEATURE_MASK_YMM) && !(xcr0 & XFEATURE_MASK_SSE))
+        return -EINVAL;
+
+    // Do not allow the guest to set bits that HAXM does not support saving.
+    // However, XCR0[0] is always set, even if the VCPU does not support XSAVE
+    // (see vcpu_init_fx).
+    if (xcr0 & ~(vcpu->vm->valid_xcr0 | XFEATURE_MASK_FP))
+        return -EINVAL;
+
+    if (!(xcr0 & XFEATURE_MASK_BNDREGS) != !(xcr0 & XFEATURE_MASK_BNDCSR))
+        return -EINVAL;
+
+    if (xcr0 & XFEATURE_MASK_AVX512)
+        return -EINVAL;
+
+    state->_xcr0 = xcr0;
+    hax_log(HAX_LOGI, "%s: exit_xsetbv() sets XCR0: 0x%llx => 0x%llx\n",
+            __func__, old_xcr0, xcr0);
+
+    return 0;
+}
+
+int vcpu_get_xcr(struct vcpu_t *vcpu, uint32_t index, uint64_t *value)
+{
+    vcpu_state_t *state = vcpu->state;
+
+    if (value == NULL)
+        return -EINVAL;
+
+    if (index != XCR_XFEATURE_ENABLED_MASK)
+        return -EINVAL;
+
+    *value = state->_xcr0;
+
+    return 0;
 }
 
 int vcpu_set_cpuid(struct vcpu_t *vcpu, hax_cpuid *cpuid_info)
@@ -4194,6 +4270,13 @@ int vcpu_event_pending(struct vcpu_t *vcpu)
 void vcpu_set_panic(struct vcpu_t *vcpu)
 {
     vcpu->panicked = 1;
+}
+
+static int vcpu_get_cpl(struct vcpu_t *vcpu)
+{
+    uint64_t ar = vmread(vcpu, GUEST_SS_AR);
+
+    return AR_DPL(ar);
 }
 
 static int vcpu_set_apic_base(struct vcpu_t *vcpu, uint64_t val)
