@@ -23,7 +23,7 @@ available [here][checktool-release].
 ### Usage
 
 1. `cd X:\path\to\CheckTool`
-1. `checktool.exe --verbose`
+1. `checktool.exe`
 
 The output will be as below.
 
@@ -98,7 +98,7 @@ be omitted.
 ### Usage
 
 1. `cd /path/to/CheckTool`
-1. `./checktool --verbose`
+1. `./checktool`
 
 ### Build
 
@@ -126,7 +126,7 @@ below.
 | `cmake -DCMAKE_BUILD_TYPE=Release -B build/Release`
 | `make -C build/Release`
 
-[checktool-release]: https://github.com/intel/haxm/releases/tag/checktool-v1.0.0
+[checktool-release]: https://github.com/intel/haxm/releases/tag/checktool-v1.1.0
 [cmake]: https://cmake.org/download/
 [install-on-macos]:
 https://github.com/intel/haxm/wiki/Installation-Instructions-on-macOS
