@@ -68,20 +68,17 @@ CheckResult ParseArguments(int &argc, char* argv[]) {
 }
 
 int Check() {
-    int ret = 0;
+    FeatureDetector fd;
 
-    haxm::check_util::FeatureDetector fd;
-    haxm::check_util::CheckResult detect_res = fd.Detect();
-
-    if (detect_res == haxm::check_util::kError) {
-        ret = -1;
-    } else if (detect_res == haxm::check_util::kFail) {
-        ret = 1;
+    if (fd.Detect() == kError) {
+        std::cout << "The handle is invalid or the system command is executed "
+                     "exceptionally." << std::endl;
+        return -1;
     }
 
     fd.Print();
 
-    return ret;
+    return fd.status();
 }
 
 }  // namespace check_util
