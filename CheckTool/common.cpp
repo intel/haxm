@@ -37,33 +37,37 @@
 namespace haxm {
 namespace check_util {
 
-CheckResult ParseArguments(int &argc, char* argv[], bool &is_verbose) {
-    haxm::check_util::ArgParser arg_parser(argc, argv, {"-h", "--help", "-v",
-                                           "--verbose"});
+CheckResult ParseArguments(int &argc, char* argv[]) {
+    CheckResult res = kPass;
+    ArgParser arg_parser(argc, argv, {"-h", "--help", "-v", "--version"});
 
     if (!arg_parser.Verify()) {
         std::cout << "checktool unknown option: " << arg_parser.error()
                   << std::endl;
-        std::cout << "Usage: checktool [-h | --help] [-v | --verbose]"
+        std::cout << "Usage: checktool [-h | --help] [-v | --version]"
                   << std::endl;
-        return haxm::check_util::kError;
+        return kError;
+    }
+
+    if (arg_parser.Test("-v") || arg_parser.Test("--version")) {
+        std::cout << "checktool " << APP_VERSION << std::endl;
+        std::cout << APP_COPYRIGHT << std::endl;
+
+        res = kFail;
     }
 
     if (arg_parser.Test("-h") || arg_parser.Test("--help")) {
-        std::cout << "CheckTool version " << APP_VERSION << std::endl;
-        std::cout << "-v, --verbose Show detailed system information"
-                  << std::endl;
-        return haxm::check_util::kFail;
+        std::cout << "Usage: checktool [-v | --version]" << std::endl;
+        std::cout << "Check system environment for HAXM." << std::endl;
+        std::cout << "'*' means passed, while '-' means failed." << std::endl;
+
+        res = kFail;
     }
 
-    if (arg_parser.Test("-v") || arg_parser.Test("--verbose")) {
-        is_verbose = true;
-    }
-
-    return haxm::check_util::kPass;
+    return res;
 }
 
-int Check(bool is_verbose) {
+int Check() {
     int ret = 0;
 
     haxm::check_util::FeatureDetector fd;
@@ -75,9 +79,7 @@ int Check(bool is_verbose) {
         ret = 1;
     }
 
-    if (is_verbose) {
-        fd.Print();
-    }
+    fd.Print();
 
     return ret;
 }

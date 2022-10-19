@@ -32,18 +32,14 @@
 
 int main(int argc, char* argv[]) {
     int ret = 0;
-    haxm::check_util::CheckResult result;
-    bool is_verbose = false;
 
-    result = haxm::check_util::ParseArguments(argc, argv, is_verbose);
-
-    switch (result) {
+    switch (haxm::check_util::ParseArguments(argc, argv)) {
         case haxm::check_util::kPass: {
-            ret = haxm::check_util::Check(is_verbose);
+            ret = haxm::check_util::Check();
             break;
         }
         case haxm::check_util::kError: {
-            ret = -1;
+            ret = 1;
             break;
         }
         default: {
