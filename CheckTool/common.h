@@ -36,7 +36,8 @@
 namespace haxm {
 namespace check_util {
 
-#define APP_VERSION  "1.0.0"
+#define APP_VERSION    "1.1.0"
+#define APP_COPYRIGHT  "Copyright (C) 2020 Intel Corporation"
 
 enum CheckResult {
     kUnknown = 0,
@@ -52,8 +53,8 @@ inline static bool IsBitSet(uint32_t reg, int bit) {
     return (reg >> bit) & 0x1;
 }
 
-CheckResult ParseArguments(int &argc, char* argv[], bool &is_verbose);
-int Check(bool is_verbose);
+CheckResult ParseArguments(int &argc, char* argv[]);
+int Check();
 
 }  // namespace check_util
 }  // namespace haxm
