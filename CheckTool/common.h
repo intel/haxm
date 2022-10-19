@@ -45,6 +45,7 @@ enum CheckResult {
     kFail,
     kNotApplicable,  // e.g., CheckHypervDisabled() on macOS
     kError,
+    kMaxResult
 };
 
 // Source:
