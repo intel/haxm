@@ -34,7 +34,7 @@
 !include "LogicLib.nsh"
 
 !include 'Log.nsh'
-!include 'Strings.nsh'
+!include 'Resources.nsh'
 
 # ExecCommand --------------------------
 
@@ -91,6 +91,7 @@
       Abort
       ${Break}
     ${Default}
+      Return
       ${Break}
   ${EndSwitch}
 !macroend
@@ -99,16 +100,29 @@
 
 # CheckEnv -----------------------------
 
+Var status
+
+!macro CheckReturn Ret Flags
+  IntOp $0 $status & ${Flags}
+
+  ${If} $0 != 0
+    Push ${Ret}
+    Return
+  ${EndIf}
+!macroend
+
+!define CheckReturn `!insertmacro CheckReturn`
+
 !macro CheckEnv un
   Function ${un}CheckEnv
-    ${${un}ExecCommand} '$INSTDIR\checktool.exe --verbose' true
-    Pop $0
+    ${${un}ExecCommand} '$INSTDIR\checktool.exe' true
+    Pop $status
 
-    ${If} $0 != "0"
-      MessageBox MB_OK|MB_ICONSTOP "${DLG_CHECK_ENV}" /SD IDOK
-      ${Log} "${DLG_CHECK_ENV}"
-      ${Exit} 2 3
-    ${EndIf}
+    ${CheckReturn} 3 ${ENV_FLAGS_SYS_SUPPORTED}
+    ${CheckReturn} 2 ${ENV_FLAGS_GUEST_READY}
+    ${CheckReturn} 1 ${ENV_FLAGS_HOST_READY}
+
+    Push 0
   FunctionEnd
 !macroend
 
