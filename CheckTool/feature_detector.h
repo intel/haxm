@@ -44,8 +44,9 @@ class FeatureDetector {
 public:
     FeatureDetector();
     ~FeatureDetector();
-    CheckResult Detect() const;
+    CheckResult Detect();
     void Print() const;
+    int status() const;
 
 private:
     CheckResult CheckCpuVendor(std::string* vendor = nullptr) const;
@@ -62,6 +63,7 @@ private:
     static std::string ToString(CheckResult res);
     static std::string ToString(OsType os_type);
     static std::string ToString(OsArchitecture os_arch);
+    int status_;
     Cpuid cpuid_;
     Os* os_;
 };

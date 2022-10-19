@@ -44,7 +44,49 @@
 namespace haxm {
 namespace check_util {
 
+enum Check {
+    // Hardware support bit
+    kCpuSupported     = 0,
+    kVmxSupported     = 1,
+    kNxSupported      = 2,
+    kEm64tSupported   = 3,
+    kEptSupported     = 4,
+    // BIOS configuration bit
+    kVmxEnabled       = 8,
+    kNxEnabled        = 9,
+    kEm64tEnabled     = 10,
+    // Host status bit
+    kOsVerSupported   = 16,
+    kOsArchSupported  = 17,
+    kHypervDisabled   = 18,
+    kSandboxDisabled  = 19,
+    // Guest status bit
+    kGuestUnoccupied  = 24,
+    kMaxCheck         = 32
+};
+
+enum CheckFlag {
+    // Hardware support flag
+    kFlagCpuSupported     = 1 << kCpuSupported,
+    kFlagVmxSupported     = 1 << kVmxSupported,
+    kFlagNxSupported      = 1 << kNxSupported,
+    kFlagEm64tSupported   = 1 << kEm64tSupported,
+    kFlagEptSupported     = 1 << kEptSupported,
+    // BIOS configuration flag
+    kFlagVmxEnabled       = 1 << kVmxEnabled,
+    kFlagNxEnabled        = 1 << kNxEnabled,
+    kFlagEm64tEnabled     = 1 << kEm64tEnabled,
+    // Host status flag
+    kFlagOsverSupported   = 1 << kOsVerSupported,
+    kFlagOsarchSupported  = 1 << kOsArchSupported,
+    kFlagHypervDisabled   = 1 << kHypervDisabled,
+    kFlagSandboxDisabled  = 1 << kSandboxDisabled,
+    // Guest status flag
+    kFlagGuestUnoccupied  = 1 << kGuestUnoccupied
+};
+
 FeatureDetector::FeatureDetector() {
+    status_ = 0;
     os_ = new OsImpl();
 }
 
@@ -145,32 +187,37 @@ std::string FeatureDetector::ToString(OsType os_type) {
     }
 }
 
-CheckResult FeatureDetector::Detect() const {
-    CheckResult res[11];
+CheckResult FeatureDetector::Detect() {
+    CheckResult res[kMaxCheck] = {};
+    int i;
 
-    res[0] = CheckCpuVendor();
-    res[1] = CheckLongModeSupported();
-    res[2] = CheckNxSupported();
-    res[3] = CheckNxEnabled();
-    res[4] = CheckOsVersion();
-    res[5] = CheckOsArchitecture();
-    res[6] = CheckGuestOccupied();
-    res[7] = CheckHyperVDisabled();
-    res[8] = CheckVmxSupported();
-    res[9] = CheckVmxEnabled();
-    res[10] = CheckEptSupported();
+    res[kCpuSupported]     = CheckCpuVendor();
+    res[kNxSupported]      = CheckNxSupported();
+    res[kEm64tSupported]   = CheckLongModeSupported();
+    res[kNxEnabled]        = CheckNxEnabled();
+    res[kOsVerSupported]   = CheckOsVersion();
+    res[kOsArchSupported]  = CheckOsArchitecture();
+    res[kHypervDisabled]   = CheckHyperVDisabled();
+    res[kGuestUnoccupied]  = CheckGuestOccupied();
 
-    int check_num = 11;
     // When Hyper-V is enabled, it will affect the checking results of VMX
-    // supported, VMX enabled and EPT supported, so only the first 8 items are
+    // supported, EPT supported and VMX enabled, so only the first 8 items are
     // checked. When Hyper-V is disabled, all items are checked.
-    if (res[7] == kFail) {
-        check_num = 8;
+    if (res[kHypervDisabled] != kFail) {
+        res[kVmxSupported] = CheckVmxSupported();
+        res[kEptSupported] = CheckEptSupported();
+        res[kVmxEnabled]   = CheckVmxEnabled();
     }
 
-    int detector[5] = {};
+    for (i = 0; i < kMaxCheck; ++i) {
+        if (res[i] == kFail) {
+            status_ |= 1 << i;
+        }
+    }
 
-    for (int i = 0; i < check_num; ++i) {
+    int detector[kMaxResult] = {};
+
+    for (i = 0; i < kMaxCheck; ++i) {
         ++detector[static_cast<int>(res[i])];
     }
 
@@ -178,12 +225,12 @@ CheckResult FeatureDetector::Detect() const {
         return kError;
     }
 
-    if (detector[static_cast<int>(kUnknown)] > 0) {
-        return kUnknown;
-    }
-
     if (detector[static_cast<int>(kFail)] > 0) {
         return kFail;
+    }
+
+    if (detector[static_cast<int>(kUnknown)] > 0) {
+        return kUnknown;
     }
 
     return kPass;
@@ -263,6 +310,10 @@ void FeatureDetector::Print() const {
     std::cout << item << std::string(kCol - item.size(), ' ')
               << (res == kPass ? '*' : '-') << "  " << ToString(res) << ". "
               << occupied_count << " guest(s)" << std::endl;
+}
+
+int FeatureDetector::status() const {
+    return status_;
 }
 
 }  // namespace check_util
