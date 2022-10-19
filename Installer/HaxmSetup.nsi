@@ -215,6 +215,28 @@ Function LoadDriver
   ${Exit} 0 $code
 FunctionEnd
 
+Function onFinished
+  IntOp $0 $status & ${ENV_FLAGS_SYS_SUPPORTED}
+  ${If} $0 != 0
+    Call LoadSystemErrorPage
+    Return
+  ${EndIf}
+
+  IntOp $0 $status & ${ENV_FLAGS_GUEST_READY}
+  ${If} $0 != 0
+    Call LoadGuestErrorPage
+    Return
+  ${EndIf}
+
+  IntOp $0 $status & ${ENV_FLAGS_HOST_READY}
+  ${If} $0 != 0
+    Call LoadHostErrorPage
+    Return
+  ${EndIf}
+
+  Call LoadSuccessPage
+FunctionEnd
+
 Function onAbort
   ${Exit} 0 0
 FunctionEnd

@@ -34,7 +34,7 @@
 # Strings
 !define PRODUCT_NAME          "HAXM"
 !define PRODUCT_FULL_NAME     "Hardware Accelerated Execution Manager"
-!define PRODUCT_VERSION       "7.6.5"
+!define PRODUCT_VERSION       "7.8.0"
 !define PRODUCT_YEAR          "2020"
 !define PRODUCT_PUBLISHER     "Intel Corporation"
 !define PRODUCT_BRAND         "Intel${U+00AE}"
@@ -78,6 +78,30 @@
 !define LOG_REINSTALL    "To reinstall the current version"
 !define LOG_UNINSTALL    "To uninstall the current version"
 !define LOG_UPGRADE      "To upgrade version"
+
+!define PG_COMPLETE_TITLE   "Completed $(^Name) Setup"
+!define PG_FAIL_TITLE       "Failed to Install $(^Name)"
+!define PG_COMPLETE_TEXT    "$(^Name) has been installed on your computer."
+!define PG_SYS_FAIL_TEXT    "The following ${PRODUCT_NAME} installation \
+        requirements are not supported by this system:"
+!define PG_HOST_FAIL_TEXT   "Attention: Only when the following system \
+        configurations are completed can ${PRODUCT_NAME} run properly."
+!define PG_GUEST_FAIL_TEXT  "There are still virtual machines running on \
+        ${PRODUCT_NAME}. Please terminate these virtual machine processes \
+        first."
+!define PG_CPU_SUPPORT      "Intel Processor (CPU)"
+!define PG_VMX_SUPPORT      "Intel Virtualization Technology (VT-x)"
+!define PG_NX_SUPPORT       "Execute Disable Bit (XD)"
+!define PG_EM64T_SUPPORT    "Intel Extended Memory 64 Technology (EM64T)"
+!define PG_EPT_SUPPORT      "Intel VT-x with Extended Page Tables (EPT)"
+!define PG_ENABLE_VMX       "BIOS/UEFI: Enable Intel Virtualization Technology"
+!define PG_ENABLE_NX        "BIOS/UEFI: Enable Execute Disable Bit"
+!define PG_OSVER_SUPPORT    "Windows 7 or higher"
+!define PG_OSARCH_SUPPORT   "32-bit or 64-bit version of Windows"
+!define PG_DISABLE_HYPERV   "Windows: Disable Microsoft Hyper-V"
+!define PG_HOMEPAGE         "${PRODUCT_NAME} Homepage: ${PRODUCT_WEBSITE}"
+!define PG_WIKIPAGE         "View ${PRODUCT_NAME} wiki page to configure the \
+        system"
 
 # Constants
 !define ENV_FLAG_CPU_SUPPORTED     0x00000001

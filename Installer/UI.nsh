@@ -31,7 +31,7 @@
 !ifndef UI_NSH_
 !define UI_NSH_
 
-!include "MUI.nsh"
+!include "MUI2.nsh"
 
 !include 'Resources.nsh'
 
@@ -60,13 +60,18 @@ VIAddVersionKey   LegalCopyright   "${U+00A9} ${PRODUCT_YEAR} \
 VIAddVersionKey   ProductName      "${PRODUCT_BRAND} ${PRODUCT_FULL_NAME}"
 VIAddVersionKey   ProductVersion   "${PRODUCT_VERSION}"
 
-!define MUI_ABORTWARNING
-!ifdef INSTALL
-!define MUI_CUSTOMFUNCTION_ABORT      onAbort
-!endif
 !define MUI_ICON                      "res\haxm_logo.ico"
 !define MUI_UNICON                    "res\haxm_logo.ico"
+
+!ifdef INSTALL
+Var title
+Var text
+Var link
+Var url
+
 !define MUI_WELCOMEFINISHPAGE_BITMAP  "res\cover.bmp"
+!define MUI_ABORTWARNING
+!define MUI_CUSTOMFUNCTION_ABORT      onAbort
 
 # Welcome page
 !define MUI_WELCOMEPAGE_TITLE_3LINES
@@ -74,9 +79,8 @@ VIAddVersionKey   ProductVersion   "${PRODUCT_VERSION}"
         installation of $(^Name) (${PRODUCT_NAME}) ${PRODUCT_VERSION}. \
         ${PRODUCT_NAME} is a hardware-assisted virtualization engine \
         (hypervisor), widely used as an accelerator for Android Emulator and \
-        QEMU.\
-        \r\n\r\nImportant: ${PRODUCT_NAME} requires an Intel CPU with certain \
-        hardware features, including ${PRODUCT_BRAND} Virtualization \
+        QEMU.$\r$\n$\r$\nImportant: ${PRODUCT_NAME} requires an Intel CPU with \
+        certain hardware features, including ${PRODUCT_BRAND} Virtualization \
         Technology (${PRODUCT_BRAND} VT), etc. This installer will check \
         whether your computer can run ${PRODUCT_NAME}."
 
@@ -86,16 +90,73 @@ VIAddVersionKey   ProductVersion   "${PRODUCT_VERSION}"
 !define MUI_LICENSEPAGE_BUTTON "&Install"
 
 # Finish page
+!define MUI_FINISHPAGE_TITLE "$title"
+!define MUI_FINISHPAGE_TEXT "$text$\r$\n$\r$\nClick the Finish button to exit \
+        the Setup Wizard."
 !define MUI_FINISHPAGE_TITLE_3LINES
-!define MUI_FINISHPAGE_LINK_LOCATION ${PRODUCT_WEBSITE}
-!define MUI_FINISHPAGE_LINK "${PRODUCT_NAME} Homepage: ${PRODUCT_WEBSITE}"
+!define MUI_FINISHPAGE_TEXT_LARGE
+!define MUI_FINISHPAGE_LINK "$link"
+!define MUI_FINISHPAGE_LINK_LOCATION "$url"
 
 # Wizard dialogs
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_LICENSE "assets\LICENSE"
 !insertmacro MUI_PAGE_INSTFILES
+!define MUI_PAGE_CUSTOMFUNCTION_PRE onFinished
 !insertmacro MUI_PAGE_FINISH
-!ifndef INSTALL
+
+# Wizard costom pages
+!macro List Item Flag
+  IntOp $0 $status & ${Flag}
+  ${If} $0 != 0
+    StrCpy $text "$text$\r$\n  - ${Item}"
+  ${EndIf}
+!macroend
+
+!define List `!insertmacro List`
+
+Function LoadSuccessPage
+  StrCpy $title "${PG_COMPLETE_TITLE}"
+  StrCpy $text "${PG_COMPLETE_TEXT}"
+  StrCpy $link "${PG_HOMEPAGE}"
+  StrCpy $url "${PRODUCT_WEBSITE}"
+FunctionEnd
+
+Function LoadSystemErrorPage
+  StrCpy $title "${PG_FAIL_TITLE}"
+  StrCpy $text "${PG_SYS_FAIL_TEXT}$\r$\n"
+
+  ${List} "${PG_CPU_SUPPORT}"    ${ENV_FLAG_CPU_SUPPORTED}
+  ${List} "${PG_VMX_SUPPORT}"    ${ENV_FLAG_VMX_SUPPORTED}
+  ${List} "${PG_NX_SUPPORT}"     ${ENV_FLAG_NX_SUPPORTED}
+  ${List} "${PG_EM64T_SUPPORT}"  ${ENV_FLAG_EM64T_SUPPORTED}
+  ${List} "${PG_EPT_SUPPORT}"    ${ENV_FLAG_EPT_SUPPORTED}
+  ${List} "${PG_OSVER_SUPPORT}"  ${ENV_FLAG_OSVER_SUPPORTED}
+  ${List} "${PG_OSARCH_SUPPORT}" ${ENV_FLAG_OSARCH_SUPPORTED}
+
+  StrCpy $link "${PG_HOMEPAGE}"
+  StrCpy $url "${PRODUCT_WEBSITE}"
+FunctionEnd
+
+Function LoadHostErrorPage
+  StrCpy $title "${PG_COMPLETE_TITLE}"
+  StrCpy $text "${PG_HOST_FAIL_TEXT}$\r$\n"
+
+  ${List} "${PG_ENABLE_VMX}"     ${ENV_FLAG_VMX_ENABLED}
+  ${List} "${PG_ENABLE_NX}"      ${ENV_FLAG_NX_ENABLED}
+  ${List} "${PG_DISABLE_HYPERV}" ${ENV_FLAG_HYPERV_DISABLED}
+
+  StrCpy $link "${PG_WIKIPAGE}"
+  StrCpy $url "${PRODUCT_WEBSITE}${PRODUCT_WIKIPAGE}"
+FunctionEnd
+
+Function LoadGuestErrorPage
+  StrCpy $title "${PG_FAIL_TITLE}"
+  StrCpy $text "${PG_GUEST_FAIL_TEXT}"
+  StrCpy $link "${PG_HOMEPAGE}"
+  StrCpy $url "${PRODUCT_WEBSITE}"
+FunctionEnd
+!else
 !insertmacro MUI_UNPAGE_INSTFILES
 !endif
 
