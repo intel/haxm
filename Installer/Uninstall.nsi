@@ -57,7 +57,16 @@ Section Uninstall
 
   ${OpenLog}
   ${Log} "Version: ${PRODUCT_VERSION}"
+Check:
   Call un.CheckEnv
+  Pop $0
+
+  ${If} $0 == ${ENV_STATUS_INUSE}
+    MessageBox MB_RETRYCANCEL|MB_ICONSTOP "${DLG_GUEST_ERROR}" /SD IDCANCEL \
+        IDRETRY Check
+    ${Log} "${DLG_GUEST_ERROR}"
+    ${Exit} 1 3
+  ${EndIf}
 
   ; Sometimes checktool.exe is still locked when removing $INSTDIR. Below two
   ; parts ensure that checktool.exe is completely unlocked for removal.
