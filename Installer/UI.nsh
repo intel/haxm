@@ -33,7 +33,7 @@
 
 !include "MUI.nsh"
 
-!include 'Strings.nsh'
+!include 'Resources.nsh'
 
 RequestExecutionLevel  admin
 ShowInstDetails        show

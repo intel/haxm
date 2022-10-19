@@ -36,7 +36,7 @@
 !endif
 
 !include 'Log.nsh'
-!include 'Strings.nsh'
+!include 'Resources.nsh'
 
 !ifdef INSTALL
 
