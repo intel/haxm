@@ -153,4 +153,16 @@
 !define ENV_STATUS_INUSE                    2
 !define ENV_STATUS_UNSUPPORTED              3
 
+# Exit code (%ERRORLEVEL%):
+#   Status levels
+!define EXIT_FLAG_WARNING          0x00000001
+!define EXIT_FLAG_ERROR            0x00000002
+#   Operation methods
+!define EXIT_FLAG_REINSTALL        0x00000010
+!define EXIT_FLAG_UPGRADE          0x00000020
+# Exit mode:
+!define EXIT_MODE_NORMAL                    0
+!define EXIT_MODE_QUIT                      1
+!define EXIT_MODE_ABORT                     2
+
 !endif  # RESOURCES_NSH_

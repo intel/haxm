@@ -84,10 +84,10 @@
   ${CloseLog}
   SetErrorLevel ${Code}
   ${Switch} ${Mode}
-    ${Case} 1
+    ${Case} ${EXIT_MODE_QUIT}
       Quit
       ${Break}
-    ${Case} 2
+    ${Case} ${EXIT_MODE_ABORT}
       Abort
       ${Break}
     ${Default}

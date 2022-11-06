@@ -41,6 +41,7 @@ Unicode true
 !include 'UI.nsh'
 !include 'Utils.nsh'
 
+Var level
 Var code
 
 Section Main
@@ -58,6 +59,8 @@ Section Main
   File "assets\checktool.exe"
   ${Log} "Extract: checktool.exe... 100%"
 
+  StrCpy $level 0
+
 Check:
   Call CheckEnv
   Pop $0
@@ -66,18 +69,19 @@ Check:
     ${Case} ${ENV_STATUS_UNREADY}
       MessageBox MB_OK|MB_ICONEXCLAMATION "${DLG_WARNING}" /SD IDOK
       ${Log} "${DLG_WARNING}"
+      StrCpy $level ${EXIT_FLAG_WARNING}
       ${Break}
     ${Case} ${ENV_STATUS_INUSE}
       MessageBox MB_RETRYCANCEL|MB_ICONSTOP "${DLG_GUEST_ERROR}" /SD IDCANCEL \
           IDRETRY Check
       ${Log} "${DLG_GUEST_ERROR}"
-      ${Exit} 0 3
+      ${Exit} ${EXIT_MODE_NORMAL} ${EXIT_FLAG_ERROR}
       ${Break}
     ${Case} ${ENV_STATUS_UNSUPPORTED}
       MessageBox MB_OK|MB_ICONSTOP "${DLG_SYS_ERROR}" /SD IDOK
       ${Log} "${DLG_SYS_ERROR}"
       Call Restore
-      ${Exit} 0 3
+      ${Exit} ${EXIT_MODE_NORMAL} ${EXIT_FLAG_ERROR}
       ${Break}
     ${Default}
       ${Break}
@@ -91,6 +95,9 @@ Check:
   ${Log} "Create uninstaller: $INSTDIR\uninstall.exe"
 
   Call LoadDriver
+
+  IntOp $code $level | $code
+  ${Exit} ${EXIT_MODE_NORMAL} $code
 SectionEnd
 
 Function .onInit
@@ -127,18 +134,18 @@ Installed:
     ${Case} 0
       MessageBox MB_YESNO|MB_ICONQUESTION "${DLG_REINSTALL}" /SD IDYES IDYES \
           Reinstall
-      ${Exit} 1 0
+      ${Exit} ${EXIT_MODE_QUIT} 0
 Reinstall:
-      StrCpy $code 1
+      StrCpy $code ${EXIT_FLAG_REINSTALL}
       ${Log} "${LOG_REINSTALL}: $0"
       ${Break}
     ${Case} 1
       MessageBox MB_OK|MB_ICONEXCLAMATION "${DLG_DOWNGRADE}" /SD IDOK
       ${Log} "${LOG_UNINSTALL}: $0"
-      ${Exit} 1 3
+      ${Exit} ${EXIT_MODE_QUIT} ${EXIT_FLAG_ERROR}
       ${Break}
     ${Default}
-      StrCpy $code 2
+      StrCpy $code ${EXIT_FLAG_UPGRADE}
       ${Log} "${LOG_UPGRADE}: $0 => ${PRODUCT_VERSION}"
       ${Break}
   ${EndSwitch}
@@ -212,8 +219,6 @@ Function LoadDriver
 
   Call StartService
   Call CreateRegItems
-
-  ${Exit} 0 $code
 FunctionEnd
 
 Function onFinished
@@ -239,5 +244,5 @@ Function onFinished
 FunctionEnd
 
 Function onAbort
-  ${Exit} 0 0
+  ${Exit} ${EXIT_MODE_NORMAL} 0
 FunctionEnd
