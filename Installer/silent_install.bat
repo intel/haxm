@@ -87,25 +87,36 @@ set timestamp=
     for /f "tokens=2 delims=-" %%i in ("%filename%") do set version=%%i
     call :log Start to install HAXM v%version%
     if exist %installer% %installer% /S
+    if %errorlevel% equ 5 (
+        :: Cancelled UAC confirmation dialog when not running as administrator
+        call :log User canceled
+        set exit_code=1
+        goto in_exit
+    )
     for %%i in (haxm_install-*.log) do set log=%%i
     call :log Log saved: %TEMP%\%log%
-    goto in_exit%errorlevel%
-:in_exit0
-    echo Intel HAXM installed successfully!
-    goto in_end
-:in_exit1
-    echo Intel HAXM reinstalled successfully!
-    goto in_end
-:in_exit2
-    echo Intel HAXM upgraded successfully!
-    goto in_end
-:in_exit3
-    echo Intel HAXM installation failed!
-    echo For more details, please check the installation log: %TEMP%\%log%
-    set exit_code=1
-    goto in_end
-:in_exit5
-:in_end
+    if %errorlevel% equ 2 (
+        echo Intel HAXM installation failed!
+        echo For more details, please check the installation log: %TEMP%\%log%
+        set exit_code=1
+        goto in_exit
+    )
+    set /a status="%errorlevel% & 0x0f"
+    set /a method="%errorlevel% & 0xf0"
+    if %method% equ 0 (
+        set installed=installed
+    ) else if %method% equ 0x10 (
+        set installed=reinstalled
+    ) else if %method% equ 0x20 (
+        set installed=upgraded
+    ) else goto in_exit
+    if %status% equ 0x01 (
+        echo Intel HAXM is %installed% but cannot be used until the system settings are ready.
+        echo For more details, please check the installation log: %TEMP%\%log%
+        goto in_exit
+    )
+    echo Intel HAXM %installed% successfully!
+:in_exit
     if exist %log% del /f %log%
     call :log End of installation
     exit /b %exit_code%
@@ -117,38 +128,40 @@ set timestamp=
     set uninstaller=%install_path%\uninstall.exe
     if not exist %uninstaller% (
         echo Intel HAXM is not installed.
-        goto un_end
+        call :log HAXM not found
+        goto un_exit
     )
     :: Run below command to check if running as administrator
-    net session >nul 2>&1 || goto un_exit1
+    net session >nul 2>&1 || goto un_fail
     :: Add _?= to execute uninstaller synchronously.
     :: By default, the uninstaller copies itself to the temporary directory and
     :: run asynchronously there.
     %uninstaller% /S _?=%ProgramFiles%\Intel\HAXM
     for %%i in (haxm_uninstall-*.log) do set log=%%i
     call :log Log saved: %TEMP%\%log%
-    goto un_exit%errorlevel%
-:un_exit0
+    if %errorlevel% equ 2 (
+        echo Intel HAXM uninstallation failed!
+        echo Please terminate the running virtual machine processes first.
+        set exit_code=1
+        goto un_exit
+    )
     :: Rename installation folder to check if any files are locked.
     for %%i in (0, 1, 2) do (
         ren %install_path% HAXM 2>nul && goto break || timeout 5 >nul
     )
-    goto un_exit3
+    echo Intel HAXM uninstallation failed!
+    echo For more details, please check the installation log: %TEMP%\%log%
+    set exit_code=1
+    goto un_exit
     :break
     if exist %install_path% rmdir /s /q %install_path%
     echo Intel HAXM uninstalled successfully!
-    goto un_end
-:un_exit1
+    goto un_exit
+:un_fail
+    call :log Permission denied
     echo Please run this command as administrator!
     set exit_code=1
-    goto un_end
-:un_exit3
-    echo Intel HAXM uninstallation failed!
-    echo For more details, please check the uninstallation log: %TEMP%\%log%
-    set exit_code=1
-    goto un_end
-:un_exit5
-:un_end
+:un_exit
     if exist %log% del /f %log%
     call :log End of uninstallation
     exit /b %exit_code%
