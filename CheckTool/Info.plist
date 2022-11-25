@@ -40,10 +40,10 @@
     <key>NSHumanReadableCopyright</key>
     <string>&#xA9; 2020 Intel Corporation</string>
     <key>CFBundleGetInfoString</key>
-    <string>Intel&#xAE; HAXM Check Tool 1.0.0</string>
+    <string>Intel&#xAE; HAXM Check Tool 1.1.0</string>
     <key>CFBundleLongVersionString</key>
-    <string>1.0.0.0</string>
+    <string>1.1.0.0</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.0</string>
+    <string>1.1.0</string>
 </dict>
 </plist>
