@@ -1251,7 +1251,7 @@ static void load_host_xsave_state(struct vcpu_t *vcpu)
     vcpu_state_t *state = vcpu->state;
     struct hstate *hstate = &get_cpu_data(vcpu->cpu_id)->hstate;
 
-    if ((state->_cr4 & CR4_OSXSAVE) && (state->_xcr0 != hstate->xcr0)) {
+    if ((state->_cr4 & CR4_OSXSAVE) && (vcpu->xcr0 != hstate->xcr0)) {
         ia32_xsetbv(XCR_XFEATURE_ENABLED_MASK, hstate->xcr0);
     }
 }
@@ -1261,8 +1261,8 @@ static void load_guest_xsave_state(struct vcpu_t *vcpu)
     vcpu_state_t *state = vcpu->state;
     struct hstate *hstate = &get_cpu_data(vcpu->cpu_id)->hstate;
 
-    if ((state->_cr4 & CR4_OSXSAVE) && (state->_xcr0 != hstate->xcr0)) {
-        ia32_xsetbv(XCR_XFEATURE_ENABLED_MASK, state->_xcr0);
+    if ((state->_cr4 & CR4_OSXSAVE) && (vcpu->xcr0 != hstate->xcr0)) {
+        ia32_xsetbv(XCR_XFEATURE_ENABLED_MASK, vcpu->xcr0);
     }
 }
 
@@ -2672,7 +2672,7 @@ static int exit_cr_access(struct vcpu_t *vcpu, struct hax_tunnel *htun)
             }
 
             if (is_cpuid_changing) {
-                cpuid_update(vcpu->guest_cpuid, vcpu->state);
+                cpuid_update(vcpu->guest_cpuid, vcpu);
             }
 
             if ((vmcs_err = load_vmcs(vcpu, &flags))) {
@@ -3924,8 +3924,7 @@ int vcpu_set_msr(struct vcpu_t *vcpu, uint64_t entry, uint64_t val)
 
 int vcpu_set_xcr(struct vcpu_t *vcpu, uint32_t index, uint64_t value)
 {
-    vcpu_state_t *state = vcpu->state;
-    uint64_t old_xcr0 = state->_xcr0;
+    uint64_t old_xcr0 = vcpu->xcr0;
     uint64_t xcr0 = value;
 
     // Only supports XCR_XFEATURE_ENABLED_MASK (XCR0) now
@@ -3950,12 +3949,12 @@ int vcpu_set_xcr(struct vcpu_t *vcpu, uint32_t index, uint64_t value)
     if (xcr0 & XFEATURE_MASK_AVX512)
         return -EINVAL;
 
-    state->_xcr0 = xcr0;
+    vcpu->xcr0 = xcr0;
     hax_log(HAX_LOGI, "%s: exit_xsetbv() sets XCR0: 0x%llx => 0x%llx\n",
             __func__, old_xcr0, xcr0);
 
     if ((xcr0 ^ old_xcr0) & XFEATURE_MASK_EXTENDED) {
-        cpuid_update(vcpu->guest_cpuid, vcpu->state);
+        cpuid_update(vcpu->guest_cpuid, vcpu);
     }
 
     return 0;
@@ -3963,15 +3962,13 @@ int vcpu_set_xcr(struct vcpu_t *vcpu, uint32_t index, uint64_t value)
 
 int vcpu_get_xcr(struct vcpu_t *vcpu, uint32_t index, uint64_t *value)
 {
-    vcpu_state_t *state = vcpu->state;
-
     if (value == NULL)
         return -EINVAL;
 
     if (index != XCR_XFEATURE_ENABLED_MASK)
         return -EINVAL;
 
-    *value = state->_xcr0;
+    *value = vcpu->xcr0;
 
     return 0;
 }
@@ -4349,7 +4346,7 @@ static void vcpu_init_fx(struct vcpu_t *vcpu)
     // instead of using the HAXM supported XCR0.
     is_xsave_enabled = cpuid_guest_has_feature(vcpu->guest_cpuid,
                                                X86_FEATURE_XSAVE);
-    state->_xcr0 = is_xsave_enabled ? hax->supported_xcr0 : XFEATURE_MASK_FP;
+    vcpu->xcr0 = is_xsave_enabled ? hax->supported_xcr0 : XFEATURE_MASK_FP;
     state->_cr0 |= CR0_ET;
 }
 

@@ -168,6 +168,7 @@ struct vcpu_t {
 
     struct vm_t *vm;
     struct vcpu_state_t *state;
+    uint64_t xcr0;
     struct hax_tunnel *tunnel;
     uint8_t *io_buf;
     struct hax_page *vmcs_page;

@@ -511,8 +511,9 @@ void cpuid_execute(hax_cpuid_t *cpuid, cpuid_args_t *args)
             leaf, subleaf, args->eax, args->ebx, args->ecx, args->edx);
 }
 
-void cpuid_update(hax_cpuid_t *cpuid, vcpu_state_t *state)
+void cpuid_update(hax_cpuid_t *cpuid, struct vcpu_t *vcpu)
 {
+    vcpu_state_t *state = vcpu->state;
     hax_cpuid_entry *entry;
 
     entry = find_cpuid_entry(cpuid->features, CPUID_TOTAL_LEAVES, 0x01, 0);
@@ -524,12 +525,12 @@ void cpuid_update(hax_cpuid_t *cpuid, vcpu_state_t *state)
 
     entry = find_cpuid_entry(cpuid->features, CPUID_TOTAL_LEAVES, 0x0d, 0);
     if (entry != NULL) {
-        entry->ebx = calc_xstate_required_size(state->_xcr0, false);
+        entry->ebx = calc_xstate_required_size(vcpu->xcr0, false);
     }
 
     entry = find_cpuid_entry(cpuid->features, CPUID_TOTAL_LEAVES, 0x0d, 1);
     if (entry != NULL && is_feature_set(entry, X86_FEATURE_XSAVEC)) {
-        entry->ebx = calc_xstate_required_size(state->_xcr0, true);
+        entry->ebx = calc_xstate_required_size(vcpu->xcr0, true);
     }
 }
 

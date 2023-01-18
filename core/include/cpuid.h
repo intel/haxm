@@ -279,7 +279,7 @@ uint32_t cpuid_guest_get_size(void);
 void cpuid_guest_init(hax_cpuid_t *cpuid);
 bool cpuid_guest_has_feature(hax_cpuid_t *cpuid, uint32_t feature_key);
 void cpuid_execute(hax_cpuid_t *cpuid, cpuid_args_t *args);
-void cpuid_update(hax_cpuid_t *cpuid, vcpu_state_t *state);
+void cpuid_update(hax_cpuid_t *cpuid, struct vcpu_t *vcpu);
 void cpuid_get_features_mask(hax_cpuid_t *cpuid, uint64_t *features_mask);
 void cpuid_set_features_mask(hax_cpuid_t *cpuid, uint64_t features_mask);
 int cpuid_get_guest_features(hax_cpuid_t *cpuid, hax_cpuid *cpuid_info);

@@ -171,8 +171,6 @@ struct vcpu_state_t {
     uint64_t _cr3;
     uint64_t _cr4;
 
-    uint64_t _xcr0;
-
     uint64_t _dr0;
     uint64_t _dr1;
     uint64_t _dr2;
