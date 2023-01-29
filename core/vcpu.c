@@ -3828,6 +3828,19 @@ int vcpu_set_regs(struct vcpu_t *vcpu, struct vcpu_state_t *ustate)
             vcpu->dr_dirty = 0;
     }
 
+    /* sometimes, the code segment type from qemu can be 10 (code segment),
+     * this will cause invalid guest state, since 11 (accessed code segment),
+     * not 10 is required by vmx hardware. Note: 11 is one of the allowed
+     * values by vmx hardware.
+     */
+    if( (state->_cs.ar & 0xf) == 0xa)
+        state->_cs.ar = state->_cs.ar +1;
+
+    /* sometimes, the TSS segment type from qemu is not right.
+     * let's hard-code it for now
+     */
+    state->_tr.ar = (state->_tr.ar & ~0xf) | 0xb;
+
     UPDATE_SEGMENT_STATE(CS, _cs);
     UPDATE_SEGMENT_STATE(DS, _ds);
     UPDATE_SEGMENT_STATE(ES, _es);
